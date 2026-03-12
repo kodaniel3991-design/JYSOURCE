@@ -1,0 +1,27 @@
+import type { ModelCodeRecord } from "@/types/model-code";
+
+export const modelCodes: ModelCodeRecord[] = [
+  { id: "mc-01", modelCode: "AR1", modelName: "AR1", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-02", modelCode: "AR2", modelName: "AR2", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-03", modelCode: "B98", modelName: "B98", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-04", modelCode: "EX(SM5,SM7)", modelName: "EX(SM5,SM7)", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-05", modelCode: "H45", modelName: "H45", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-06", modelCode: "HJB", modelName: "HJB", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-07", modelCode: "HZG", modelName: "HZG", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-08", modelCode: "KPQ(SMS)", modelName: "KPQ(SMS)", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-09", modelCode: "L38", modelName: "L38", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-10", modelCode: "L43", modelName: "L43", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-11", modelCode: "L43 RHD", modelName: "L43 RHD", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-12", modelCode: "L47", modelName: "L47", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-13", modelCode: "LFD", modelName: "LFD", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-14", modelCode: "LJL", modelName: "LJL", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-15", modelCode: "LM 공통", modelName: "LM(38/43)", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-16", modelCode: "N61G", modelName: "N61G", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-17", modelCode: "P32R", modelName: "P32R", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-18", modelCode: "P417", modelName: "P417", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-19", modelCode: "QM3", modelName: "QM3", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-20", modelCode: "SM3", modelName: "SM3", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-21", modelCode: "SX2", modelName: "SX2", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-22", modelCode: "TK1", modelName: "TK1", primaryCustomerCode: "", primaryCustomerName: "" },
+  { id: "mc-23", modelCode: "X81C", modelName: "X81C", primaryCustomerCode: "", primaryCustomerName: "" },
+];

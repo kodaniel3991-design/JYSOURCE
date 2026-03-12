@@ -1,0 +1,510 @@
+/* Tailwind CSS 레이어 선언 (순서 중요) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 글로벌 폰트 설정 */
+@font-face {
+  font-family: "Pretendard Variable";
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard/web/variable/woff2/PretendardVariable.woff2")
+    format("woff2-variations");
+}
+
+@layer base {
+  /* 라이트 테마 토큰 (기본값) */
+  :root {
+    --font-pretendard: "Pretendard Variable", "Pretendard", -apple-system,
+      BlinkMacSystemFont, system-ui, sans-serif;
+
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --primary: 222 47% 18%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 18%;
+
+    --radius: 0.5rem;
+
+    /* 카드 레이아웃용 간격 토큰 */
+    --card-header-pt: 0.45rem;
+    --card-header-pb: 0.75rem;
+    --card-content-gap: 0.45rem;
+  }
+
+  /* 다크 테마 토큰 (html.dark 기준) */
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 18%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 212 100% 68%;
+  }
+
+  /* 문서 기본 설정 */
+  html {
+    height: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    font-family: var(--font-pretendard);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 기본 border 색상 통일 */
+  * {
+    border-color: hsl(var(--border));
+  }
+}
+
+/* Tailwind CSS 레이어 선언 (순서 중요) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 글로벌 폰트 설정 */
+@font-face {
+  font-family: "Pretendard Variable";
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard/web/variable/woff2/PretendardVariable.woff2")
+    format("woff2-variations");
+}
+
+@layer base {
+  /* 라이트 테마 토큰 (기본값) */
+  :root {
+    --font-pretendard: "Pretendard Variable", "Pretendard", -apple-system,
+      BlinkMacSystemFont, system-ui, sans-serif;
+
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --primary: 222 47% 18%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 18%;
+
+    --radius: 0.5rem;
+
+    /* 카드 레이아웃용 간격 토큰 */
+    --card-header-pt: 0.45rem;
+    --card-header-pb: 0.75rem;
+    --card-content-gap: 0.45rem;
+  }
+
+  /* 다크 테마 토큰 (html.dark 기준) */
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 18%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 212 100% 68%;
+  }
+
+  /* 문서 기본 설정 */
+  html {
+    height: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    font-family: var(--font-pretendard);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 기본 border 색상 통일 */
+  * {
+    border-color: hsl(var(--border));
+  }
+}
+
+/* Tailwind CSS 레이어 선언 (순서 중요) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 글로벌 폰트 설정 */
+@font-face {
+  font-family: "Pretendard Variable";
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard/web/variable/woff2/PretendardVariable.woff2")
+    format("woff2-variations");
+}
+
+@layer base {
+  /* 라이트 테마 토큰 (기본값) */
+  :root {
+    --font-pretendard: "Pretendard Variable", "Pretendard", -apple-system,
+      BlinkMacSystemFont, system-ui, sans-serif;
+
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --primary: 222 47% 18%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 18%;
+
+    --radius: 0.5rem;
+
+    /* 카드 레이아웃용 간격 토큰 */
+    --card-header-pt: 0.45rem;
+    --card-header-pb: 0.75rem;
+    --card-content-gap: 0.45rem;
+  }
+
+  /* 다크 테마 토큰 (html.dark 기준) */
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 18%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 212 100% 68%;
+  }
+
+  /* 문서 기본 설정 */
+  html {
+    height: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    font-family: var(--font-pretendard);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 기본 border 색상 통일 */
+  * {
+    border-color: hsl(var(--border));
+  }
+}
+
+/* Tailwind 레이어 선언 (순서 유지 필수) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 기본 폰트 설정 */
+@font-face {
+  font-family: "Pretendard Variable";
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard/web/variable/woff2/PretendardVariable.woff2")
+    format("woff2-variations");
+}
+
+@layer base {
+  /* 라이트 모드 디자인 토큰 */
+  :root {
+    --font-pretendard: "Pretendard Variable", "Pretendard", -apple-system,
+      BlinkMacSystemFont, system-ui, sans-serif;
+
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --primary: 222 47% 18%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 47% 18%;
+
+    --radius: 0.5rem;
+
+    /* 카드 스타일 표준 세로 간격 */
+    --card-header-pt: 0.45rem;
+    --card-header-pb: 0.75rem;
+    --card-content-gap: 0.45rem;
+  }
+
+  /* 다크 모드 디자인 토큰 (.dark 클래스가 html에 붙었을 때 사용) */
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 18%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 212 100% 68%;
+  }
+
+  /* 전체 문서 기본 설정 */
+  html {
+    height: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    font-family: var(--font-pretendard);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 공통 border 색상 통일 */
+  * {
+    border-color: hsl(var(--border));
+  }
+}
+
+/* Tailwind CSS의 기본 레이어 선언부 (순서 유지 필수) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 
+  글로벌 스타일
+  - 폰트, 컬러 토큰, body 기본 스타일을 정의합니다.
+  - Tailwind @layer 안이 아니라 전역에 선언하여 전체 앱에 공통 적용되도록 구성했습니다.
+*/
+@font-face {
+  font-family: "Pretendard Variable";
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/Pretendard/web/variable/woff2/PretendardVariable.woff2")
+    format("woff2-variations");
+}
+
+/* 
+  라이트 테마 기준 디자인 토큰
+  - Tailwind theme와 맞춰서 HSL 값으로 관리합니다.
+  - 색상/간격을 변경할 때는 여기 값을 우선 조정하면 전체 UI에 일괄 반영됩니다.
+*/
+:root {
+  --font-pretendard: "Pretendard Variable", "Pretendard", -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --primary: 222 47% 18%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 222 47% 18%;
+  --radius: 0.5rem;
+  /* 카드 스타일 표준 세로 간격 (품목 검색 등 검색/목록 카드에 적용) */
+  --card-header-pt: 0.45rem;
+  --card-header-pb: 0.75rem;
+  --card-content-gap: 0.45rem;
+}
+
+/* 브라우저 기본 높이 설정 (헤더/사이드바 레이아웃을 위한 전체 높이 확보) */
+html {
+  height: 100%;
+}
+
+/* 전체 문서 기본 배경 / 폰트 / 안티앨리어싱 설정 */
+body {
+  font-family: var(--font-pretendard);
+  min-height: 100vh;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 
+  다크 모드 토큰
+  - .dark 클래스가 html/body에 붙었을 때 사용할 색상 값입니다.
+  - 라이트 모드와 동일한 이름의 CSS 변수만 HSL 값만 다르게 정의했습니다.
+*/
+@layer base {
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 18%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 212 100% 68%;
+  }
+}
+
+/* 
+  공통 border 색상 통일
+  - 별도 색을 지정하지 않은 모든 border가 --border 토큰을 사용하도록 강제합니다.
+*/
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+}
