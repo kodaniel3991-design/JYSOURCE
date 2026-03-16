@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   FileText,
   PackageSearch,
-  Truck,
   BarChart3,
   Settings,
   FolderOpen,
@@ -15,6 +14,9 @@ import {
   ChevronRight,
   Car,
   Building2,
+  ShieldCheck,
+  Users,
+  Factory,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,11 +72,19 @@ const settingsNavGroup = {
 };
 
 const bottomNavItems = [
-  { href: "/suppliers", label: "공급사", icon: Truck },
   { href: "/analytics", label: "분석", icon: BarChart3 },
 ];
 
-export function AppSidebar() {
+const adminNavGroup = {
+  label: "시스템 관리",
+  icon: ShieldCheck,
+  children: [
+    { href: "/admin/users", label: "사용자 관리", icon: Users },
+    { href: "/admin/factories", label: "공장 관리", icon: Factory },
+  ],
+};
+
+export function AppSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const isMasterActive =
     pathname.startsWith("/items") ||
@@ -83,10 +93,12 @@ export function AppSidebar() {
   const isPoActive = pathname.startsWith("/purchase-orders");
   const isPerformanceActive = pathname.startsWith("/purchase-orders/performance");
   const isSettingsActive = pathname.startsWith("/settings");
+  const isAdminActive = pathname.startsWith("/admin");
   const [masterOpen, setMasterOpen] = useState(isMasterActive);
   const [poOpen, setPoOpen] = useState(isPoActive);
   const [performanceOpen, setPerformanceOpen] = useState(isPerformanceActive);
   const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
+  const [adminOpen, setAdminOpen] = useState(isAdminActive);
   useEffect(() => {
     if (isMasterActive) setMasterOpen(true);
   }, [isMasterActive]);
@@ -99,6 +111,9 @@ export function AppSidebar() {
   useEffect(() => {
     if (isSettingsActive) setSettingsOpen(true);
   }, [isSettingsActive]);
+  useEffect(() => {
+    if (isAdminActive) setAdminOpen(true);
+  }, [isAdminActive]);
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card">
@@ -298,6 +313,55 @@ export function AppSidebar() {
             </Link>
           );
         })}
+
+        {/* 시스템 관리 그룹: 관리자 전용 */}
+        {isAdmin && (
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => setAdminOpen((o) => !o)}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isAdminActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <adminNavGroup.icon className="h-5 w-5 shrink-0" />
+                <span>{adminNavGroup.label}</span>
+              </div>
+              {adminOpen ? (
+                <ChevronDown className="h-4 w-4 shrink-0" />
+              ) : (
+                <ChevronRight className="h-4 w-4 shrink-0" />
+              )}
+            </button>
+            {adminOpen && (
+              <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
+                {adminNavGroup.children.map((child) => {
+                  const isChildActive = pathname === child.href || pathname.startsWith(child.href);
+                  const Icon = child.icon;
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                        isChildActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {child.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 설정 그룹: 공통코드 관리 등 (맨 아래) */}
         <div className="py-1">
