@@ -60,11 +60,11 @@ const sampleItems: POItem[][] = [
 export const purchaseOrders: PurchaseOrder[] = [
   { id: "po-001", poNumber: "PO-2024-0012", supplierId: "sup-001", supplierName: "한국정밀기어", items: sampleItems[0], totalAmount: 14900000, dueDate: "2024-04-20", status: "issued", assignedTo: "김구매", createdAt: "2024-03-01T09:00:00", updatedAt: "2024-03-05T14:30:00", currency: "KRW", notes: "1차 납품 우선", priority: "high" },
   { id: "po-002", poNumber: "PO-2024-0011", supplierId: "sup-002", supplierName: "일본스틸코리아", items: sampleItems[1], totalAmount: 6250000, dueDate: "2024-04-25", status: "approved", assignedTo: "이발주", createdAt: "2024-02-28T11:00:00", updatedAt: "2024-03-02T10:00:00", currency: "KRW", priority: "normal" },
-  { id: "po-003", poNumber: "PO-2024-0010", supplierId: "sup-003", supplierName: "대우베어링", items: sampleItems[2], totalAmount: 7850000, dueDate: "2024-04-18", status: "partial_receipt", assignedTo: "박담당", createdAt: "2024-02-25T08:30:00", updatedAt: "2024-03-08T16:00:00", currency: "KRW", priority: "normal" },
+  { id: "po-003", poNumber: "PO-2024-0010", supplierId: "sup-003", supplierName: "대우베어링", items: sampleItems[2], totalAmount: 7850000, dueDate: "2024-04-18", status: "partial", assignedTo: "박담당", createdAt: "2024-02-25T08:30:00", updatedAt: "2024-03-08T16:00:00", currency: "KRW", priority: "normal" },
   { id: "po-004", poNumber: "PO-2024-0009", supplierId: "sup-004", supplierName: "독일오토파츠", items: sampleItems[3], totalAmount: 10200000, dueDate: "2024-04-05", status: "closed", assignedTo: "김구매", createdAt: "2024-02-20T14:00:00", updatedAt: "2024-04-03T09:00:00", currency: "KRW", priority: "urgent" },
   { id: "po-005", poNumber: "PO-2024-0008", supplierId: "sup-004", supplierName: "독일오토파츠", items: sampleItems[4], totalAmount: 10200000, dueDate: "2024-04-12", status: "issued", assignedTo: "이발주", createdAt: "2024-02-18T10:00:00", updatedAt: "2024-02-22T11:00:00", currency: "KRW", priority: "high" },
   { id: "po-006", poNumber: "PO-2024-0007", supplierId: "sup-005", supplierName: "중국동력전자", items: sampleItems[5], totalAmount: 3700000, dueDate: "2024-04-28", status: "draft", assignedTo: "박담당", createdAt: "2024-03-05T15:00:00", updatedAt: "2024-03-05T15:00:00", currency: "KRW", priority: "low" },
-  { id: "po-007", poNumber: "PO-2024-0006", supplierId: "sup-006", supplierName: "현대캐스팅", items: sampleItems[6 - 1], totalAmount: 12840000, dueDate: "2024-03-28", status: "partial_receipt", assignedTo: "김구매", createdAt: "2024-02-15T09:00:00", updatedAt: "2024-03-10T10:00:00", currency: "KRW", priority: "normal" },
+  { id: "po-007", poNumber: "PO-2024-0006", supplierId: "sup-006", supplierName: "현대캐스팅", items: sampleItems[6 - 1], totalAmount: 12840000, dueDate: "2024-03-28", status: "partial", assignedTo: "김구매", createdAt: "2024-02-15T09:00:00", updatedAt: "2024-03-10T10:00:00", currency: "KRW", priority: "normal" },
   { id: "po-008", poNumber: "PO-2024-0005", supplierId: "sup-001", supplierName: "한국정밀기어", items: [{ id: "item-11", itemCode: "GP-3013", itemName: "디퍼렌셜 기어", quantity: 60, unitPrice: 92000, amount: 5520000, dueDate: "2024-04-10" }], totalAmount: 5520000, dueDate: "2024-04-10", status: "closed", assignedTo: "이발주", createdAt: "2024-02-10T11:00:00", updatedAt: "2024-04-08T14:00:00", currency: "KRW", priority: "normal" },
   { id: "po-009", poNumber: "PO-2024-0004", supplierId: "sup-002", supplierName: "일본스틸코리아", items: [{ id: "item-12", itemCode: "ST-5502", itemName: "드라이브 샤프트", quantity: 45, unitPrice: 98000, amount: 4410000, dueDate: "2024-03-25" }], totalAmount: 4410000, dueDate: "2024-03-25", status: "closed", assignedTo: "박담당", createdAt: "2024-02-05T08:00:00", updatedAt: "2024-03-26T09:00:00", currency: "KRW", priority: "normal" },
   { id: "po-010", poNumber: "PO-2024-0003", supplierId: "sup-006", supplierName: "현대캐스팅", items: [{ id: "item-13", itemCode: "CS-7003", itemName: "엔진 마운트 브라켓", quantity: 80, unitPrice: 35000, amount: 2800000, dueDate: "2024-04-08" }], totalAmount: 2800000, dueDate: "2024-04-08", status: "issued", assignedTo: "김구매", createdAt: "2024-02-01T14:00:00", updatedAt: "2024-02-28T10:00:00", currency: "KRW", priority: "high" },
@@ -95,15 +95,15 @@ export const purchaseOrders: PurchaseOrder[] = [
   { id: "po-033", poNumber: "PO-2025-0012", supplierId: "sup-006", supplierName: "현대캐스팅", items: sampleItems[5], totalAmount: 16_800_000, dueDate: "2025-12-28", status: "closed", assignedTo: "박담당", createdAt: "2025-11-01T11:00:00", updatedAt: "2025-12-29T11:00:00", currency: "KRW", priority: "normal" },
 
   // ── 2026년 데이터 (현재 진행 중) ──
-  { id: "po-034", poNumber: "PO-2026-0001", supplierId: "sup-007", supplierName: "현대수소솔루션", items: sampleItems[6], totalAmount: 14_100_000, dueDate: "2026-04-10", status: "issued", assignedTo: "김구매", createdAt: "2026-02-10T09:00:00", updatedAt: "2026-02-15T14:00:00", currency: "KRW", notes: "수소차 1차 프로젝트", priority: "urgent" },
-  { id: "po-035", poNumber: "PO-2026-0002", supplierId: "sup-008", supplierName: "LG에너지솔루션", items: sampleItems[7], totalAmount: 33_400_000, dueDate: "2026-03-30", status: "partial_receipt", assignedTo: "이발주", createdAt: "2026-01-20T10:00:00", updatedAt: "2026-03-10T09:00:00", currency: "KRW", notes: "EV 배터리 모듈 공급", priority: "urgent" },
-  { id: "po-036", poNumber: "PO-2026-0003", supplierId: "sup-008", supplierName: "LG에너지솔루션", items: sampleItems[8], totalAmount: 8_400_000, dueDate: "2026-04-05", status: "approved", assignedTo: "박담당", createdAt: "2026-02-01T08:30:00", updatedAt: "2026-02-20T11:00:00", currency: "KRW", priority: "high" },
-  { id: "po-037", poNumber: "PO-2026-0004", supplierId: "sup-009", supplierName: "삼성오토모티브", items: sampleItems[9], totalAmount: 27_500_000, dueDate: "2026-04-20", status: "issued", assignedTo: "김구매", createdAt: "2026-02-15T14:00:00", updatedAt: "2026-03-01T09:00:00", currency: "KRW", notes: "자율주행 센서 패키지", priority: "high" },
+  { id: "po-034", poNumber: "PO-2026-0001", supplierId: "sup-007", supplierName: "현대수소솔루션", items: sampleItems[6], totalAmount: 14_100_000, dueDate: "2026-04-10", status: "confirmed", assignedTo: "김구매", createdAt: "2026-02-10T09:00:00", updatedAt: "2026-02-20T14:00:00", currency: "KRW", notes: "수소차 1차 프로젝트", priority: "urgent" },
+  { id: "po-035", poNumber: "PO-2026-0002", supplierId: "sup-008", supplierName: "LG에너지솔루션", items: sampleItems[7], totalAmount: 33_400_000, dueDate: "2026-03-30", status: "partial", assignedTo: "이발주", createdAt: "2026-01-20T10:00:00", updatedAt: "2026-03-10T09:00:00", currency: "KRW", notes: "EV 배터리 모듈 공급", priority: "urgent" },
+  { id: "po-036", poNumber: "PO-2026-0003", supplierId: "sup-008", supplierName: "LG에너지솔루션", items: sampleItems[8], totalAmount: 8_400_000, dueDate: "2026-04-05", status: "issued", assignedTo: "박담당", createdAt: "2026-02-01T08:30:00", updatedAt: "2026-02-20T11:00:00", currency: "KRW", priority: "high" },
+  { id: "po-037", poNumber: "PO-2026-0004", supplierId: "sup-009", supplierName: "삼성오토모티브", items: sampleItems[9], totalAmount: 27_500_000, dueDate: "2026-04-20", status: "confirmed", assignedTo: "김구매", createdAt: "2026-02-15T14:00:00", updatedAt: "2026-03-05T09:00:00", currency: "KRW", notes: "자율주행 센서 패키지", priority: "high" },
   { id: "po-038", poNumber: "PO-2026-0005", supplierId: "sup-010", supplierName: "포스코경량소재", items: sampleItems[10], totalAmount: 17_700_000, dueDate: "2026-05-01", status: "approved", assignedTo: "이발주", createdAt: "2026-02-20T11:00:00", updatedAt: "2026-03-05T10:00:00", currency: "KRW", priority: "normal" },
-  { id: "po-039", poNumber: "PO-2026-0006", supplierId: "sup-007", supplierName: "현대수소솔루션", items: sampleItems[11], totalAmount: 4_275_000, dueDate: "2026-03-20", status: "partial_receipt", assignedTo: "박담당", createdAt: "2026-01-15T09:00:00", updatedAt: "2026-03-12T14:00:00", currency: "KRW", priority: "high" },
-  { id: "po-040", poNumber: "PO-2026-0007", supplierId: "sup-009", supplierName: "삼성오토모티브", items: sampleItems[12], totalAmount: 14_050_000, dueDate: "2026-03-25", status: "issued", assignedTo: "김구매", createdAt: "2026-02-05T10:00:00", updatedAt: "2026-02-28T09:00:00", currency: "KRW", notes: "자율주행 2세대 카메라", priority: "high" },
+  { id: "po-039", poNumber: "PO-2026-0006", supplierId: "sup-007", supplierName: "현대수소솔루션", items: sampleItems[11], totalAmount: 4_275_000, dueDate: "2026-03-20", status: "received", assignedTo: "박담당", createdAt: "2026-01-15T09:00:00", updatedAt: "2026-03-18T14:00:00", currency: "KRW", priority: "high" },
+  { id: "po-040", poNumber: "PO-2026-0007", supplierId: "sup-009", supplierName: "삼성오토모티브", items: sampleItems[12], totalAmount: 14_050_000, dueDate: "2026-03-25", status: "confirmed", assignedTo: "김구매", createdAt: "2026-02-05T10:00:00", updatedAt: "2026-03-02T09:00:00", currency: "KRW", notes: "자율주행 2세대 카메라", priority: "high" },
   { id: "po-041", poNumber: "PO-2026-0008", supplierId: "sup-001", supplierName: "한국정밀기어", items: sampleItems[0], totalAmount: 21_300_000, dueDate: "2026-04-15", status: "draft", assignedTo: "이발주", createdAt: "2026-03-10T09:00:00", updatedAt: "2026-03-10T09:00:00", currency: "KRW", priority: "normal" },
-  { id: "po-042", poNumber: "PO-2026-0009", supplierId: "sup-003", supplierName: "대우베어링", items: sampleItems[2], totalAmount: 9_800_000, dueDate: "2026-04-28", status: "draft", assignedTo: "박담당", createdAt: "2026-03-12T11:00:00", updatedAt: "2026-03-12T11:00:00", currency: "KRW", priority: "low" },
+  { id: "po-042", poNumber: "PO-2026-0009", supplierId: "sup-003", supplierName: "대우베어링", items: sampleItems[2], totalAmount: 9_800_000, dueDate: "2026-04-28", status: "cancelled", assignedTo: "박담당", createdAt: "2026-03-12T11:00:00", updatedAt: "2026-03-15T11:00:00", currency: "KRW", priority: "low" },
   { id: "po-043", poNumber: "PO-2026-0010", supplierId: "sup-005", supplierName: "중국동력전자", items: sampleItems[4], totalAmount: 6_200_000, dueDate: "2026-05-10", status: "approved", assignedTo: "김구매", createdAt: "2026-03-01T14:00:00", updatedAt: "2026-03-14T10:00:00", currency: "KRW", priority: "normal" },
 ];
 
@@ -124,9 +124,12 @@ export function getPurchaseOrderById(id: string): PurchaseOrder | undefined {
 }
 
 export const poStatusLabels: Record<POStatus, string> = {
-  draft: "임시",
-  approved: "승인",
-  issued: "발행",
-  partial_receipt: "부분 입고",
-  closed: "종결",
+  draft:     "초안",
+  approved:  "승인",
+  issued:    "발주",
+  confirmed: "확인됨",
+  partial:   "일부입고",
+  received:  "입고완료",
+  closed:    "마감",
+  cancelled: "취소",
 };

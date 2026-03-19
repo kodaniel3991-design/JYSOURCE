@@ -17,4 +17,12 @@ export interface PurchaserRecord {
   suspensionReason: string;
   registrant: string;
   modifier: string;
+  /** E-MAIL */
+  email?: string;
+  /** 업태명 */
+  businessTypeName?: string;
+  /** 종목명 */
+  businessItemName?: string;
+  /** 휴대폰번호 */
+  mobileNo?: string;
 }

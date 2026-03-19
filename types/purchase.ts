@@ -1,9 +1,12 @@
 export type POStatus =
-  | "draft"
-  | "approved"
-  | "issued"
-  | "partial_receipt"
-  | "closed";
+  | "draft"      // 초안
+  | "approved"   // 승인
+  | "issued"     // 발주
+  | "confirmed"  // 확인됨
+  | "partial"    // 일부입고
+  | "received"   // 입고완료
+  | "closed"     // 마감
+  | "cancelled"; // 취소
 
 export interface POItem {
   id: string;

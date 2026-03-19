@@ -1,19 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/page-header";
-import { FilterBar } from "@/components/common/filter-bar";
 import { POStatusBadge } from "@/components/common/status-badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { poStatusLabels } from "@/lib/mock/purchase-orders";
 import { suppliers } from "@/lib/mock/suppliers";
 import type { PurchaseOrderSummary } from "@/types/purchase";
-import { FileText, MoreHorizontal, PackageCheck } from "lucide-react";
+import { FileText, MoreHorizontal, PackageCheck, Search, RotateCcw } from "lucide-react";
 import { ReceiptProcessSheet } from "@/components/purchase-orders/receipt-process-sheet";
 import type { POStatus } from "@/types/purchase";
 import { MasterListGrid } from "@/components/common/master-list-grid";
@@ -26,7 +28,6 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 
 const statusOptions: SelectOption[] = Object.entries(poStatusLabels).map(
   ([value, label]) => ({ value, label })
@@ -40,42 +41,39 @@ const PAGE_SIZE = 10;
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
-  const [list, setList] = useState<PurchaseOrderSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [supplierId, setSupplierId] = useState("");
-  const [status, setStatus] = useState("");
-  const [page, setPage] = useState(1);
+  const [list, setList] = useCachedState<PurchaseOrderSummary[]>("po-list/list", []);
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useCachedState<boolean>("po-list/hasSearched", false);
+  const [search, setSearch] = useCachedState<string>("po-list/search", "");
+  const [supplierId, setSupplierId] = useCachedState<string>("po-list/supplierId", "");
+  const [status, setStatus] = useCachedState<string>("po-list/status", "");
+  const [fromDate, setFromDate] = useCachedState<string>("po-list/fromDate", "");
+  const [toDate, setToDate] = useCachedState<string>("po-list/toDate", "");
+  const [page, setPage] = useCachedState<number>("po-list/page", 1);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [receiptSheetOpen, setReceiptSheetOpen] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const handleSearch = useCallback(async () => {
     setLoading(true);
-    fetch("/api/purchase-orders")
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled || !data?.items) return;
-        setList(Array.isArray(data.items) ? data.items : []);
-      })
-      .catch(() => {
-        if (!cancelled) setList([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const res = await fetch("/api/purchase-orders");
+      const data = await res.json();
+      setList(data?.items && Array.isArray(data.items) ? data.items : []);
+    } catch {
+      setList([]);
+    } finally {
+      setLoading(false);
+      setHasSearched(true);
+    }
   }, []);
   const [gridSettingsTab, setGridSettingsTab] = useState<
     "export" | "sort" | "columns" | "view"
   >("sort");
-  const [sortKey, setSortKey] = useState<keyof PurchaseOrderSummary>("poNumber");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [stripedRows, setStripedRows] = useState(true);
-  const [compactView, setCompactView] = useState(true);
+  const [sortKey, setSortKey] = useCachedState<keyof PurchaseOrderSummary>("po-list/sortKey", "poNumber");
+  const [sortDir, setSortDir] = useCachedState<"asc" | "desc">("po-list/sortDir", "asc");
+  const [stripedRows, setStripedRows] = useCachedState<boolean>("po-list/stripedRows", true);
+  const [compactView, setCompactView] = useCachedState<boolean>("po-list/compactView", true);
 
   const filtered = useMemo(() => {
     return list.filter((po) => {
@@ -85,9 +83,21 @@ export default function PurchaseOrdersPage() {
         po.supplierName.toLowerCase().includes(search.toLowerCase());
       const matchSupplier = !supplierId || po.supplierId === supplierId;
       const matchStatus = !status || po.status === status;
-      return matchSearch && matchSupplier && matchStatus;
+
+      let matchDate = true;
+      if (fromDate || toDate) {
+        const due = po.dueDate ? new Date(po.dueDate) : null;
+        if (!due) {
+          matchDate = false;
+        } else {
+          if (fromDate) matchDate = matchDate && due >= new Date(fromDate);
+          if (toDate) matchDate = matchDate && due <= new Date(toDate);
+        }
+      }
+
+      return matchSearch && matchSupplier && matchStatus && matchDate;
     });
-  }, [list, search, supplierId, status]);
+  }, [list, search, supplierId, status, fromDate, toDate]);
 
   const sorted = useMemo(() => {
     const copy = [...filtered];
@@ -125,7 +135,9 @@ export default function PurchaseOrdersPage() {
           po.status === "draft" ||
           po.status === "approved" ||
           po.status === "issued" ||
-          po.status === "partial_receipt"
+          po.status === "confirmed" ||
+          po.status === "partial" ||
+          po.status === "received"
       ).length,
     [list]
   );
@@ -134,7 +146,7 @@ export default function PurchaseOrdersPage() {
     () =>
       list.filter(
         (po) =>
-          (po.status === "issued" || po.status === "partial_receipt") &&
+          (po.status === "issued" || po.status === "confirmed" || po.status === "partial") &&
           po.dueDate &&
           po.dueDate < today
       ).length,
@@ -145,6 +157,8 @@ export default function PurchaseOrdersPage() {
     setSearch("");
     setSupplierId("");
     setStatus("");
+    setFromDate("");
+    setToDate("");
     setPage(1);
   }, []);
 
@@ -159,7 +173,7 @@ export default function PurchaseOrdersPage() {
   }, []);
 
   // 입고처리 가능 상태 (draft/closed는 제외)
-  const receiptEligibleStatuses: POStatus[] = ["approved", "issued", "partial_receipt"];
+  const receiptEligibleStatuses: POStatus[] = ["approved", "issued", "confirmed", "partial"];
 
   const eligibleSelected = useMemo(
     () =>
@@ -429,28 +443,85 @@ export default function PurchaseOrdersPage() {
         </Card>
       </div>
 
-      <FilterBar
-        searchPlaceholder="PO 번호, 공급사명 검색..."
-        searchValue={search}
-        onSearchChange={setSearch}
-        filters={[
-          {
-            type: "select",
-            placeholder: "공급사",
-            options: supplierOptions,
-            value: supplierId,
-            onChange: handleSupplierChange,
-          },
-          {
-            type: "select",
-            placeholder: "상태",
-            options: statusOptions,
-            value: status,
-            onChange: handleStatusChange,
-          },
-        ]}
-        onReset={resetFilters}
-      />
+      {/* 검색 조건 */}
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle className="text-base">검색 조건</CardTitle>
+        </CardHeader>
+        <CardContent className="text-xs">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {/* PO번호/공급사명 */}
+            <div className="space-y-1">
+              <Label className="text-[14px] text-slate-600">PO번호/공급사명</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="검색..."
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
+            </div>
+            {/* 공급사 */}
+            <div className="space-y-1">
+              <Label className="text-[14px] text-slate-600">공급사</Label>
+              <Select
+                options={[{ value: "", label: "전체" }, ...supplierOptions]}
+                value={supplierId}
+                onChange={handleSupplierChange}
+                className="h-8 text-xs"
+              />
+            </div>
+            {/* 상태 */}
+            <div className="space-y-1">
+              <Label className="text-[14px] text-slate-600">상태</Label>
+              <Select
+                options={[{ value: "", label: "전체" }, ...statusOptions]}
+                value={status}
+                onChange={handleStatusChange}
+                className="h-8 text-xs"
+              />
+            </div>
+            {/* 시작일자 */}
+            <div className="space-y-1">
+              <Label className="text-[14px] text-slate-600">시작일자</Label>
+              <input
+                type="date"
+                value={fromDate}
+                max={toDate || undefined}
+                onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+              />
+            </div>
+            {/* 완료일자 */}
+            <div className="space-y-1">
+              <Label className="text-[14px] text-slate-600">완료일자</Label>
+              <input
+                type="date"
+                value={toDate}
+                min={fromDate || undefined}
+                onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={handleSearch} disabled={loading}>
+              <Search className="mr-1.5 h-4 w-4" />
+              {loading ? "조회 중..." : "검색"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={resetFilters}>
+              <RotateCcw className="mr-1.5 h-4 w-4" />
+              필터 초기화
+            </Button>
+            <p className="text-[11px] text-muted-foreground">
+              총 <span className="font-semibold">{filtered.length}</span>건이 조회되었습니다.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -521,7 +592,7 @@ export default function PurchaseOrdersPage() {
               }}
               variant={stripedRows ? "striped" : "default"}
               maxHeight="100%"
-              emptyMessage={loading ? "조회 중..." : "조건에 맞는 구매오더가 없습니다."}
+              emptyMessage={!hasSearched ? "검색 버튼을 클릭하면 조회됩니다." : loading ? "조회 중..." : "조건에 맞는 구매오더가 없습니다."}
               getRowClassName={(_row, index) => {
                 const striped =
                   stripedRows && index % 2 === 1

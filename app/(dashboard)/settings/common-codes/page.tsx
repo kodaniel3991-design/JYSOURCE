@@ -5,12 +5,9 @@ import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { businessPlaceOptions, paymentTypeOptions, paymentTermOptions, importTypeOptions } from "@/lib/mock/po-options";
+import { getCommonCodes, setCommonCodes, type CommonCodeItem } from "@/lib/common-code-store";
 
-type CommonCode = {
-  code: string;
-  name: string;
-};
+type CommonCode = CommonCodeItem;
 
 // 분류명에서 분류코드 자동 생성 (간단 로마자/영문 슬러그 변환)
 function toCategoryKey(label: string): string {
@@ -30,6 +27,8 @@ function toCategoryKey(label: string): string {
     "수입 구분": "import_type",
     "통화코드": "currency",
     통화: "currency",
+    "창고코드": "warehouse",
+    창고: "warehouse",
   };
 
   if (predefined[trimmed]) return predefined[trimmed];
@@ -86,38 +85,46 @@ export default function CommonCodesPage() {
     },
     {
       key: "paymentTerm",
-      label: "결제조건",
-      description: "매입 30일, 60일, 선급 등 결제 조건.",
+      label: "지급조건",
+      description: "현금(30), B2B(15), 어음(45) 등 지급 조건.",
     },
     {
       key: "importType",
       label: "수입구분",
       description: "내수 / 수입 등 구매 유형.",
     },
+    {
+      key: "currency",
+      label: "통화코드",
+      description: "KRW, USD, EUR 등 결제 통화 코드.",
+    },
+    {
+      key: "vatRate",
+      label: "부가세율",
+      description: "0%, 10% 등 부가가치세 적용 세율.",
+    },
+    {
+      key: "paymentForm",
+      label: "지급형태",
+      description: "현금30, B2B30, 어음 등 지급 형태 코드.",
+    },
+    {
+      key: "warehouse",
+      label: "창고코드",
+      description: "원부자재창고, 제품재고 등 창고 구분 코드.",
+    },
   ]);
 
   const [selectedCategory, setSelectedCategory] = useState<string>("plant");
 
-  const [codesByCategory, setCodesByCategory] = useState<
-    Record<string, CommonCode[]>
-  >({
-    plant: businessPlaceOptions.map((o) => ({
-      code: o.value,
-      name: o.label,
-    })),
-    paymentType: paymentTypeOptions.map((o) => ({
-      code: o.value,
-      name: o.label,
-    })),
-    paymentTerm: paymentTermOptions.map((o) => ({
-      code: o.value,
-      name: o.label,
-    })),
-    importType: importTypeOptions.map((o) => ({
-      code: o.value,
-      name: o.label,
-    })),
-  });
+  // 공통코드 스토어에서 초기값 로드
+  const [codesByCategory, setCodesByCategory] = useState<Record<string, CommonCode[]>>(
+    () => Object.fromEntries(
+      ["plant", "paymentType", "paymentTerm", "importType", "currency", "vatRate", "paymentForm", "warehouse"].map(
+        (key) => [key, getCommonCodes(key)]
+      )
+    )
+  );
 
   const [draftCode, setDraftCode] = useState("");
   const [draftName, setDraftName] = useState("");
@@ -131,13 +138,12 @@ export default function CommonCodesPage() {
 
   const handleAdd = () => {
     if (!draftCode.trim() || !draftName.trim()) return;
-    setCodesByCategory((prev) => ({
-      ...prev,
-      [selectedCategory]: [
-        ...prev[selectedCategory],
-        { code: draftCode.trim(), name: draftName.trim() },
-      ],
-    }));
+    const newItem = { code: draftCode.trim(), name: draftName.trim() };
+    setCodesByCategory((prev) => {
+      const updated = { ...prev, [selectedCategory]: [...(prev[selectedCategory] ?? []), newItem] };
+      setCommonCodes(selectedCategory, updated[selectedCategory]);
+      return updated;
+    });
     setDraftCode("");
     setDraftName("");
   };
@@ -170,10 +176,8 @@ export default function CommonCodesPage() {
       },
     ];
     setCategories(nextCategories);
-    setCodesByCategory((prev) => ({
-      ...prev,
-      [key]: [],
-    }));
+    setCommonCodes(key, []);
+    setCodesByCategory((prev) => ({ ...prev, [key]: [] }));
     setSelectedCategory(key);
     setNewCategoryKey("");
     setNewCategoryLabel("");
@@ -181,18 +185,16 @@ export default function CommonCodesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4" style={{ height: "calc(100vh - 7rem)" }}>
       <PageHeader
         title="공통코드 관리"
         description="1차 분류(사업장, 결제방법 등)를 선택한 뒤, 해당 분류의 세부 코드를 등록·관리합니다. (데모)"
       />
 
-      {/* 1 Depth / 2 Depth 영역을 동일한 가로 비율로 나누기 위해 grid 2열 사용.
-          높이는 헤더를 제외한 화면 하단까지 확장되도록 계산식 적용. */}
-      <div className="grid gap-4 md:grid-cols-2 md:h-[calc(100vh-220px)]">
+      <div className="grid gap-4 md:grid-cols-2 flex-1 min-h-0">
         {/* 1 depth: 코드 분류 선택 */}
-        <Card className="flex h-full flex-col">
-          <CardHeader className="pb-2">
+        <Card className="flex flex-col min-h-0 overflow-hidden">
+          <CardHeader className="pb-2 shrink-0">
             <span className="text-sm font-medium text-muted-foreground">
               코드 분류 (1 Depth)
             </span>
@@ -200,7 +202,7 @@ export default function CommonCodesPage() {
               공통코드를 묶는 상위 분류입니다. 예: 사업장 코드, 결제조건, 결제방법 등.
             </p>
           </CardHeader>
-          <CardContent className="space-y-3 pt-2 text-xs">
+          <CardContent className="flex flex-col gap-3 pt-2 text-xs flex-1 min-h-0 overflow-hidden">
             {/* 1Depth 분류 추가 - 2Depth 입력과 동일한 구조 */}
             <div className="flex flex-wrap items-end gap-2 rounded-md bg-muted/40 p-3">
               <div className="flex flex-1 min-w-[140px] flex-col gap-1">
@@ -232,8 +234,8 @@ export default function CommonCodesPage() {
             </div>
 
             {/* 1Depth 목록 - 2Depth와 동일한 테이블 형태 */}
-            <div className="rounded-md border">
-              <div className="flex border-b bg-muted px-3 py-1.5 text-[11px] font-semibold text-slate-700">
+            <div className="rounded-md border flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex border-b bg-muted px-3 py-1.5 text-[11px] font-semibold text-slate-700 shrink-0">
                 <div className="w-24">분류코드</div>
                 <div className="flex-1">분류명</div>
               </div>
@@ -242,7 +244,7 @@ export default function CommonCodesPage() {
                   등록된 분류가 없습니다. 위 입력 영역에서 1 Depth 분류를 추가하세요.
                 </div>
               ) : (
-                <div className="max-h-52 overflow-auto">
+                <div className="flex-1 overflow-auto">
                   {categories.map((cat) => {
                     const isActive = cat.key === selectedCategory;
                     return (
@@ -281,8 +283,8 @@ export default function CommonCodesPage() {
         </Card>
 
         {/* 2 depth: 선택된 분류의 코드 목록 + 입력 */}
-        <Card className="flex h-full flex-col">
-          <CardHeader className="pb-2">
+        <Card className="flex flex-col min-h-0 overflow-hidden">
+          <CardHeader className="pb-2 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <span className="text-sm font-medium text-muted-foreground">
@@ -295,23 +297,23 @@ export default function CommonCodesPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3 pt-2 text-xs">
+          <CardContent className="flex flex-col gap-3 pt-2 text-xs flex-1 min-h-0 overflow-hidden">
             <div className="flex flex-wrap items-end gap-2 rounded-md bg-muted/40 p-3">
-              <div className="flex flex-1 min-w-[160px] flex-col gap-1">
+              <div className="flex flex-1 min-w-[120px] flex-col gap-1">
                 <span className="text-[11px] text-slate-600">코드</span>
                 <Input
                   value={draftCode}
                   onChange={(e) => setDraftCode(e.target.value)}
-                  placeholder="예: gimhae, net30, transfer"
+                  placeholder="예: gimhae, net30"
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="flex flex-1 min-w-[160px] flex-col gap-1">
+              <div className="flex flex-1 min-w-[120px] flex-col gap-1">
                 <span className="text-[11px] text-slate-600">명칭</span>
                 <Input
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
-                  placeholder="예: 김해공장, 매입 30일, 계좌이체"
+                  placeholder="예: 김해공장, 매입 30일"
                   className="h-8 text-xs"
                 />
               </div>
@@ -325,9 +327,9 @@ export default function CommonCodesPage() {
               </Button>
             </div>
 
-            <div className="rounded-md border">
-              <div className="flex border-b bg-muted px-3 py-1.5 text-[11px] font-semibold text-slate-700">
-                <div className="w-32">코드</div>
+            <div className="rounded-md border flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="flex border-b bg-muted px-3 py-1.5 text-[11px] font-semibold text-slate-700 shrink-0">
+                <div className="w-24">코드</div>
                 <div className="flex-1">명칭</div>
               </div>
               {currentCodes.length === 0 ? (
@@ -335,16 +337,16 @@ export default function CommonCodesPage() {
                   등록된 코드가 없습니다. 상단 입력 영역에서 코드를 추가해 주세요.
                 </div>
               ) : (
-                <div className="max-h-72 overflow-auto text-xs">
+                <div className="flex-1 overflow-auto text-xs">
                   {currentCodes.map((c) => (
                     <div
                       key={c.code}
-                      className="flex border-t px-3 py-1.5 text-xs"
+                      className="flex border-t px-3 py-2 text-xs"
                     >
-                      <div className="w-32 font-mono text-[11px] text-slate-700">
+                      <div className="w-24 font-mono text-[11px] text-slate-700 shrink-0">
                         {c.code}
                       </div>
-                      <div className="flex-1">{c.name}</div>
+                      <div className="flex-1 font-medium">{c.name}</div>
                     </div>
                   ))}
                 </div>
@@ -355,6 +357,7 @@ export default function CommonCodesPage() {
       </div>
     </div>
   );
+
 }
 
 

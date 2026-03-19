@@ -4,11 +4,14 @@ import { purchaseOrderSummaries } from "@/lib/mock/purchase-orders";
 import type { PurchaseOrderSummary, POStatus } from "@/types/purchase";
 
 const STATUS_MAP: Record<string, POStatus> = {
-  draft: "draft",
-  approved: "approved",
-  issued: "issued",
-  partial_receipt: "partial_receipt",
-  closed: "closed",
+  draft:     "draft",
+  approved:  "approved",
+  issued:    "issued",
+  confirmed: "confirmed",
+  partial:   "partial",
+  received:  "received",
+  closed:    "closed",
+  cancelled: "cancelled",
 };
 
 function toStatus(s: unknown): POStatus {

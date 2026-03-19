@@ -17,6 +17,10 @@ import {
   ShieldCheck,
   Users,
   Factory,
+  Shapes,
+  Layers,
+  PackageCheck,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,10 +32,12 @@ const masterNavGroup = {
   label: "기준정보 관리",
   icon: FolderOpen,
   children: [
-    { href: "/items", label: "품목관리", icon: PackageSearch },
-    { href: "/model-codes", label: "모델코드 관리", icon: Car },
-    { href: "/purchasers", label: "구매처 관리", icon: Building2 },
     { href: "/purchase-prices", label: "구매단가 관리", icon: FileText },
+    { href: "/purchasers", label: "구매처 관리", icon: Building2 },
+    { href: "/model-codes", label: "모델코드 관리", icon: Car },
+    { href: "/items", label: "품목관리", icon: PackageSearch },
+    { href: "/item-types", label: "품목유형 관리", icon: Layers },
+    { href: "/item-type-codes", label: "품목형태코드 관리", icon: Shapes },
   ],
 };
 
@@ -41,6 +47,14 @@ const purchaseOrderNavGroup = {
   children: [
     { href: "/purchase-orders", label: "구매오더 현황", icon: FileText },
     { href: "/purchase-orders/create", label: "신규 구매오더", icon: FileText },
+  ],
+};
+
+const receiptNavGroup = {
+  label: "구매입고관리",
+  icon: Truck,
+  children: [
+    { href: "/purchase-receipts", label: "구매입고처리", icon: PackageCheck },
   ],
 };
 
@@ -89,13 +103,17 @@ export function AppSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const isMasterActive =
     pathname.startsWith("/items") ||
     pathname.startsWith("/model-codes") ||
+    pathname.startsWith("/item-type-codes") ||
+    pathname.startsWith("/item-types") ||
     pathname.startsWith("/purchasers");
   const isPoActive = pathname.startsWith("/purchase-orders");
+  const isReceiptActive = pathname.startsWith("/purchase-receipts");
   const isPerformanceActive = pathname.startsWith("/purchase-orders/performance");
   const isSettingsActive = pathname.startsWith("/settings");
   const isAdminActive = pathname.startsWith("/admin");
   const [masterOpen, setMasterOpen] = useState(isMasterActive);
   const [poOpen, setPoOpen] = useState(isPoActive);
+  const [receiptOpen, setReceiptOpen] = useState(isReceiptActive);
   const [performanceOpen, setPerformanceOpen] = useState(isPerformanceActive);
   const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
   const [adminOpen, setAdminOpen] = useState(isAdminActive);
@@ -105,6 +123,9 @@ export function AppSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   useEffect(() => {
     if (isPoActive) setPoOpen(true);
   }, [isPoActive]);
+  useEffect(() => {
+    if (isReceiptActive) setReceiptOpen(true);
+  }, [isReceiptActive]);
   useEffect(() => {
     if (isPerformanceActive) setPerformanceOpen(true);
   }, [isPerformanceActive]);
@@ -224,6 +245,53 @@ export function AppSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
             <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
               {purchaseOrderNavGroup.children.map((child) => {
                 const isChildActive = pathname === child.href;
+                const Icon = child.icon;
+                return (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                      isChildActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {child.label}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 구매입고관리 그룹 */}
+        <div className="py-1">
+          <button
+            type="button"
+            onClick={() => setReceiptOpen((o) => !o)}
+            className={cn(
+              "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              isReceiptActive
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <receiptNavGroup.icon className="h-5 w-5 shrink-0" />
+              <span>{receiptNavGroup.label}</span>
+            </div>
+            {receiptOpen ? (
+              <ChevronDown className="h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0" />
+            )}
+          </button>
+          {receiptOpen && (
+            <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
+              {receiptNavGroup.children.map((child) => {
+                const isChildActive = pathname === child.href || pathname.startsWith(child.href);
                 const Icon = child.icon;
                 return (
                   <Link

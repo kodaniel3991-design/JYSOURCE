@@ -5,11 +5,14 @@ import type { SupplierStatus, SupplierGrade } from "@/types/supplier";
 import { poStatusLabels } from "@/lib/mock/purchase-orders";
 
 const poStatusVariant: Record<POStatus, "secondary" | "default" | "outline" | "success" | "warning" | "destructive"> = {
-  draft: "secondary",
-  approved: "outline",
-  issued: "default",
-  partial_receipt: "warning",
-  closed: "success",
+  draft:     "secondary",
+  approved:  "outline",
+  issued:    "default",
+  confirmed: "default",
+  partial:   "warning",
+  received:  "warning",
+  closed:    "success",
+  cancelled: "destructive",
 };
 
 const supplierStatusVariant: Record<SupplierStatus, "success" | "secondary" | "warning" | "destructive"> = {

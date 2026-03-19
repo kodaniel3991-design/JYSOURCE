@@ -1,6 +1,11 @@
 import { purchaseOrderSummaries } from "./purchase-orders";
 
+/** 대시보드 모니터링 기준 연·월 (YYYY-MM). KPI·차트 등 표시 데이터의 기준일. */
+export const DASHBOARD_PERIOD = "2024-04";
+
 export const dashboardData = {
+  /** 모니터링 기준 연월 (년/월 표시용) */
+  periodYearMonth: DASHBOARD_PERIOD,
   kpis: {
     monthlySpend: 428_500_000,
     orderCount: 128,

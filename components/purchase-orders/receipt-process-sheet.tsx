@@ -95,7 +95,7 @@ export function ReceiptProcessSheet({ open, onClose, selectedPOs, onComplete }: 
     setSubmitting(true);
     // 포함된 행만 처리
     const includedRows = rows.filter((r) => r.included);
-    // PO별로 모든 품목이 전량 입고됐는지 확인 → closed vs partial_receipt
+    // PO별로 모든 품목이 전량 입고됐는지 확인 → received vs partial
     const poIds = Array.from(new Set(includedRows.map((r) => r.poId)));
     const updatedIds = poIds.filter((id) => {
       const poRows = rows.filter((r) => r.poId === id);
@@ -104,7 +104,7 @@ export function ReceiptProcessSheet({ open, onClose, selectedPOs, onComplete }: 
     });
     // 전량 입고 여부: 포함된 행의 receiveQty >= orderQty
     const allFull = includedRows.every((r) => r.receiveQty >= r.orderQty);
-    const newStatus: POStatus = allFull ? "closed" : "partial_receipt";
+    const newStatus: POStatus = allFull ? "received" : "partial";
 
     setTimeout(() => {
       setSubmitting(false);

@@ -58,8 +58,10 @@ export default function PurchaseReceiptStatusPage() {
   const rows: ReceiptStatusRow[] = useMemo(() => {
     const getRate = (po: PurchaseOrder) => {
       switch (po.status) {
-        case "partial_receipt":
-          return 60;
+        case "partial":
+          return 50;
+        case "received":
+          return 100;
         case "closed":
           return 100;
         default:

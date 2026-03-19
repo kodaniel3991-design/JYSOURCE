@@ -39,29 +39,29 @@ export function FilterBar({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4",
+        "flex w-fit flex-wrap items-center gap-3 rounded-lg border bg-card p-4",
         className
       )}
     >
-      <div className="relative flex-1 min-w-[200px]">
+      <div className="relative w-[200px]">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
           placeholder={searchPlaceholder}
           value={searchValue ?? ""}
           onChange={(e) => onSearchChange?.(e.target.value)}
-          className="pl-9"
+          className="h-9 pl-9 text-sm"
         />
       </div>
       {filters.map((filter, i) => (
-        <div key={i} className="min-w-[140px]">
+        <div key={i} className={filter.type === "custom" ? "" : "w-[140px]"}>
           {filter.type === "select" && filter.options && (
             <Select
               options={filter.options}
               placeholder={filter.placeholder}
               value={filter.value}
               onChange={filter.onChange}
-              className="w-full"
+              className="h-9 w-full text-sm"
             />
           )}
           {filter.type === "custom" && filter.children}

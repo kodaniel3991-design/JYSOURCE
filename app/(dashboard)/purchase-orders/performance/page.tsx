@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
+import { getPageState } from "@/lib/page-state-cache";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { FilterBar } from "@/components/common/filter-bar";
 import { MasterListGrid } from "@/components/common/master-list-grid";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { purchaseOrderSummaries } from "@/lib/mock/purchase-orders";
 import { suppliers } from "@/lib/mock/suppliers";
-import { dashboardData } from "@/lib/mock/dashboard";
 import type { PurchaseOrderSummary } from "@/types/purchase";
 import type { SelectOption } from "@/components/ui/select";
 
@@ -25,26 +25,51 @@ type SupplierSummaryRow = {
 };
 
 export default function PurchasePerformancePage() {
-  const [search, setSearch] = useState("");
-  const [supplierId, setSupplierId] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [list, setList] = useCachedState<PurchaseOrderSummary[]>("perf/list", []);
+  const [loading, setLoading] = useState(!getPageState("perf/list"));
+  const [search, setSearch] = useCachedState<string>("perf/search", "");
+  const [supplierId, setSupplierId] = useCachedState<string>("perf/supplierId", "");
+  const [fromDate, setFromDate] = useCachedState<string>("perf/fromDate", "");
+  const [toDate, setToDate] = useCachedState<string>("perf/toDate", "");
+
+  useEffect(() => {
+    // 캐시된 데이터가 있으면 재조회 생략
+    if (getPageState("perf/list")) return;
+    let cancelled = false;
+    setLoading(true);
+    fetch("/api/purchase-orders")
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.items) return;
+        setList(Array.isArray(data.items) ? data.items : []);
+      })
+      .catch(() => {
+        if (!cancelled) setList([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
-    return purchaseOrderSummaries.filter((po) => {
+    return list.filter((po) => {
       const matchSearch =
         !search ||
         po.poNumber.toLowerCase().includes(search.toLowerCase()) ||
         po.supplierName.toLowerCase().includes(search.toLowerCase());
       const matchSupplier = !supplierId || po.supplierId === supplierId;
 
+      if (!po.dueDate) return matchSearch && matchSupplier;
       const due = new Date(po.dueDate);
       const matchFrom = !fromDate || due >= new Date(fromDate);
       const matchTo = !toDate || due <= new Date(toDate);
 
       return matchSearch && matchSupplier && matchFrom && matchTo;
     });
-  }, [search, supplierId, fromDate, toDate]);
+  }, [list, search, supplierId, fromDate, toDate]);
 
   const totalAmount = filtered.reduce(
     (sum, po) => sum + po.totalAmount,
@@ -71,8 +96,18 @@ export default function PurchasePerformancePage() {
     return Array.from(map.values());
   }, [filtered]);
 
-  const totalOrders = purchaseOrderSummaries.length;
-  const delayedOrders = dashboardData.delayedPOs.length;
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const totalOrders = list.length;
+  const delayedOrders = useMemo(
+    () =>
+      list.filter(
+        (po) =>
+          (po.status === "issued" || po.status === "confirmed" || po.status === "partial") &&
+          po.dueDate &&
+          po.dueDate < today
+      ).length,
+    [list, today]
+  );
   const onTimeRate =
     totalOrders === 0
       ? 0
@@ -214,10 +249,10 @@ export default function PurchasePerformancePage() {
                   cell: (row) => formatDate(row.dueDate),
                 },
               ]}
-              data={filtered}
+              data={loading ? [] : filtered}
               keyExtractor={(row) => row.id}
               maxHeight="100%"
-              emptyMessage="조건에 맞는 구매실적이 없습니다."
+              emptyMessage={loading ? "조회 중..." : "조건에 맞는 구매실적이 없습니다."}
             />
           </div>
         </CardContent>
@@ -258,10 +293,10 @@ export default function PurchasePerformancePage() {
                   cell: (row) => formatCurrency(row.totalAmount),
                 },
               ]}
-              data={supplierSummary}
+              data={loading ? [] : supplierSummary}
               keyExtractor={(row) => row.supplierId}
               maxHeight="100%"
-              emptyMessage="조건에 맞는 업체별 실적이 없습니다."
+              emptyMessage={loading ? "조회 중..." : "조건에 맞는 업체별 실적이 없습니다."}
             />
           </div>
         </CardContent>

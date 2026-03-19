@@ -1,14 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MasterListGrid } from "@/components/common/master-list-grid";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { purchaseOrderSummaries, poStatusLabels } from "@/lib/mock/purchase-orders";
-import type { PurchaseOrderSummary, POStatus } from "@/types/purchase";
+import { formatCurrency } from "@/lib/utils";
+import { purchaseOrderSummaries } from "@/lib/mock/purchase-orders";
+import type { PurchaseOrderSummary } from "@/types/purchase";
 import { Search, RotateCcw } from "lucide-react";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type SearchParams = {
   plant: string;
@@ -37,6 +46,12 @@ type ClosingRow = PurchaseOrderSummary & {
 export default function ClosingStatusPage() {
   const [draft, setDraft] = useState<SearchParams>(initialParams);
   const [criteria, setCriteria] = useState<SearchParams>(initialParams);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<
+    "export" | "sort" | "columns" | "view"
+  >("export");
+  const [stripedRows, setStripedRows] = useState(true);
+  const [compactView, setCompactView] = useState(true);
 
   const getUsageKind = (row: { poNumber: string }): "outsourced" | "raw" => {
     const lastChar = row.poNumber.slice(-1);
@@ -65,7 +80,7 @@ export default function ClosingStatusPage() {
           ...po,
           mergeKey,
           firstInGroup: false,
-          rowKind: "data",
+          rowKind: "data" as const,
         };
       })
       .sort((a, b) => a.mergeKey.localeCompare(b.mergeKey, "ko-KR"));
@@ -166,9 +181,65 @@ export default function ClosingStatusPage() {
         po.status === "draft" ||
         po.status === "approved" ||
         po.status === "issued" ||
-        po.status === "partial_receipt"
+        po.status === "confirmed" ||
+        po.status === "partial" ||
+        po.status === "received"
     )
     .reduce((sum, po) => sum + po.totalAmount, 0);
+
+  const exportExcel = useCallback(async () => {
+    if (displayRows.length === 0) return;
+
+    const XLSX = await import("xlsx-js-style");
+    const header = ["차종", "업체코드", "업체명", "용도/구분", "합계금액"];
+    const data = displayRows.map((row) => {
+      const modelCode = row.poNumber.slice(0, 3);
+
+      let usageLabel = "";
+      if (row.rowKind === "data") {
+        const kind = getUsageKind(row);
+        usageLabel = kind === "outsourced" ? "외주품" : "원자재";
+      } else if (row.rowKind === "subtotal_usage") {
+        usageLabel =
+          row.usageKindForSubtotal === "outsourced"
+            ? `${modelCode} 외주품 SUB TOTAL`
+            : `${modelCode} 원자재 SUB TOTAL`;
+      } else if (row.rowKind === "subtotal_model") {
+        usageLabel = `${modelCode} 차종별 SUB TOTAL`;
+      } else {
+        usageLabel = "TOTAL";
+      }
+
+      return [
+        modelCode,
+        row.supplierId,
+        row.supplierName,
+        usageLabel,
+        row.totalAmount,
+      ];
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+    Object.keys(ws).forEach((addr) => {
+      if (addr.startsWith("!")) return;
+      const cell = (ws as any)[addr];
+      if (!cell) return;
+      const prevStyle = cell.s ?? {};
+      cell.s = {
+        ...prevStyle,
+        font: {
+          ...(prevStyle.font ?? {}),
+          sz: 10,
+        },
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "마감현황");
+    const fileName = `po_closing_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    (XLSX as any).writeFile(wb, fileName);
+  }, [displayRows, getUsageKind]);
 
   return (
     <div className="space-y-6">
@@ -269,10 +340,30 @@ export default function ClosingStatusPage() {
       </Card>
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <CardHeader className="pb-2">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <span className="text-sm font-medium text-muted-foreground">
             구매오더 마감현황
           </span>
+          <DataGridToolbar
+            active={gridSettingsOpen ? gridSettingsTab : undefined}
+            onExport={() => {
+              setGridSettingsTab("export");
+              setGridSettingsOpen(true);
+            }}
+            onSort={() => {
+              setGridSettingsTab("sort");
+              setGridSettingsOpen(true);
+            }}
+            onColumns={() => {
+              setGridSettingsTab("columns");
+              setGridSettingsOpen(true);
+            }}
+            onView={() => {
+              setGridSettingsTab("view");
+              setGridSettingsOpen(true);
+              setStripedRows((v) => !v);
+            }}
+          />
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
           <div className="min-h-0 flex-1">
@@ -423,26 +514,142 @@ export default function ClosingStatusPage() {
               emptyMessage="조건에 맞는 마감 현황이 없습니다."
               getRowClassName={(row, index) => {
                 if (row.rowKind === "total") {
-                  return "bg-pink-100 dark:bg-pink-900/60 font-semibold";
+                  const density = compactView ? "" : "h-10";
+                  return [
+                    "bg-pink-100 dark:bg-pink-900/60 font-semibold",
+                    density,
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
                 }
                 if (
                   row.rowKind === "subtotal_usage" ||
                   row.rowKind === "subtotal_model"
                 ) {
-                  return "bg-sky-100 dark:bg-sky-900/60 font-semibold";
+                  const density = compactView ? "" : "h-10";
+                  return [
+                    "bg-sky-100 dark:bg-sky-900/60 font-semibold",
+                    density,
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
                 }
-                // 일반 데이터 행은 옅은 줄무늬로 가독성 향상
-                return index % 2 === 1
-                  ? "bg-slate-50 dark:bg-slate-800/70"
-                  : "";
+                const striped =
+                  stripedRows && index % 2 === 1
+                    ? "bg-slate-50 dark:bg-slate-800/70"
+                    : "";
+                const density = compactView ? "" : "h-10";
+                return [striped, density].filter(Boolean).join(" ");
               }}
               pagination={{
+                page: 1,
                 pageSize: displayRows.length === 0 ? 10 : displayRows.length,
+                total: displayRows.length,
+                onPageChange: () => {},
               }}
             />
           </div>
         </CardContent>
       </Card>
+      <Sheet
+        open={gridSettingsOpen}
+        onOpenChange={setGridSettingsOpen}
+        position="center"
+      >
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>그리드 설정</SheetTitle>
+            <SheetDescription className="text-xs">
+              내보내기 · 정렬 · 컬럼 · 보기 설정
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-4 space-y-5 text-xs">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={gridSettingsTab === "export" ? "default" : "outline"}
+                onClick={() => setGridSettingsTab("export")}
+              >
+                내보내기
+              </Button>
+              <Button
+                size="sm"
+                variant={gridSettingsTab === "sort" ? "default" : "outline"}
+                onClick={() => setGridSettingsTab("sort")}
+              >
+                정렬
+              </Button>
+              <Button
+                size="sm"
+                variant={gridSettingsTab === "columns" ? "default" : "outline"}
+                onClick={() => setGridSettingsTab("columns")}
+              >
+                컬럼
+              </Button>
+              <Button
+                size="sm"
+                variant={gridSettingsTab === "view" ? "default" : "outline"}
+                onClick={() => setGridSettingsTab("view")}
+              >
+                보기
+              </Button>
+            </div>
+
+            {gridSettingsTab === "export" && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">
+                  현재 검색된 구매오더 마감현황 데이터가 EXCEL 파일(.xlsx)로
+                  다운로드됩니다.
+                </p>
+                <Button size="sm" onClick={() => void exportExcel()}>
+                  EXCEL 내보내기
+                </Button>
+              </div>
+            )}
+
+            {gridSettingsTab === "sort" && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">
+                  이 화면은 차종/업체 단위 집계용으로 설계되어 별도의 정렬
+                  설정을 제공하지 않습니다.
+                </p>
+              </div>
+            )}
+
+            {gridSettingsTab === "columns" && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">
+                  현재 버전에서는 컬럼 표시 설정을 변경할 수 없습니다.
+                </p>
+              </div>
+            )}
+
+            {gridSettingsTab === "view" && (
+              <div className="space-y-3">
+                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    줄무늬 표시
+                  </span>
+                  <Checkbox
+                    checked={stripedRows}
+                    onChange={(e) => setStripedRows(e.target.checked)}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    컴팩트 보기
+                  </span>
+                  <Checkbox
+                    checked={compactView}
+                    onChange={(e) => setCompactView(e.target.checked)}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

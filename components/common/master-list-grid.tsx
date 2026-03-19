@@ -19,7 +19,7 @@ export interface MasterListGridColumn<T> {
   minWidth?: string | number;
   maxWidth?: string | number;
   /** 셀 렌더. 미제공 시 row[key] 사용 */
-  cell?: (row: T) => React.ReactNode;
+  cell?: (row: T, index: number) => React.ReactNode;
   headerClassName?: string;
   cellClassName?: string;
   /** 헤더 정렬 (기본 왼쪽) */
@@ -54,6 +54,8 @@ export interface MasterListGridProps<T> {
   className?: string;
   /** 공통 프리셋 (줄무늬 등) */
   variant?: MasterListGridVariant;
+  /** 자동 페이지네이션 시 페이지 크기 (기본 10) */
+  pageSize?: number;
 }
 
 const defaultEmptyMessage = "조회된 데이터가 없습니다.";
@@ -76,9 +78,10 @@ export function MasterListGrid<T>({
   pagination,
   className,
   variant = "default",
+  pageSize: pageSizeProp,
 }: MasterListGridProps<T>) {
   const colCount = columns.length;
-  const autoPageSize = 10;
+  const autoPageSize = pageSizeProp ?? 10;
   const shouldAutoPaginate = !pagination && data.length > autoPageSize;
   const [internalPage, setInternalPage] = React.useState(1);
 
@@ -189,7 +192,7 @@ export function MasterListGrid<T>({
               >
                 {columns.map((col) => {
                   const content = col.cell
-                    ? col.cell(row)
+                    ? col.cell(row, index)
                     : (row as Record<string, unknown>)[col.key] as React.ReactNode;
                   const maxWidth =
                     col.maxWidth == null

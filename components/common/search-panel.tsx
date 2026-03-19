@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Search, RotateCcw } from "lucide-react";
 
 type SearchPanelProps = {
   /** 카드 제목 (기본: 검색 조건) */
@@ -48,6 +49,7 @@ export function SearchPanel({
               className="h-8 px-3 text-xs"
               onClick={onSearch}
             >
+              <Search className="mr-1.5 h-4 w-4" />
               검색
             </Button>
           )}
@@ -59,6 +61,7 @@ export function SearchPanel({
               className="h-8 px-3 text-xs"
               onClick={onReset}
             >
+              <RotateCcw className="mr-1.5 h-4 w-4" />
               필터 초기화
             </Button>
           )}

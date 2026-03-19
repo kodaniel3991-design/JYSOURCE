@@ -160,12 +160,12 @@ export function SheetContent({ className, children, ...props }: SheetContentProp
   );
 }
 
-export function SheetHeader({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-1 border-b pb-2">{children}</div>;
+export function SheetHeader({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("space-y-1 border-b pb-2", className)}>{children}</div>;
 }
 
-export function SheetTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-sm font-semibold">{children}</h2>;
+export function SheetTitle({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <h2 className={cn("text-sm font-semibold", className)}>{children}</h2>;
 }
 
 export function SheetDescription({

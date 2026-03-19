@@ -18,10 +18,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CrudActions } from "@/components/common/crud-actions";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { MasterListGrid } from "@/components/common/master-list-grid";
-import { modelCodes } from "@/lib/mock/model-codes";
 import type { ModelCodeRecord } from "@/types/model-code";
-import { Search } from "lucide-react";
+import { Search, RotateCcw } from "lucide-react";
 import { ModelCodeRegisterSheet } from "@/components/model-codes/model-code-register-sheet";
+import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 
 interface ModelCodeFilterState {
   modelCode: string;
@@ -53,7 +53,10 @@ function Field({
 }
 
 export default function ModelCodesPage() {
-  const [rows, setRows] = useState<ModelCodeRecord[]>(modelCodes);
+  const [rows, setRows] = useState<ModelCodeRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const searchRef = useEnterNavigation();
   const [filters, setFilters] = useState<ModelCodeFilterState>({
     modelCode: "",
     modelCodeName: "",
@@ -72,6 +75,30 @@ export default function ModelCodesPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [stripedRows, setStripedRows] = useState(true);
   const [compactView, setCompactView] = useState(true);
+
+  const handleSearch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/model-codes");
+      const data = await r.json();
+      if (data?.ok) {
+        setRows(
+          (data.items ?? []).map((row: any) => ({
+            id: String(row.Id),
+            modelCode: row.ModelCode ?? "",
+            modelName: row.ModelName ?? "",
+            primaryCustomerCode: row.PrimaryCustomerCode ?? "",
+            primaryCustomerName: row.PrimaryCustomerName ?? "",
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to load model codes", err);
+    } finally {
+      setLoading(false);
+      setHasSearched(true);
+    }
+  }, []);
 
   const handleFilterChange = <K extends keyof ModelCodeFilterState>(
     key: K,
@@ -188,39 +215,44 @@ export default function ModelCodesPage() {
     setSortDir((d) => (d === "asc" ? "desc" : "asc"));
   }, []);
 
-  const exportCsv = useCallback(() => {
+  const exportExcel = useCallback(async () => {
     const cols = visibleColumns;
-    const rows = paged;
-    const escape = (v: unknown) => {
-      const s = v == null ? "" : String(v);
-      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    };
-    const header = cols.map((c) => escape(c.header)).join(",");
-    const body = rows
-      .map((r) =>
-        cols
-          // ModelCodeRecord에는 인덱스 시그니처가 없기 때문에 any로 캐스팅하여 접근
-          .map((c) => escape((r as any)[c.key]))
-          .join(",")
-      )
-      .join("\n");
-    const csv = `${header}\n${body}\n`;
+    // 페이징이 아닌, 현재 검색·정렬이 적용된 전체 목록을 내보내기
+    const rows = sortedList;
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `model_codes_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, [paged, visibleColumns]);
+    // 스타일 적용을 위해 xlsx-js-style 사용
+    const XLSX = await import("xlsx-js-style");
+    const header = cols.map((c) => c.header);
+    const data = rows.map((r) =>
+      cols.map((c) => {
+        const value = (r as any)[c.key];
+        return value == null ? "" : value;
+      })
+    );
 
-  const handleRegister = () => {
-    setRegisterOpen(true);
-  };
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+    // 전체 셀 글자 크기를 10pt로 통일
+    Object.keys(ws).forEach((cellAddr) => {
+      if (cellAddr.startsWith("!")) return;
+      const cell = (ws as any)[cellAddr];
+      if (!cell) return;
+      const prevStyle = cell.s ?? {};
+      cell.s = {
+        ...prevStyle,
+        font: {
+          ...(prevStyle.font ?? {}),
+          sz: 10,
+        },
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "모델코드");
+
+    const fileName = `model_codes_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    (XLSX as any).writeFile(wb, fileName);
+  }, [sortedList, visibleColumns]);
 
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col gap-6 overflow-hidden">
@@ -229,14 +261,14 @@ export default function ModelCodesPage() {
         description="차종·모델코드 기준정보를 조회하고 관리합니다."
         actions={
           <CrudActions
-            onRegister={handleRegister}
+            onRegister={() => setRegisterOpen(true)}
             onEdit={() => {
               if (!selectedRowId) return;
               const row = rows.find((r) => r.id === selectedRowId);
               if (!row) return;
               setEditOpen(true);
             }}
-            onDelete={() => {
+            onDelete={async () => {
               if (!selectedRowId) return;
               const row = rows.find((r) => r.id === selectedRowId);
               if (!row) return;
@@ -244,9 +276,22 @@ export default function ModelCodesPage() {
                 `선택한 모델코드를 삭제하시겠습니까?\n\n모델코드: ${row.modelCode}\n모델명: ${row.modelName}`
               );
               if (!ok) return;
-              setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
-              setSelectedRowId(null);
-              setPage(1);
+              try {
+                const res = await fetch(`/api/model-codes/${selectedRowId}`, {
+                  method: "DELETE",
+                });
+                const data = await res.json();
+                if (!data.ok) {
+                  alert("삭제 실패: " + (data.message ?? ""));
+                  return;
+                }
+                setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
+                setSelectedRowId(null);
+                setPage(1);
+              } catch (e) {
+                console.error(e);
+                alert("삭제 중 오류가 발생했습니다.");
+              }
             }}
             editDisabled={!selectedRowId}
             deleteDisabled={!selectedRowId}
@@ -263,18 +308,16 @@ export default function ModelCodesPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4 text-xs">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div ref={searchRef} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field
               label="모델코드"
               value={filters.modelCode}
               onChange={(v) => handleFilterChange("modelCode", v)}
-              className="[&_input]:bg-sky-50/80"
             />
             <Field
               label="모델코드 명"
               value={filters.modelCodeName}
               onChange={(v) => handleFilterChange("modelCodeName", v)}
-              className="[&_input]:bg-amber-50/80"
             />
             <div className="space-y-1">
               <Label className="text-[14px] text-slate-600">고객번호</Label>
@@ -299,8 +342,12 @@ export default function ModelCodesPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm">검색</Button>
+            <Button size="sm" onClick={handleSearch} disabled={loading}>
+              <Search className="mr-1.5 h-4 w-4" />
+              {loading ? "조회 중..." : "검색"}
+            </Button>
             <Button variant="outline" size="sm" onClick={resetFilters}>
+              <RotateCcw className="mr-1.5 h-4 w-4" />
               필터 초기화
             </Button>
             <p className="text-[11px] text-muted-foreground">
@@ -356,7 +403,7 @@ export default function ModelCodesPage() {
                 const density = compactView ? "" : "h-10";
                 return [density].filter(Boolean).join(" ");
               }}
-              emptyMessage="조회된 모델코드가 없습니다. 검색 조건을 조정하거나 정리 후 다시 조회해 보세요."
+              emptyMessage={!hasSearched ? "검색 버튼을 클릭하면 조회됩니다." : loading ? "조회 중..." : "조건에 맞는 모델코드가 없습니다."}
             />
           </div>
         </CardContent>
@@ -410,10 +457,10 @@ export default function ModelCodesPage() {
             {gridSettingsTab === "export" && (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">
-                  현재 페이지({page}페이지) 데이터가 CSV로 다운로드됩니다.
+                  검색/정렬된 전체 모델코드 데이터가 EXCEL 파일(.xlsx)로 다운로드됩니다.
                 </p>
-                <Button size="sm" onClick={exportCsv}>
-                  CSV 내보내기
+                <Button size="sm" onClick={() => void exportExcel()}>
+                  EXCEL 내보내기
                 </Button>
               </div>
             )}
@@ -514,11 +561,34 @@ export default function ModelCodesPage() {
         open={registerOpen}
         onOpenChange={setRegisterOpen}
         mode="create"
-        onSave={(draft) => {
-          const id = `mc-${Date.now()}`;
-          setRows((prev) => [{ id, ...draft }, ...prev]);
-          setSelectedRowId(null);
-          setPage(1);
+        onSave={async (draft) => {
+          try {
+            const res = await fetch("/api/model-codes", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(draft),
+            });
+            const data = await res.json();
+            if (!data.ok) {
+              alert("저장 실패: " + (data.message ?? ""));
+              return;
+            }
+
+            const created: ModelCodeRecord = {
+              id: String(data.id),
+              modelCode: draft.modelCode,
+              modelName: draft.modelName,
+              primaryCustomerCode: draft.primaryCustomerCode,
+              primaryCustomerName: draft.primaryCustomerName,
+            };
+
+            setRows((prev) => [created, ...prev]);
+            setSelectedRowId(null);
+            setPage(1);
+          } catch (e) {
+            console.error(e);
+            alert("저장 중 오류가 발생했습니다.");
+          }
         }}
       />
 
@@ -540,21 +610,37 @@ export default function ModelCodesPage() {
               })()
             : undefined
         }
-        onSave={(draft) => {
+        onSave={async (draft) => {
           if (!selectedRowId) return;
-          setRows((prev) =>
-            prev.map((r) =>
-              r.id === selectedRowId
-                ? {
-                    ...r,
-                    modelCode: draft.modelCode,
-                    modelName: draft.modelName,
-                    primaryCustomerCode: draft.primaryCustomerCode,
-                    primaryCustomerName: draft.primaryCustomerName,
-                  }
-                : r
-            )
-          );
+          try {
+            const res = await fetch(`/api/model-codes/${selectedRowId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(draft),
+            });
+            const data = await res.json();
+            if (!data.ok) {
+              alert("수정 실패: " + (data.message ?? ""));
+              return;
+            }
+
+            setRows((prev) =>
+              prev.map((r) =>
+                r.id === selectedRowId
+                  ? {
+                      ...r,
+                      modelCode: draft.modelCode,
+                      modelName: draft.modelName,
+                      primaryCustomerCode: draft.primaryCustomerCode,
+                      primaryCustomerName: draft.primaryCustomerName,
+                    }
+                  : r
+              )
+            );
+          } catch (e) {
+            console.error(e);
+            alert("수정 중 오류가 발생했습니다.");
+          }
         }}
       />
     </div>

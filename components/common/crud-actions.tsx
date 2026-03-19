@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { PrimaryActionButton } from "@/components/common/action-buttons";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const iconClass = "mr-1.5 h-4 w-4";
@@ -45,40 +45,34 @@ export function CrudActions({
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className ?? ""}`}>
       {onRegister !== undefined && (
-        <Button
+        <PrimaryActionButton
           size={size}
-          variant="outline"
           onClick={onRegister}
           disabled={registerDisabled}
-          className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
         >
           <Plus className={iconClass} />
           등록
-        </Button>
+        </PrimaryActionButton>
       )}
       {onEdit !== undefined && (
-        <Button
+        <PrimaryActionButton
           size={size}
-          variant="outline"
           onClick={onEdit}
           disabled={editDisabled}
-          className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
         >
           <Pencil className={iconClass} />
           수정
-        </Button>
+        </PrimaryActionButton>
       )}
       {onDelete !== undefined && (
-        <Button
+        <PrimaryActionButton
           size={size}
-          variant="outline"
           onClick={onDelete}
           disabled={deleteDisabled}
-          className="hover:bg-primary hover:text-primary-foreground hover:border-primary"
         >
           <Trash2 className={iconClass} />
           삭제
-        </Button>
+        </PrimaryActionButton>
       )}
     </div>
   );

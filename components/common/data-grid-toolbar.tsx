@@ -27,49 +27,51 @@ export function DataGridToolbar({
   active,
   className,
 }: DataGridToolbarProps) {
+  const baseClass =
+    "border border-slate-300 dark:border-slate-600 rounded-md text-slate-800";
   const activeClass =
-    "bg-slate-900 text-white hover:bg-slate-800 hover:text-white";
+    "bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground";
   const hoverClass =
-    "hover:bg-slate-200 hover:text-slate-900 data-[state=open]:bg-slate-200 data-[state=open]:text-slate-900";
+    "hover:bg-primary hover:text-primary-foreground hover:border-primary data-[state=open]:bg-primary data-[state=open]:text-primary-foreground";
 
   return (
     <div className={`flex flex-wrap items-center gap-2 text-xs ${className ?? ""}`}>
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={onExport}
         disabled={!onExport}
-        className={cn(hoverClass, active === "export" && activeClass)}
+        className={cn(baseClass, hoverClass, active === "export" && activeClass)}
       >
         <Download className="mr-1.5 h-3.5 w-3.5" />
         내보내기
       </Button>
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={onSort}
         disabled={!onSort}
-        className={cn(hoverClass, active === "sort" && activeClass)}
+        className={cn(baseClass, hoverClass, active === "sort" && activeClass)}
       >
         <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
         정렬
       </Button>
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={onColumns}
         disabled={!onColumns}
-        className={cn(hoverClass, active === "columns" && activeClass)}
+        className={cn(baseClass, hoverClass, active === "columns" && activeClass)}
       >
         <Columns3 className="mr-1.5 h-3.5 w-3.5" />
         컬럼
       </Button>
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={onView}
         disabled={!onView}
-        className={cn(hoverClass, active === "view" && activeClass)}
+        className={cn(baseClass, hoverClass, active === "view" && activeClass)}
       >
         <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />
         보기

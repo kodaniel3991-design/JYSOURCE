@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ModelCodeRecord } from "@/types/model-code";
+import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 
 type ModelCodeRegisterDraft = Omit<ModelCodeRecord, "id">;
 
@@ -54,6 +55,8 @@ export function ModelCodeRegisterSheet({
     onOpenChange(false);
   }, [onOpenChange]);
 
+  const formRef = useEnterNavigation();
+
   const save = useCallback(() => {
     if (!canSave) return;
     onSave?.({
@@ -96,7 +99,7 @@ export function ModelCodeRegisterSheet({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 text-xs">
-          <div className="space-y-4">
+          <div ref={formRef} className="space-y-4">
             <SheetHeader>
               <SheetTitle>기본정보</SheetTitle>
               <SheetDescription className="text-xs">

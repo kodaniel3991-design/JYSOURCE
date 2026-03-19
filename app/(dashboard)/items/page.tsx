@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,10 @@ import {
 } from "@/components/ui/sheet";
 import { Select } from "@/components/ui/select";
 import { CrudActions } from "@/components/common/crud-actions";
+import {
+  PrimaryActionButton,
+  SecondaryActionButton,
+} from "@/components/common/action-buttons";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { MasterListGrid } from "@/components/common/master-list-grid";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +31,10 @@ import {
   ChevronUp,
   X,
   Upload,
+  Search,
+  RotateCcw,
+  Download,
+  Check,
 } from "lucide-react";
 import type { ItemRegisterBasicInfo } from "@/types/item-register";
 import { defaultItemRegisterState } from "@/types/item-register";
@@ -73,30 +82,85 @@ interface ItemMasterRecord {
   hasDrawing: boolean;
   updatedAt: string;
   updatedBy: string;
+  /** 등록일자 (품목목록등록일자) */
+  registeredAt?: string;
+  /** 리비전 일자 (품목목록보수일자) */
+  revisionDate?: string;
+  /** 구매단가 */
+  purchaseUnitPrice?: number;
+  /** 통화코드 */
+  currencyCode?: string;
+  /** 최종입고일자 (품목최종입고일자) */
+  lastReceiptDate?: string;
+  /** 창고 (창고코드) */
+  warehouse?: string;
+  /** 저장위치 (재고저장위치코드) */
+  storageLocation?: string;
+  /** 품목.xls / 품목가공.xls 대응 필드 */
+  purchaseUnitCode?: string;
+  purchaseUnitConversion?: string;
+  lastReceiptUnitPrice?: number;
+  salesUnitPrice?: number;
+  standardCost?: number;
+  procurementLeadTime?: string | number;
+  standardLotSize?: number;
+  lastShipmentDate?: string;
+  productId?: string;
+  unitProductionQty?: number;
+  itemJitCategory?: string;
+  itemImportCategory?: string;
+  itemExportCategory?: string;
+  receiptToShipImmediate?: string;
+  shipWarehouse?: string;
+  shipStorageLocation?: string;
+  imageFileName?: string;
+  drawingFileName?: string;
+  /** 품목.xls 전용 */
+  drawingSize?: string;
+  manufacturerName?: string;
+  buyerCode?: string;
+  salesRepCode?: string;
+  requirementRepCode?: string;
+  valueCategoryCode?: string;
+  materialOrderPolicyCode?: string;
+  maxLotSize?: number;
+  minLotSize?: number;
+  safetyStock?: number;
+  reorderPoint?: number;
+  avgDefectRate?: string | number;
+  inventoryCountCycle?: string | number;
+  hsCode?: string;
+  imageInfo?: string;
+  drawingInfo?: string;
+  itemUserTypeCode?: string;
+  yieldRate?: string | number;
+  customerWarehouse?: string;
+  internalUnitPrice?: number;
+  hNoDiameter?: string | number;
+  lNoSpecificGravity?: string | number;
+  deliveryContainer?: string;
+  receiptContainer?: string;
 }
 
 interface ItemFilterState {
-  workingItemNo: string;
   itemNo: string;
   itemName: string;
   supplierName: string;
-  itemSelection: string;
-  owner: string;
-  itemUserCategoryCode: string;
-  material: string;
-  containsItemNo: string;
-  vehicleModel: string;
-  specification: string;
   itemStatusCategory: string;
+  specification: string;
+  form: string;
   type: string;
-  itemUsageClassificationCode: string;
   supplierItemNo: string;
+  supplierCode: string;
+  drawingNo: string;
+  vehicleModel: string;
+  material: string;
+  warehouse: string;
+  currencyCode: string;
   businessUnit: string;
   packQty: string;
-  drawingNo: string;
-  reload: boolean;
-  excludeMold: boolean;
-  searchAll: boolean;
+  itemUserCategoryCode: string;
+  itemUsageClassificationCode: string;
 }
 
 const ITEMS: ItemMasterRecord[] = [
@@ -622,49 +686,132 @@ const statusBadgeVariant: Record<
 };
 
 export default function ItemsPage() {
-  const [rows, setRows] = useState<ItemMasterRecord[]>(ITEMS);
-  const [filters, setFilters] = useState<ItemFilterState>({
-    workingItemNo: "",
+  const [rows, setRows] = useCachedState<ItemMasterRecord[]>("items/rows", []);
+  const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useCachedState<boolean>("items/hasSearched", false);
+
+  const handleSearch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/items");
+      const data = await r.json();
+      if (data.ok) {
+        setRows(
+            data.items.map((it: any) => ({
+              id: String(it.ItemId),
+              itemNo: it.ItemNo ?? "",
+              itemName: it.ItemName ?? "",
+              specification: it.Specification ?? "",
+              form: it.Form ?? "",
+              type: it.Type ?? "",
+              unit: it.Unit ?? "EA",
+              supplierItemNo: it.SupplierItemNo ?? "",
+              drawingNo: it.DrawingNo ?? "",
+              supplierCode: it.SupplierCode ?? "",
+              supplierName: it.SupplierName ?? "",
+              itemStatusCategory: (it.ItemStatusCategory ?? "ACTIVE") as ItemStatusCategory,
+              salesUnitCode: it.SalesUnitCode ?? "",
+              unitConversion: it.UnitConversion ?? "",
+              itemWeight: it.ItemWeight ?? 0,
+              drawingFlag: Boolean(it.DrawingNo),
+              materialFlag: false,
+              repairFlag: false,
+              miscFlag: false,
+              workingItemNo: it.WorkingItemNo ?? "",
+              itemSelection: it.ItemSelection ?? "",
+              owner: it.Owner ?? "",
+              itemUserCategoryCode: it.ItemUserCategoryCode ?? "",
+              material: it.Material ?? "",
+              vehicleModel: it.VehicleModel ?? "",
+              itemUsageClassificationCode: it.ItemUsageClassificationCode ?? "",
+              businessUnit: it.BusinessUnit ?? "",
+              packQty: it.PackQty ?? 0,
+              hasImage: false,
+              hasDrawing: Boolean(it.DrawingNo),
+              updatedAt: it.UpdatedAt ? new Date(it.UpdatedAt).toLocaleString("ko-KR") : "",
+              updatedBy: it.UpdatedBy ?? "",
+              purchaseUnitPrice: it.PurchaseUnitPrice ?? undefined,
+              salesUnitPrice: it.SalesUnitPrice ?? undefined,
+              currencyCode: it.CurrencyCode ?? undefined,
+              lastReceiptUnitPrice: it.LastReceiptUnitPrice ?? undefined,
+              standardCost: it.StandardCost ?? undefined,
+              internalUnitPrice: it.InternalUnitPrice ?? undefined,
+              buyerCode: it.BuyerCode ?? undefined,
+              salesRepCode: it.SalesRepCode ?? undefined,
+              requirementRepCode: it.RequirementRepCode ?? undefined,
+              valueCategoryCode: it.ValueCategoryCode ?? undefined,
+              materialOrderPolicyCode: it.MaterialOrderPolicyCode ?? undefined,
+              procurementLeadTime: it.ProcurementLeadTime ?? undefined,
+              standardLotSize: it.StandardLotSize ?? undefined,
+              minLotSize: it.MinLotSize ?? undefined,
+              safetyStock: it.SafetyStock ?? undefined,
+              reorderPoint: it.ReorderPoint ?? undefined,
+              avgDefectRate: it.AvgDefectRate ?? undefined,
+              inventoryCountCycle: it.InventoryCountCycle ?? undefined,
+              drawingSize: it.DrawingSize ?? undefined,
+              manufacturerName: it.ManufacturerName ?? undefined,
+              productId: it.ProductId ?? undefined,
+              unitProductionQty: it.UnitProductionQty ?? undefined,
+              hNoDiameter: it.HNoDiameter ?? undefined,
+              lNoSpecificGravity: it.LNoSpecificGravity ?? undefined,
+              customerWarehouse: it.CustomerWarehouse ?? undefined,
+              deliveryContainer: it.DeliveryContainer ?? undefined,
+              receiptContainer: it.ReceiptContainer ?? undefined,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+        setHasSearched(true);
+      }
+  }, []);
+  const [filters, setFilters] = useCachedState<ItemFilterState>("items/filters", {
     itemNo: "",
     itemName: "",
     supplierName: "",
-    itemSelection: "",
-    owner: "",
-    itemUserCategoryCode: "",
-    material: "",
-    containsItemNo: "",
-    vehicleModel: "",
-    specification: "",
     itemStatusCategory: "",
+    specification: "",
+    form: "",
     type: "",
-    itemUsageClassificationCode: "",
     supplierItemNo: "",
+    supplierCode: "",
+    drawingNo: "",
+    vehicleModel: "",
+    material: "",
+    warehouse: "",
+    currencyCode: "",
     businessUnit: "",
     packQty: "",
-    drawingNo: "",
-    reload: false,
-    excludeMold: false,
-    searchAll: false,
+    itemUserCategoryCode: "",
+    itemUsageClassificationCode: "",
   });
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [registerSheetOpen, setRegisterSheetOpen] = useState(false);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ItemMasterRecord | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useCachedState<number>("items/page", 1);
   const pageSize = 10;
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<
     "export" | "sort" | "columns" | "view"
   >("sort");
-  const [sortKey, setSortKey] = useState<keyof ItemMasterRecord>("itemNo");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [stripedRows, setStripedRows] = useState(true);
-  const [compactView, setCompactView] = useState(true);
+  const [sortKey, setSortKey] = useCachedState<keyof ItemMasterRecord>("items/sortKey", "itemNo");
+  const [sortDir, setSortDir] = useCachedState<"asc" | "desc">("items/sortDir", "asc");
+  const [stripedRows, setStripedRows] = useCachedState<boolean>("items/stripedRows", true);
+  const [compactView, setCompactView] = useCachedState<boolean>("items/compactView", true);
   const [excelSheetOpen, setExcelSheetOpen] = useState(false);
   const [excelResultMessage, setExcelResultMessage] = useState<string | null>(
     null
   );
+  const [excelSelectedFile, setExcelSelectedFile] = useState<File | null>(null);
+  const [excelRegisterDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+  const [excelManager, setExcelManager] = useState("");
+  const excelFileInputRef = useRef<HTMLInputElement>(null);
 
   const getItemByNo = useCallback((itemNo: string): Partial<ItemRegisterBasicInfo> | null => {
     const found = rows.find((it) => it.itemNo === itemNo);
@@ -685,25 +832,24 @@ export default function ItemsPage() {
 
   const resetFilters = () => {
     setFilters({
-      ...filters,
-      workingItemNo: "",
       itemNo: "",
       itemName: "",
       supplierName: "",
-      itemSelection: "",
-      owner: "",
-      itemUserCategoryCode: "",
-      material: "",
-      containsItemNo: "",
-      vehicleModel: "",
-      specification: "",
       itemStatusCategory: "",
+      specification: "",
+      form: "",
       type: "",
-      itemUsageClassificationCode: "",
       supplierItemNo: "",
+      supplierCode: "",
+      drawingNo: "",
+      vehicleModel: "",
+      material: "",
+      warehouse: "",
+      currencyCode: "",
       businessUnit: "",
       packQty: "",
-      drawingNo: "",
+      itemUserCategoryCode: "",
+      itemUsageClassificationCode: "",
     });
     setPage(1);
   };
@@ -711,46 +857,28 @@ export default function ItemsPage() {
   const filteredItems = useMemo(() => {
     return rows.filter((it) => {
       const f = filters;
-      if (f.workingItemNo && !it.workingItemNo.includes(f.workingItemNo))
-        return false;
-      if (f.itemNo && !it.itemNo.includes(f.itemNo)) return false;
-      if (
-        f.itemName &&
-        !it.itemName.toLowerCase().includes(f.itemName.toLowerCase())
-      )
-        return false;
-      if (f.supplierName && !it.supplierName.includes(f.supplierName))
-        return false;
-      if (f.itemSelection && it.itemSelection !== f.itemSelection) return false;
-      if (f.owner && it.owner !== f.owner) return false;
-      if (
-        f.itemUserCategoryCode &&
-        it.itemUserCategoryCode !== f.itemUserCategoryCode
-      )
-        return false;
-      if (f.material && !it.material.includes(f.material)) return false;
-      if (f.containsItemNo && !it.itemNo.includes(f.containsItemNo))
-        return false;
-      if (f.vehicleModel && !it.vehicleModel.includes(f.vehicleModel))
-        return false;
-      if (f.specification && !it.specification.includes(f.specification))
-        return false;
-      if (
-        f.itemStatusCategory &&
-        it.itemStatusCategory !== f.itemStatusCategory
-      )
-        return false;
-      if (f.type && it.type !== f.type) return false;
-      if (
-        f.itemUsageClassificationCode &&
-        it.itemUsageClassificationCode !== f.itemUsageClassificationCode
-      )
-        return false;
-      if (f.supplierItemNo && !it.supplierItemNo.includes(f.supplierItemNo))
-        return false;
-      if (f.businessUnit && it.businessUnit !== f.businessUnit) return false;
+      const inc = (a: string | null | undefined, b: string) =>
+        (a ?? "").toLowerCase().includes(b.toLowerCase());
+      const eq = (a: string | null | undefined, b: string) =>
+        (a ?? "") === b;
+      if (f.itemNo && !inc(it.itemNo, f.itemNo)) return false;
+      if (f.itemName && !inc(it.itemName, f.itemName)) return false;
+      if (f.supplierName && !inc(it.supplierName, f.supplierName)) return false;
+      if (f.itemStatusCategory && !eq(it.itemStatusCategory, f.itemStatusCategory)) return false;
+      if (f.specification && !inc(it.specification, f.specification)) return false;
+      if (f.form && !eq(it.form, f.form)) return false;
+      if (f.type && !eq(it.type, f.type)) return false;
+      if (f.supplierItemNo && !inc(it.supplierItemNo, f.supplierItemNo)) return false;
+      if (f.supplierCode && !inc(it.supplierCode, f.supplierCode)) return false;
+      if (f.drawingNo && !inc(it.drawingNo, f.drawingNo)) return false;
+      if (f.vehicleModel && !inc(it.vehicleModel, f.vehicleModel)) return false;
+      if (f.material && !inc(it.material, f.material)) return false;
+      if (f.warehouse && !eq(it.warehouse, f.warehouse)) return false;
+      if (f.currencyCode && !eq(it.currencyCode, f.currencyCode)) return false;
+      if (f.businessUnit && !eq(it.businessUnit, f.businessUnit)) return false;
       if (f.packQty && it.packQty !== Number(f.packQty)) return false;
-      if (f.drawingNo && !it.drawingNo.includes(f.drawingNo)) return false;
+      if (f.itemUserCategoryCode && !eq(it.itemUserCategoryCode, f.itemUserCategoryCode)) return false;
+      if (f.itemUsageClassificationCode && !eq(it.itemUsageClassificationCode, f.itemUsageClassificationCode)) return false;
       return true;
     });
   }, [filters, rows]);
@@ -782,6 +910,7 @@ export default function ItemsPage() {
   const start = (page - 1) * pageSize;
   const paged = sortedItems.slice(start, start + pageSize);
 
+  /** 품목관리 Data Grid 컬럼 정의 (품목.xls 컬럼 순서·헤더 반영) */
   const allItemColumns = useMemo(
     () =>
       [
@@ -805,38 +934,19 @@ export default function ItemsPage() {
         key: "specification",
         header: "규격",
         minWidth: 160,
-        maxWidth: 160,
-        cell: (it: ItemMasterRecord) => it.specification,
+        cell: (it: ItemMasterRecord) => it.specification ?? "-",
         cellClassName: "text-muted-foreground truncate",
       },
-      { key: "form", header: "형태", cell: (it: ItemMasterRecord) => it.form },
-      { key: "type", header: "유형", cell: (it: ItemMasterRecord) => it.type },
-      { key: "unit", header: "단위", cell: (it: ItemMasterRecord) => it.unit },
-      {
-        key: "supplierItemNo",
-        header: "거래처품목번호",
-        minWidth: 120,
-        maxWidth: 120,
-        cell: (it: ItemMasterRecord) => it.supplierItemNo,
-        cellClassName: "truncate",
-      },
-      {
-        key: "drawingNo",
-        header: "도면번호",
-        minWidth: 110,
-        maxWidth: 110,
-        cell: (it: ItemMasterRecord) => it.drawingNo,
-        cellClassName: "truncate",
-      },
-      {
-        key: "supplierCode",
-        header: "거래처번호",
-        cell: (it: ItemMasterRecord) => it.supplierCode,
-      },
+      { key: "form", header: "형태", minWidth: 80, cell: (it: ItemMasterRecord) => it.form ?? "-" },
+      { key: "type", header: "유형", minWidth: 90, cell: (it: ItemMasterRecord) => it.type ?? "-" },
+      { key: "unit", header: "단위", minWidth: 60, cell: (it: ItemMasterRecord) => it.unit ?? "-" },
+      { key: "supplierItemNo", header: "거래처품목번호", minWidth: 120, cell: (it: ItemMasterRecord) => it.supplierItemNo ?? "-" },
+      { key: "drawingNo", header: "도면번호", minWidth: 100, cell: (it: ItemMasterRecord) => it.drawingNo ?? "-" },
+      { key: "supplierCode", header: "거래처번호", minWidth: 110, cell: (it: ItemMasterRecord) => it.supplierCode ?? "-" },
       {
         key: "itemStatusCategory",
         header: "품목상태구분",
-        minWidth: 90,
+        minWidth: 100,
         cell: (it: ItemMasterRecord) => (
           <Badge
             variant={statusBadgeVariant[it.itemStatusCategory]}
@@ -850,43 +960,168 @@ export default function ItemsPage() {
           </Badge>
         ),
       },
-      {
-        key: "salesUnitCode",
-        header: "매단위코드",
-        cell: (it: ItemMasterRecord) => it.salesUnitCode,
-      },
-      {
-        key: "unitConversion",
-        header: "단위변환",
-        cell: (it: ItemMasterRecord) => it.unitConversion,
-      },
+      { key: "purchaseUnitCode", header: "구매단위코드", minWidth: 100, cell: (it: ItemMasterRecord) => it.purchaseUnitCode ?? "-" },
+      { key: "purchaseUnitConversion", header: "구매단위변환계수", minWidth: 120, cell: (it: ItemMasterRecord) => it.purchaseUnitConversion ?? "-" },
+      { key: "salesUnitCode", header: "판매단위코드", minWidth: 100, cell: (it: ItemMasterRecord) => it.salesUnitCode ?? "-" },
+      { key: "unitConversion", header: "판매단위변환계수", minWidth: 120, cell: (it: ItemMasterRecord) => it.unitConversion ?? "-" },
       {
         key: "itemWeight",
-        header: "품목중량(kg)",
+        header: "품목중량",
+        minWidth: 90,
         align: "right" as const,
-        cell: (it: ItemMasterRecord) => it.itemWeight.toFixed(2),
         cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.itemWeight != null ? it.itemWeight.toLocaleString("ko-KR") : "-",
+      },
+      { key: "drawingSize", header: "품목도면크기", minWidth: 100, cell: (it: ItemMasterRecord) => it.drawingSize ?? "-" },
+      { key: "material", header: "품목재질명", minWidth: 100, cell: (it: ItemMasterRecord) => it.material ?? "-" },
+      { key: "manufacturerName", header: "품목제작사명", minWidth: 110, cell: (it: ItemMasterRecord) => it.manufacturerName ?? "-" },
+      { key: "registeredAt", header: "품목목록등록일자", minWidth: 120, cell: (it: ItemMasterRecord) => it.registeredAt ?? "-" },
+      { key: "revisionDate", header: "품목목록보수일자", minWidth: 120, cell: (it: ItemMasterRecord) => it.revisionDate ?? "-" },
+      { key: "itemJitCategory", header: "품목JIT구분", minWidth: 100, cell: (it: ItemMasterRecord) => it.itemJitCategory ?? "-" },
+      { key: "buyerCode", header: "구매담당자코드", minWidth: 110, cell: (it: ItemMasterRecord) => it.buyerCode ?? "-" },
+      { key: "salesRepCode", header: "영업담당자코드", minWidth: 110, cell: (it: ItemMasterRecord) => it.salesRepCode ?? "-" },
+      { key: "requirementRepCode", header: "소요담당자코드", minWidth: 110, cell: (it: ItemMasterRecord) => it.requirementRepCode ?? "-" },
+      { key: "itemImportCategory", header: "품목수입구분", minWidth: 100, cell: (it: ItemMasterRecord) => it.itemImportCategory ?? "-" },
+      { key: "itemExportCategory", header: "품목수출구분", minWidth: 100, cell: (it: ItemMasterRecord) => it.itemExportCategory ?? "-" },
+      {
+        key: "purchaseUnitPrice",
+        header: "구매단가",
+        minWidth: 110,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.purchaseUnitPrice != null ? it.purchaseUnitPrice.toLocaleString("ko-KR") : "-",
       },
       {
-        key: "drawingFlag",
-        header: "목록도면",
-        cell: (it: ItemMasterRecord) => (it.drawingFlag ? "Y" : "N"),
+        key: "lastReceiptUnitPrice",
+        header: "최종입고단가",
+        minWidth: 110,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.lastReceiptUnitPrice != null ? it.lastReceiptUnitPrice.toLocaleString("ko-KR") : "-",
       },
       {
-        key: "materialFlag",
-        header: "목록재질",
-        cell: (it: ItemMasterRecord) => (it.materialFlag ? "Y" : "N"),
+        key: "salesUnitPrice",
+        header: "판매단가",
+        minWidth: 110,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.salesUnitPrice != null ? it.salesUnitPrice.toLocaleString("ko-KR") : "-",
       },
       {
-        key: "repairFlag",
-        header: "목록보수",
-        cell: (it: ItemMasterRecord) => (it.repairFlag ? "Y" : "N"),
+        key: "standardCost",
+        header: "품목표준원가",
+        minWidth: 110,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.standardCost != null ? it.standardCost.toLocaleString("ko-KR") : "-",
+      },
+      { key: "valueCategoryCode", header: "가치분류코드", minWidth: 100, cell: (it: ItemMasterRecord) => it.valueCategoryCode ?? "-" },
+      { key: "currencyCode", header: "통화코드", minWidth: 80, cell: (it: ItemMasterRecord) => it.currencyCode ?? "-" },
+      { key: "materialOrderPolicyCode", header: "자재발주방침코드", minWidth: 120, cell: (it: ItemMasterRecord) => it.materialOrderPolicyCode ?? "-" },
+      { key: "procurementLeadTime", header: "품목조달기간", minWidth: 110, cell: (it: ItemMasterRecord) => it.procurementLeadTime ?? "-" },
+      {
+        key: "maxLotSize",
+        header: "품목최대LOT크기",
+        minWidth: 120,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.maxLotSize != null ? it.maxLotSize.toLocaleString("ko-KR") : "-",
       },
       {
-        key: "miscFlag",
-        header: "목록기타",
-        cell: (it: ItemMasterRecord) => (it.miscFlag ? "Y" : "N"),
+        key: "standardLotSize",
+        header: "품목표준LOT크기",
+        minWidth: 120,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.standardLotSize != null ? it.standardLotSize.toLocaleString("ko-KR") : "-",
       },
+      {
+        key: "minLotSize",
+        header: "품목최소LOT크기",
+        minWidth: 120,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.minLotSize != null ? it.minLotSize.toLocaleString("ko-KR") : "-",
+      },
+      {
+        key: "safetyStock",
+        header: "품목안전재고량",
+        minWidth: 110,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.safetyStock != null ? it.safetyStock.toLocaleString("ko-KR") : "-",
+      },
+      {
+        key: "reorderPoint",
+        header: "품목재발주점",
+        minWidth: 110,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.reorderPoint != null ? it.reorderPoint.toLocaleString("ko-KR") : "-",
+      },
+      { key: "avgDefectRate", header: "품목평균불량률", minWidth: 110, cell: (it: ItemMasterRecord) => (it.avgDefectRate != null ? String(it.avgDefectRate) : "-") },
+      { key: "inventoryCountCycle", header: "품목재고실사주기", minWidth: 120, cell: (it: ItemMasterRecord) => (it.inventoryCountCycle != null ? String(it.inventoryCountCycle) : "-") },
+      { key: "lastShipmentDate", header: "품목최종출고일자", minWidth: 120, cell: (it: ItemMasterRecord) => it.lastShipmentDate ?? "-" },
+      { key: "lastReceiptDate", header: "품목최종입고일자", minWidth: 120, cell: (it: ItemMasterRecord) => it.lastReceiptDate ?? "-" },
+      { key: "productId", header: "상품ID", minWidth: 100, cell: (it: ItemMasterRecord) => it.productId ?? "-" },
+      {
+        key: "unitProductionQty",
+        header: "단위생산량",
+        minWidth: 100,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.unitProductionQty != null ? it.unitProductionQty.toLocaleString("ko-KR") : "-",
+      },
+      { key: "hsCode", header: "HS코드", minWidth: 90, cell: (it: ItemMasterRecord) => it.hsCode ?? "-" },
+      { key: "warehouse", header: "창고코드", minWidth: 90, cell: (it: ItemMasterRecord) => it.warehouse ?? "-" },
+      { key: "storageLocation", header: "재고저장위치코드", minWidth: 120, cell: (it: ItemMasterRecord) => it.storageLocation ?? "-" },
+      { key: "imageInfo", header: "이미지", minWidth: 80, cell: (it: ItemMasterRecord) => it.imageInfo ?? (it.hasImage ? "Y" : "-") },
+      { key: "drawingInfo", header: "도면", minWidth: 80, cell: (it: ItemMasterRecord) => it.drawingInfo ?? (it.hasDrawing ? "Y" : "-") },
+      { key: "vehicleModel", header: "모델", minWidth: 100, cell: (it: ItemMasterRecord) => it.vehicleModel ?? "-" },
+      { key: "itemUserCategoryCode", header: "품목사용자분류코드", minWidth: 130, cell: (it: ItemMasterRecord) => it.itemUserCategoryCode ?? "-" },
+      { key: "itemUserTypeCode", header: "품목사용자구분코드", minWidth: 130, cell: (it: ItemMasterRecord) => it.itemUserTypeCode ?? "-" },
+      { key: "receiptToShipImmediate", header: "입고즉시출고여부", minWidth: 120, cell: (it: ItemMasterRecord) => it.receiptToShipImmediate ?? "-" },
+      { key: "shipWarehouse", header: "출고창고", minWidth: 90, cell: (it: ItemMasterRecord) => it.shipWarehouse ?? "-" },
+      { key: "shipStorageLocation", header: "출고저장위치", minWidth: 100, cell: (it: ItemMasterRecord) => it.shipStorageLocation ?? "-" },
+      { key: "imageFileName", header: "이미지파일이름", minWidth: 120, cell: (it: ItemMasterRecord) => it.imageFileName ?? "-" },
+      { key: "drawingFileName", header: "도면파일이름", minWidth: 120, cell: (it: ItemMasterRecord) => it.drawingFileName ?? it.drawingNo ?? "-" },
+      { key: "yieldRate", header: "수율", minWidth: 80, cell: (it: ItemMasterRecord) => (it.yieldRate != null ? String(it.yieldRate) : "-") },
+      { key: "customerWarehouse", header: "고객하치장", minWidth: 90, cell: (it: ItemMasterRecord) => it.customerWarehouse ?? "-" },
+      {
+        key: "internalUnitPrice",
+        header: "사내단가",
+        minWidth: 100,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.internalUnitPrice != null ? it.internalUnitPrice.toLocaleString("ko-KR") : "-",
+      },
+      { key: "hNoDiameter", header: "H-no(직경)", minWidth: 90, cell: (it: ItemMasterRecord) => (it.hNoDiameter != null ? String(it.hNoDiameter) : "-") },
+      { key: "lNoSpecificGravity", header: "L-no(비중)", minWidth: 90, cell: (it: ItemMasterRecord) => (it.lNoSpecificGravity != null ? String(it.lNoSpecificGravity) : "-") },
+      { key: "supplierName", header: "거래처명", minWidth: 120, cell: (it: ItemMasterRecord) => it.supplierName ?? "-" },
+      { key: "businessUnit", header: "사업장", minWidth: 90, cell: (it: ItemMasterRecord) => it.businessUnit ?? "-" },
+      {
+        key: "packQty",
+        header: "포장수량",
+        minWidth: 90,
+        align: "right" as const,
+        cellClassName: "text-right",
+        cell: (it: ItemMasterRecord) =>
+          it.packQty != null ? it.packQty.toLocaleString("ko-KR") : "-",
+      },
+      { key: "deliveryContainer", header: "납품용기", minWidth: 90, cell: (it: ItemMasterRecord) => it.deliveryContainer ?? "-" },
+      { key: "receiptContainer", header: "납입용기", minWidth: 90, cell: (it: ItemMasterRecord) => it.receiptContainer ?? "-" },
     ] as const,
     []
   );
@@ -910,34 +1145,44 @@ export default function ItemsPage() {
     [allItemColumns]
   );
 
-  const exportCsv = useCallback(() => {
+  const exportExcel = useCallback(async () => {
     const cols = itemColumns;
-    const rows = paged;
-    const escape = (v: unknown) => {
-      const s = v == null ? "" : String(v);
-      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    };
-    const header = cols.map((c) => escape(c.header)).join(",");
-    const body = rows
-      .map((r) =>
-        cols
-          .map((c) => escape((r as Record<string, unknown>)[c.key]))
-          .join(",")
-      )
-      .join("\n");
-    const csv = `${header}\n${body}\n`;
+    // 페이징이 아닌, 현재 검색·정렬이 적용된 전체 목록을 내보내기
+    const rows = sortedItems;
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `items_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, [itemColumns, paged]);
+    // 스타일 적용을 위해 xlsx-js-style 사용
+    const XLSX = await import("xlsx-js-style");
+    const header = cols.map((c) => c.header);
+    const data = rows.map((r) =>
+      cols.map((c) => {
+        const value = (r as any)[c.key];
+        return value == null ? "" : value;
+      })
+    );
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+
+    // 전체 셀 글자 크기를 10pt로 통일
+    Object.keys(ws).forEach((cellAddr) => {
+      if (cellAddr.startsWith("!")) return;
+      const cell = (ws as any)[cellAddr];
+      if (!cell) return;
+      const prevStyle = cell.s ?? {};
+      cell.s = {
+        ...prevStyle,
+        font: {
+          ...(prevStyle.font ?? {}),
+          sz: 10,
+        },
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "품목");
+
+    const fileName = `items_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    (XLSX as any).writeFile(wb, fileName);
+  }, [itemColumns, sortedItems]);
 
   const toggleSortDir = useCallback(() => {
     setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -965,7 +1210,7 @@ export default function ItemsPage() {
 
         const XLSX = await import("xlsx");
         const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: "array" });
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
         const firstSheet = workbook.SheetNames[0];
         if (!firstSheet) {
           setExcelResultMessage("워크북에 시트가 없습니다.");
@@ -996,7 +1241,7 @@ export default function ItemsPage() {
         const findIndex = (candidates: string[]) =>
           header.findIndex((h) => candidates.includes(h));
 
-        // 허용되는 헤더 이름(한글/영문)을 넉넉하게 정의
+        // 핵심 키 컬럼 (필수)
         const itemNoIdx = findIndex([
           "품목번호",
           "품번",
@@ -1011,12 +1256,74 @@ export default function ItemsPage() {
           "item_name",
           "description",
         ]);
-        const specIdx = findIndex([
-          "규격",
-          "spec",
-          "specification",
-          "규격명",
-        ]);
+
+        // 나머지 컬럼 인덱스 (있으면 매핑, 없으면 생략)
+        const specIdx = findIndex(["규격", "spec", "specification", "규격명"]);
+        const formIdx = findIndex(["형태"]);
+        const typeIdx = findIndex(["유형"]);
+        const unitIdx = findIndex(["단위"]);
+        const supplierItemNoIdx = findIndex(["거래처품목번호"]);
+        const drawingNoIdx = findIndex(["도면번호"]);
+        const supplierCodeIdx = findIndex(["거래처번호"]);
+        const supplierNameIdx = findIndex(["거래처명"]);
+        const itemStatusIdx = findIndex(["품목상태구분"]);
+        const purchaseUnitCodeIdx = findIndex(["구매단위코드"]);
+        const purchaseUnitConvIdx = findIndex(["구매단위변환계수"]);
+        const salesUnitCodeIdx = findIndex(["판매단위코드"]);
+        const salesUnitConvIdx = findIndex(["판매단위변환계수"]);
+        const itemWeightIdx = findIndex(["품목중량"]);
+        const drawingSizeIdx = findIndex(["품목도면크기"]);
+        const materialIdx = findIndex(["품목재질명"]);
+        const manufacturerIdx = findIndex(["품목제작사명"]);
+        const registeredAtIdx = findIndex(["품목목록등록일자"]);
+        const revisionDateIdx = findIndex(["품목목록보수일자"]);
+        const itemJitIdx = findIndex(["품목jit구분"]);
+        const buyerCodeIdx = findIndex(["구매담당자코드"]);
+        const salesRepCodeIdx = findIndex(["영업담당자코드"]);
+        const requirementRepCodeIdx = findIndex(["소요담당자코드"]);
+        const itemImportIdx = findIndex(["품목수입구분"]);
+        const itemExportIdx = findIndex(["품목수출구분"]);
+        const purchaseUnitPriceIdx = findIndex(["구매단가"]);
+        const lastReceiptUnitPriceIdx = findIndex(["최종입고단가"]);
+        const salesUnitPriceIdx = findIndex(["판매단가"]);
+        const standardCostIdx = findIndex(["품목표준원가"]);
+        const valueCategoryIdx = findIndex(["가치분류코드"]);
+        const currencyCodeIdx = findIndex(["통화코드"]);
+        const materialOrderPolicyIdx = findIndex(["자재발주방침코드"]);
+        const procurementLeadTimeIdx = findIndex(["품목조달기간"]);
+        const maxLotSizeIdx = findIndex(["품목최대lot크기"]);
+        const standardLotSizeIdx = findIndex(["품목표준lot크기"]);
+        const minLotSizeIdx = findIndex(["품목최소lot크기"]);
+        const safetyStockIdx = findIndex(["품목안전재고량"]);
+        const reorderPointIdx = findIndex(["품목재발주점"]);
+        const avgDefectRateIdx = findIndex(["품목평균불량률"]);
+        const inventoryCountCycleIdx = findIndex(["품목재고실사주기"]);
+        const lastShipmentDateIdx = findIndex(["품목최종출고일자"]);
+        const lastReceiptDateIdx = findIndex(["품목최종입고일자"]);
+        const productIdIdx = findIndex(["상품id"]);
+        const unitProductionQtyIdx = findIndex(["단위생산량"]);
+        const hsCodeIdx = findIndex(["hs코드"]);
+        const warehouseIdx = findIndex(["창고코드"]);
+        const storageLocationIdx = findIndex(["재고저장위치코드"]);
+        const imageIdx = findIndex(["이미지"]);
+        const drawingIdx = findIndex(["도면"]);
+        const vehicleModelIdx = findIndex(["모델"]);
+        const itemUserCategoryIdx = findIndex(["품목사용자분류코드"]);
+        const itemUserTypeIdx = findIndex(["품목사용자구분코드"]);
+        const receiptToShipIdx = findIndex(["입고즉시출고여부"]);
+        const shipWarehouseIdx = findIndex(["출고창고"]);
+        const shipStorageLocationIdx = findIndex(["출고저장위치"]);
+        const imageFileNameIdx = findIndex(["이미지파일이름"]);
+        const drawingFileNameIdx = findIndex(["도면파일이름"]);
+        const yieldRateIdx = findIndex(["수율"]);
+        const customerWarehouseIdx = findIndex(["고객하치장"]);
+        const internalUnitPriceIdx = findIndex(["사내단가"]);
+        const hNoIdx = findIndex(["h-no(직경)"]);
+        const lNoIdx = findIndex(["l-no(비중)"]);
+        const businessUnitIdx = findIndex(["사업장"]);
+        const packQtyIdx = findIndex(["포장수량"]);
+        const deliveryContainerIdx = findIndex(["납품용기"]);
+        const receiptContainerIdx = findIndex(["납입용기"]);
 
         if (itemNoIdx < 0 || itemNameIdx < 0) {
           setExcelResultMessage(
@@ -1040,11 +1347,24 @@ export default function ItemsPage() {
         let invalid = 0;
         const newItems: ItemMasterRecord[] = [];
 
+        const getString = (row: any[], idx: number) => {
+          if (idx < 0) return "";
+          const v = row[idx];
+          if (v instanceof Date) return v.toISOString().slice(0, 10);
+          return String(v ?? "").trim();
+        };
+        const getNumber = (row: any[], idx: number): number | undefined => {
+          if (idx < 0) return undefined;
+          const raw = String(row[idx] ?? "").replace(/,/g, "").trim();
+          if (!raw) return undefined;
+          const n = Number(raw);
+          return Number.isNaN(n) ? undefined : n;
+        };
+
         body.forEach((row) => {
-          const itemNo = String(row[itemNoIdx] ?? "").trim();
-          const itemName = String(row[itemNameIdx] ?? "").trim();
-          const specification =
-            specIdx >= 0 ? String(row[specIdx] ?? "").trim() : "";
+          const itemNo = getString(row, itemNoIdx);
+          const itemName = getString(row, itemNameIdx);
+          const specification = getString(row, specIdx);
 
           if (!itemNo || !itemName) {
             invalid += 1;
@@ -1060,39 +1380,104 @@ export default function ItemsPage() {
           added += 1;
           const id = `ITM-BULK-${String(Date.now())}-${added}`;
 
+          const rawStatus = getString(row, itemStatusIdx);
+          const status: ItemStatusCategory =
+            rawStatus === "사용(양산)" || rawStatus === "사용" || rawStatus === ""
+              ? "ACTIVE"
+              : rawStatus === "사용안함"
+                ? "INACTIVE"
+                : "BLOCKED"; // 예: 사양화 등
+
           newItems.push({
             id,
             itemNo,
             itemName,
             specification,
-            form: "",
-            type: "",
-            unit: "EA",
-            supplierItemNo: "",
-            drawingNo: "",
-            supplierCode: "",
-            supplierName: "",
-            itemStatusCategory: "ACTIVE",
-            salesUnitCode: "EA",
-            unitConversion: "1 EA = 1 EA",
-            itemWeight: 0,
-            drawingFlag: false,
-            materialFlag: false,
+            form: getString(row, formIdx),
+            type: getString(row, typeIdx),
+            unit: getString(row, unitIdx) || "EA",
+            supplierItemNo: getString(row, supplierItemNoIdx),
+            drawingNo: getString(row, drawingNoIdx),
+            supplierCode: getString(row, supplierCodeIdx),
+            supplierName: getString(row, supplierNameIdx),
+            itemStatusCategory: status,
+            salesUnitCode: getString(row, salesUnitCodeIdx) || "EA",
+            unitConversion: getString(row, salesUnitConvIdx) || "1 EA = 1 EA",
+            itemWeight: getNumber(row, itemWeightIdx) ?? 0,
+            drawingFlag: !!getString(row, drawingIdx),
+            materialFlag: !!getString(row, materialIdx),
             repairFlag: false,
             miscFlag: false,
             workingItemNo: "",
             itemSelection: "",
             owner: "",
-            itemUserCategoryCode: "",
-            material: "",
-            vehicleModel: "",
+            itemUserCategoryCode: getString(row, itemUserCategoryIdx),
+            material: getString(row, materialIdx),
+            vehicleModel: getString(row, vehicleModelIdx),
             itemUsageClassificationCode: "",
-            businessUnit: "",
-            packQty: 0,
-            hasImage: false,
-            hasDrawing: false,
+            businessUnit: getString(row, businessUnitIdx),
+            packQty: getNumber(row, packQtyIdx) ?? 0,
+            hasImage: !!getString(row, imageIdx),
+            hasDrawing: !!getString(row, drawingIdx),
             updatedAt: nowStr,
             updatedBy: "EXCEL 업로드",
+            registeredAt: getString(row, registeredAtIdx),
+            revisionDate: getString(row, revisionDateIdx),
+            purchaseUnitPrice: getNumber(row, purchaseUnitPriceIdx),
+            currencyCode: getString(row, currencyCodeIdx),
+            lastReceiptDate: getString(row, lastReceiptDateIdx),
+            warehouse: getString(row, warehouseIdx),
+            storageLocation: getString(row, storageLocationIdx),
+            purchaseUnitCode: getString(row, purchaseUnitCodeIdx),
+            purchaseUnitConversion: getString(row, purchaseUnitConvIdx),
+            lastReceiptUnitPrice: getNumber(row, lastReceiptUnitPriceIdx),
+            salesUnitPrice: getNumber(row, salesUnitPriceIdx),
+            standardCost: getNumber(row, standardCostIdx),
+            procurementLeadTime:
+              getNumber(row, procurementLeadTimeIdx) ??
+              getString(row, procurementLeadTimeIdx),
+            standardLotSize: getNumber(row, standardLotSizeIdx),
+            lastShipmentDate: getString(row, lastShipmentDateIdx),
+            productId: getString(row, productIdIdx),
+            unitProductionQty: getNumber(row, unitProductionQtyIdx),
+            itemJitCategory: getString(row, itemJitIdx),
+            itemImportCategory: getString(row, itemImportIdx),
+            itemExportCategory: getString(row, itemExportIdx),
+            shipWarehouse: getString(row, shipWarehouseIdx),
+            shipStorageLocation: getString(row, shipStorageLocationIdx),
+            imageFileName: getString(row, imageFileNameIdx),
+            drawingFileName: getString(row, drawingFileNameIdx),
+            drawingSize: getString(row, drawingSizeIdx),
+            manufacturerName: getString(row, manufacturerIdx),
+            buyerCode: getString(row, buyerCodeIdx),
+            salesRepCode: getString(row, salesRepCodeIdx),
+            requirementRepCode: getString(row, requirementRepCodeIdx),
+            valueCategoryCode: getString(row, valueCategoryIdx),
+            materialOrderPolicyCode: getString(row, materialOrderPolicyIdx),
+            maxLotSize: getNumber(row, maxLotSizeIdx),
+            minLotSize: getNumber(row, minLotSizeIdx),
+            safetyStock: getNumber(row, safetyStockIdx),
+            reorderPoint: getNumber(row, reorderPointIdx),
+            avgDefectRate:
+              getNumber(row, avgDefectRateIdx) ??
+              getString(row, avgDefectRateIdx),
+            inventoryCountCycle:
+              getNumber(row, inventoryCountCycleIdx) ??
+              getString(row, inventoryCountCycleIdx),
+            hsCode: getString(row, hsCodeIdx),
+            imageInfo: getString(row, imageIdx),
+            drawingInfo: getString(row, drawingIdx),
+            itemUserTypeCode: getString(row, itemUserTypeIdx),
+            yieldRate:
+              getNumber(row, yieldRateIdx) ?? getString(row, yieldRateIdx),
+            customerWarehouse: getString(row, customerWarehouseIdx),
+            internalUnitPrice: getNumber(row, internalUnitPriceIdx),
+            hNoDiameter:
+              getNumber(row, hNoIdx) ?? getString(row, hNoIdx),
+            lNoSpecificGravity:
+              getNumber(row, lNoIdx) ?? getString(row, lNoIdx),
+            deliveryContainer: getString(row, deliveryContainerIdx),
+            receiptContainer: getString(row, receiptContainerIdx),
           });
         });
 
@@ -1105,11 +1490,36 @@ export default function ItemsPage() {
           return;
         }
 
-        setRows((prev) => [...newItems, ...prev]);
-        setPage(1);
-        setExcelResultMessage(
-          `업로드 결과\n- 전체 행: ${totalRows}행\n- 신규 등록: ${added}행\n- 중복 품목번호로 건너뜀: ${duplicate}행\n- 필수값(품목번호/품목명) 누락: ${invalid}행`
-        );
+        // DB 저장
+        try {
+          const res = await fetch("/api/items/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items: newItems }),
+          });
+          if (!res.ok) {
+            const data = (await res.json().catch(() => null)) as
+              | { message?: string }
+              | null;
+            setExcelResultMessage(
+              data?.message ??
+                "DB에 저장하는 중 오류가 발생했습니다. 나중에 다시 시도해 주세요."
+            );
+          } else {
+            setRows((prev) => [...newItems, ...prev]);
+            setPage(1);
+            setExcelSelectedFile(null);
+            if (excelFileInputRef.current) excelFileInputRef.current.value = "";
+            setExcelResultMessage(
+              `업로드 결과\n- 전체 행: ${totalRows}행\n- 신규 등록: ${added}행\n- 중복 품목번호로 건너뜀: ${duplicate}행\n- 필수값(품목번호/품목명) 누락: ${invalid}행`
+            );
+          }
+        } catch (e) {
+          console.error(e);
+          setExcelResultMessage(
+            "DB에 연결할 수 없습니다. 서버 설정을 확인해 주세요."
+          );
+        }
       } catch (err) {
         console.error(err);
         setExcelResultMessage(
@@ -1137,7 +1547,7 @@ export default function ItemsPage() {
                 setEditSheetOpen(true);
                 setSelectedRowId(null);
               }}
-              onDelete={() => {
+              onDelete={async () => {
                 if (!selectedRowId) return;
                 const target = rows.find((r) => r.id === selectedRowId);
                 if (!target) return;
@@ -1145,6 +1555,9 @@ export default function ItemsPage() {
                   `선택한 품목을 삭제하시겠습니까?\n\n품목번호: ${target.itemNo}\n품목명: ${target.itemName}`
                 );
                 if (!ok) return;
+                const res = await fetch(`/api/items/${selectedRowId}`, { method: "DELETE" });
+                const data = await res.json();
+                if (!data.ok) { alert("삭제 실패: " + data.message); return; }
                 setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
                 setSelectedRowId(null);
                 setPage(1);
@@ -1152,10 +1565,9 @@ export default function ItemsPage() {
               editDisabled={!selectedRowId}
               deleteDisabled={!selectedRowId}
             />
-            <Button
-              variant="outline"
+            <PrimaryActionButton
               size="sm"
-              className="ml-1 flex items-center gap-1 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              className="ml-1 flex items-center gap-1 text-xs"
               onClick={() => {
                 setExcelResultMessage(null);
                 setExcelSheetOpen(true);
@@ -1163,7 +1575,7 @@ export default function ItemsPage() {
             >
               <Upload className="h-3.5 w-3.5" />
               EXCEL 업로드
-            </Button>
+            </PrimaryActionButton>
           </div>
         }
       />
@@ -1202,8 +1614,12 @@ export default function ItemsPage() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm">검색</Button>
+              <Button size="sm" onClick={handleSearch} disabled={loading}>
+                <Search className="mr-1.5 h-4 w-4" />
+                {loading ? "조회 중..." : "검색"}
+              </Button>
               <Button variant="outline" size="sm" onClick={resetFilters}>
+                <RotateCcw className="mr-1.5 h-4 w-4" />
                 필터 초기화
               </Button>
               <p className="text-[11px] text-muted-foreground">
@@ -1233,61 +1649,22 @@ export default function ItemsPage() {
 
           {/* 추가 검색 조건 (접기/펼치기) */}
           {showAdvancedFilters && (
-            <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Field
-                  label="작업할품목번호"
-                  value={filters.workingItemNo}
-                  onChange={(v) => handleFilterChange("workingItemNo", v)}
-                />
-                <Field
-                  label="품목선택"
-                  value={filters.itemSelection}
-                  onChange={(v) => handleFilterChange("itemSelection", v)}
-                />
-                <Field
-                  label="영업/구매담당"
-                  value={filters.owner}
-                  onChange={(v) => handleFilterChange("owner", v)}
-                />
-                <Field
-                  label="품목사용자구분코드"
-                  value={filters.itemUserCategoryCode}
-                  onChange={(v) =>
-                    handleFilterChange("itemUserCategoryCode", v)
-                  }
-                />
-                <Field
-                  label="재질"
-                  value={filters.material}
-                  onChange={(v) => handleFilterChange("material", v)}
-                />
-                <Field
-                  label="품목번호(포함)"
-                  value={filters.containsItemNo}
-                  onChange={(v) => handleFilterChange("containsItemNo", v)}
-                />
-                <Field
-                  label="모델(차종)"
-                  value={filters.vehicleModel}
-                  onChange={(v) => handleFilterChange("vehicleModel", v)}
-                />
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Field
                   label="규격"
                   value={filters.specification}
                   onChange={(v) => handleFilterChange("specification", v)}
                 />
                 <Field
-                  label="품목유형"
-                  value={filters.type}
-                  onChange={(v) => handleFilterChange("type", v)}
+                  label="형태"
+                  value={filters.form}
+                  onChange={(v) => handleFilterChange("form", v)}
                 />
                 <Field
-                  label="품목사용분류코드"
-                  value={filters.itemUsageClassificationCode}
-                  onChange={(v) =>
-                    handleFilterChange("itemUsageClassificationCode", v)
-                  }
+                  label="유형"
+                  value={filters.type}
+                  onChange={(v) => handleFilterChange("type", v)}
                 />
                 <Field
                   label="거래처품목번호"
@@ -1295,7 +1672,37 @@ export default function ItemsPage() {
                   onChange={(v) => handleFilterChange("supplierItemNo", v)}
                 />
                 <Field
-                  label="사업구분"
+                  label="거래처번호"
+                  value={filters.supplierCode}
+                  onChange={(v) => handleFilterChange("supplierCode", v)}
+                />
+                <Field
+                  label="도면번호"
+                  value={filters.drawingNo}
+                  onChange={(v) => handleFilterChange("drawingNo", v)}
+                />
+                <Field
+                  label="모델(차종)"
+                  value={filters.vehicleModel}
+                  onChange={(v) => handleFilterChange("vehicleModel", v)}
+                />
+                <Field
+                  label="재질"
+                  value={filters.material}
+                  onChange={(v) => handleFilterChange("material", v)}
+                />
+                <Field
+                  label="창고코드"
+                  value={filters.warehouse}
+                  onChange={(v) => handleFilterChange("warehouse", v)}
+                />
+                <Field
+                  label="통화코드"
+                  value={filters.currencyCode}
+                  onChange={(v) => handleFilterChange("currencyCode", v)}
+                />
+                <Field
+                  label="사업장"
                   value={filters.businessUnit}
                   onChange={(v) => handleFilterChange("businessUnit", v)}
                 />
@@ -1305,26 +1712,18 @@ export default function ItemsPage() {
                   onChange={(v) => handleFilterChange("packQty", v)}
                 />
                 <Field
-                  label="도면번호"
-                  value={filters.drawingNo}
-                  onChange={(v) => handleFilterChange("drawingNo", v)}
+                  label="품목사용자분류코드"
+                  value={filters.itemUserCategoryCode}
+                  onChange={(v) =>
+                    handleFilterChange("itemUserCategoryCode", v)
+                  }
                 />
-              </div>
-              <div className="flex flex-wrap items-center gap-4 border-t pt-3">
-                <CheckboxWithLabel
-                  label="재조회 (변경작업시)"
-                  checked={filters.reload}
-                  onChange={(v) => handleFilterChange("reload", v)}
-                />
-                <CheckboxWithLabel
-                  label="금형제외"
-                  checked={filters.excludeMold}
-                  onChange={(v) => handleFilterChange("excludeMold", v)}
-                />
-                <CheckboxWithLabel
-                  label="전체검색"
-                  checked={filters.searchAll}
-                  onChange={(v) => handleFilterChange("searchAll", v)}
+                <Field
+                  label="품목사용분류코드"
+                  value={filters.itemUsageClassificationCode}
+                  onChange={(v) =>
+                    handleFilterChange("itemUsageClassificationCode", v)
+                  }
                 />
               </div>
             </div>
@@ -1332,47 +1731,159 @@ export default function ItemsPage() {
         </CardContent>
       </Card>
 
-      {/* EXCEL 업로드 시트 (작은 중앙 모달) */}
+      {/* EXCEL 업로드 시트 (참고 디자인: 2열 폼, 양식 다운로드, 업로드 파일 영역, 하단 액션) */}
       <Sheet
         open={excelSheetOpen}
-        onOpenChange={setExcelSheetOpen}
+        onOpenChange={(open) => {
+          setExcelSheetOpen(open);
+          if (!open) {
+            setExcelSelectedFile(null);
+            setExcelResultMessage(null);
+          }
+        }}
         position="center"
       >
-        <SheetContent className="sm:max-w-2xl sm:h-[75vh]">
+        <SheetContent className="sm:max-w-2xl sm:max-h-[90vh] flex flex-col bg-white">
           <SheetHeader>
-            <SheetTitle>EXCEL 일괄 업로드</SheetTitle>
-            <SheetDescription className="text-xs">
-              품목번호, 품목명, 규격을 포함한 EXCEL 파일을 업로드하여 품목을
-              일괄 등록합니다. (헤더 행에 '품목번호', '품목명', '규격' 사용)
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-4 space-y-4 text-xs">
-            <div className="space-y-2">
-              <div className="font-semibold text-slate-700">
-                1. 업로드할 파일 선택
+            <div className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <SheetTitle>EXCEL 일괄 업로드</SheetTitle>
+                <SheetDescription className="mt-1">
+                품목번호, 품목명, 규격을 포함한 EXCEL 파일을 업로드하여 품목을 일괄 등록합니다.
+                </SheetDescription>
               </div>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                className="text-[11px]"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  void handleExcelFile(file);
-                  // 동일 파일 재업로드를 위해 input 초기화
-                  e.target.value = "";
-                }}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                첫 번째 시트의 데이터를 사용하며, 기존 품목번호와 중복되는 행은
-                건너뜁니다.
-              </p>
+              <PrimaryActionButton
+              type="button"
+              size="sm"
+              className="shrink-0"
+              onClick={async () => {
+                // 스타일을 지원하는 xlsx-js-style 사용 (다운로드 전용)
+                const XLSX = await import("xlsx-js-style");
+                const wb = XLSX.utils.book_new();
+                const headers = allItemColumns.map((c) => c.header);
+                const ws = XLSX.utils.aoa_to_sheet([headers]);
+
+                // 헤더 셀에 연한 파란색 배경 적용
+                const headerColor = "9DC3E6"; // 첨부 이미지와 유사한 라이트 블루
+                for (let c = 0; c < headers.length; c += 1) {
+                  const addr = (XLSX.utils as any).encode_cell({ r: 0, c });
+                  const cell = (ws as any)[addr];
+                  if (cell) {
+                    (cell as any).s = {
+                      fill: {
+                        patternType: "solid",
+                        fgColor: { rgb: headerColor },
+                      },
+                      font: {
+                        bold: true,
+                        sz: 8, // 8pt
+                        color: { rgb: "000000" },
+                      },
+                      alignment: { horizontal: "center", vertical: "center" },
+                    };
+                  }
+                }
+
+                XLSX.utils.book_append_sheet(wb, ws, "품목");
+                (XLSX as any).writeFile(wb, "품목_양식.xlsx");
+              }}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              품목 양식 다운로드
+            </PrimaryActionButton>
             </div>
+          </SheetHeader>
+
+          <div className="mt-4 flex-1 overflow-auto">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm">
+              <div className="space-y-2">
+                <Label className="text-slate-700">담당자</Label>
+                <Input
+                  value={excelManager}
+                  onChange={(e) => setExcelManager(e.target.value)}
+                  placeholder="담당자"
+                  className="border-slate-300 dark:border-slate-600"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-slate-700">등록일자</Label>
+                <Input
+                  type="date"
+                  value={excelRegisterDate}
+                  readOnly
+                  className="border-slate-300 dark:border-slate-600"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label className="text-slate-700">업로드 파일</Label>
+                <div className="flex items-center gap-2 rounded-md border border-slate-300 dark:border-slate-600 bg-rose-50/80 dark:bg-rose-950/20">
+                  <input
+                    ref={excelFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      setExcelSelectedFile(file ?? null);
+                      setExcelResultMessage(null);
+                    }}
+                  />
+                  <Input
+                    readOnly
+                    value={excelSelectedFile?.name ?? ""}
+                    placeholder="파일을 선택하세요"
+                    className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 border-slate-300 dark:border-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    onClick={() => excelFileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 border-slate-300 dark:border-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    onClick={() => {
+                      setExcelSelectedFile(null);
+                      if (excelFileInputRef.current) excelFileInputRef.current.value = "";
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             {excelResultMessage && (
-              <div className="rounded-md bg-slate-50 px-3 py-2 text-[11px] text-slate-800">
+              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 dark:bg-slate-900/50 dark:border-slate-700">
                 {excelResultMessage}
               </div>
             )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 border-t pt-4">
+            <PrimaryActionButton
+              size="sm"
+              onClick={() => {
+                if (excelSelectedFile) void handleExcelFile(excelSelectedFile);
+                else setExcelResultMessage("업로드할 파일을 선택해 주세요.");
+              }}
+            >
+              <Check className="mr-1.5 h-3.5 w-3.5" />
+              업로드
+            </PrimaryActionButton>
+            <PrimaryActionButton
+              size="sm"
+              onClick={() => setExcelSheetOpen(false)}
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" />
+              닫기
+            </PrimaryActionButton>
           </div>
         </SheetContent>
       </Sheet>
@@ -1421,17 +1932,14 @@ export default function ItemsPage() {
               onPageChange: setPage,
             }}
             emptyMessage={
+              !hasSearched ? "검색 버튼을 클릭하면 조회됩니다." :
+              loading ? "조회 중..." :
               <div className="space-y-2 text-xs text-muted-foreground">
-                <p className="font-medium text-slate-800">
-                  조회된 품목이 없습니다
-                </p>
+                <p className="font-medium text-slate-800">조회된 품목이 없습니다</p>
                 <p>필터를 조정하거나 새 품목을 등록해 보세요.</p>
                 <div className="mt-2 flex justify-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={resetFilters}
-                  >
+                  <Button variant="outline" size="sm" onClick={resetFilters}>
+                    <RotateCcw className="mr-1.5 h-4 w-4" />
                     필터 초기화
                   </Button>
                   <Button size="sm" onClick={() => setRegisterSheetOpen(true)}>
@@ -1493,10 +2001,10 @@ export default function ItemsPage() {
             {gridSettingsTab === "export" && (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">
-                  현재 페이지({page}페이지) 데이터가 CSV로 다운로드됩니다.
+                  검색/정렬된 전체 품목 데이터가 EXCEL 파일(.xlsx)로 다운로드됩니다.
                 </p>
-                <Button size="sm" onClick={exportCsv}>
-                  CSV 내보내기
+                <Button size="sm" onClick={() => void exportExcel()}>
+                  EXCEL 내보내기
                 </Button>
               </div>
             )}
@@ -1597,45 +2105,99 @@ export default function ItemsPage() {
         open={registerSheetOpen}
         onOpenChange={setRegisterSheetOpen}
         getItemByNo={getItemByNo}
-        onSave={(state) => {
+        onSave={async (state) => {
+          const toNum = (v: string) => (v && !isNaN(Number(v)) ? Number(v) : null);
+          const payload = {
+            // Basic
+            itemNo: state.basicInfo.itemNo,
+            itemName: state.basicInfo.itemName,
+            specification: state.basicInfo.specification || null,
+            drawingNo: state.basicInfo.drawingNo || null,
+            itemStatusCategory: state.basicInfo.itemStatusCategory ?? "ACTIVE",
+            updatedBy: "사용자",
+            // Classification
+            form: state.classification.itemForm || null,
+            type: state.classification.itemType || null,
+            vehicleModel: state.classification.productModel || null,
+            itemUserCategoryCode: state.classification.itemUserCategoryCode || null,
+            itemUsageClassificationCode: state.classification.itemUsageClassificationCode || null,
+            material: state.classification.material || null,
+            manufacturerName: state.classification.manufacturer || null,
+            productId: state.classification.commerceProductId || null,
+            valueCategoryCode: state.classification.valueCategory || null,
+            // Procurement
+            supplierCode: state.procurement.supplierId || null,
+            supplierItemNo: state.procurement.supplierItemNo || null,
+            buyerCode: state.procurement.purchaseManager || null,
+            salesRepCode: state.procurement.salesManager || null,
+            requirementRepCode: state.procurement.requirementManager || null,
+            purchaseUnitPrice: toNum(state.procurement.purchaseUnitPrice),
+            salesUnitPrice: toNum(state.procurement.salesUnitPrice),
+            currencyCode: state.procurement.currencyCode || null,
+            materialOrderPolicyCode: state.procurement.orderPolicy || null,
+            lastReceiptUnitPrice: toNum(state.procurement.lastReceiptUnitPrice),
+            standardCost: toNum(state.procurement.standardCost),
+            internalUnitPrice: toNum(state.procurement.internalPrice),
+            businessUnit: state.procurement.businessUnit || null,
+            // Inventory
+            warehouse: state.inventory.warehouse || null,
+            storageLocation: state.inventory.storageLocation || null,
+            unitProductionQty: toNum(state.inventory.unitProductionQty),
+            minLotSize: toNum(state.inventory.minLot),
+            standardLotSize: toNum(state.inventory.standardLot),
+            safetyStock: toNum(state.inventory.safetyStock),
+            avgDefectRate: toNum(state.inventory.defectRate),
+            procurementLeadTime: toNum(state.inventory.leadTimeDays),
+            reorderPoint: toNum(state.inventory.reorderPoint),
+            inventoryCountCycle: toNum(state.inventory.cycleCountPeriod),
+            deliveryContainer: state.inventory.deliveryContainer || null,
+            // Technical
+            unit: state.technical.salesUnit || "EA",
+            salesUnitCode: state.technical.salesUnit || "EA",
+            unitConversion: state.technical.salesUnitConversion || null,
+            itemWeight: toNum(state.technical.weightKg),
+            drawingSize: state.technical.drawingSize || null,
+            packQty: toNum(state.technical.packQty),
+            customerWarehouse: state.technical.customerSpec || null,
+            hNoDiameter: state.technical.hNo || null,
+            lNoSpecificGravity: state.technical.lNo || null,
+            receiptContainer: state.technical.deliveryContainer || null,
+          };
+          const res = await fetch("/api/items", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!data.ok) { alert("저장 실패: " + data.message); return; }
           const now = new Date();
-          const id = `ITM-${String(rows.length + 1).padStart(4, "0")}`;
           const created: ItemMasterRecord = {
-            id,
+            id: String(data.id),
             itemNo: state.basicInfo.itemNo,
             itemName: state.basicInfo.itemName,
             specification: state.basicInfo.specification,
-            form: "",
-            type: "",
-            unit: "EA",
-            supplierItemNo: "",
+            form: state.classification.itemForm,
+            type: state.classification.itemType,
+            unit: state.technical.salesUnit || "EA",
+            supplierItemNo: state.procurement.supplierItemNo,
             drawingNo: state.basicInfo.drawingNo,
-            supplierCode: "",
+            supplierCode: state.procurement.supplierId,
             supplierName: "",
             itemStatusCategory: (state.basicInfo.itemStatusCategory as ItemStatusCategory) ?? "ACTIVE",
-            salesUnitCode: "EA",
-            unitConversion: "1 EA = 1 EA",
-            itemWeight: 0,
+            salesUnitCode: state.technical.salesUnit || "EA",
+            unitConversion: state.technical.salesUnitConversion,
+            itemWeight: toNum(state.technical.weightKg) ?? 0,
             drawingFlag: Boolean(state.basicInfo.drawingNo),
-            materialFlag: false,
-            repairFlag: false,
-            miscFlag: false,
-            workingItemNo: "",
-            itemSelection: "",
-            owner: "",
-            itemUserCategoryCode: "",
-            material: "",
-            vehicleModel: "",
-            itemUsageClassificationCode: "",
-            businessUnit: "",
-            packQty: 0,
-            hasImage: false,
-            hasDrawing: Boolean(state.basicInfo.drawingNo),
-            updatedAt: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-              now.getDate()
-            ).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(
-              now.getMinutes()
-            ).padStart(2, "0")}`,
+            materialFlag: false, repairFlag: false, miscFlag: false,
+            workingItemNo: "", itemSelection: "", owner: "",
+            itemUserCategoryCode: state.classification.itemUserCategoryCode,
+            material: state.classification.material,
+            vehicleModel: state.classification.productModel,
+            itemUsageClassificationCode: state.classification.itemUsageClassificationCode,
+            businessUnit: state.procurement.businessUnit,
+            packQty: toNum(state.technical.packQty) ?? 0,
+            hasImage: false, hasDrawing: Boolean(state.basicInfo.drawingNo),
+            updatedAt: now.toLocaleString("ko-KR"),
             updatedBy: "사용자",
           };
           setRows((prev) => [created, ...prev]);
@@ -1666,28 +2228,96 @@ export default function ItemsPage() {
               }
             : undefined
         }
-        onSave={(state) => {
+        onSave={async (state) => {
           if (!editingItem) return;
+          const toNum = (v: string | undefined) => (v && !isNaN(Number(v)) ? Number(v) : null);
+          const payload = {
+            itemNo: state.basicInfo.itemNo,
+            itemName: state.basicInfo.itemName,
+            specification: state.basicInfo.specification || null,
+            drawingNo: state.basicInfo.drawingNo || null,
+            itemStatusCategory: state.basicInfo.itemStatusCategory ?? "ACTIVE",
+            updatedBy: "사용자",
+            form: state.classification.itemForm || null,
+            type: state.classification.itemType || null,
+            vehicleModel: state.classification.productModel || null,
+            itemUserCategoryCode: state.classification.itemUserCategoryCode || null,
+            itemUsageClassificationCode: state.classification.itemUsageClassificationCode || null,
+            material: state.classification.material || null,
+            manufacturerName: state.classification.manufacturer || null,
+            productId: state.classification.commerceProductId || null,
+            valueCategoryCode: state.classification.valueCategory || null,
+            supplierCode: state.procurement.supplierId || null,
+            supplierItemNo: state.procurement.supplierItemNo || null,
+            buyerCode: state.procurement.purchaseManager || null,
+            salesRepCode: state.procurement.salesManager || null,
+            requirementRepCode: state.procurement.requirementManager || null,
+            purchaseUnitPrice: toNum(state.procurement.purchaseUnitPrice),
+            salesUnitPrice: toNum(state.procurement.salesUnitPrice),
+            currencyCode: state.procurement.currencyCode || null,
+            materialOrderPolicyCode: state.procurement.orderPolicy || null,
+            lastReceiptUnitPrice: toNum(state.procurement.lastReceiptUnitPrice),
+            standardCost: toNum(state.procurement.standardCost),
+            internalUnitPrice: toNum(state.procurement.internalPrice),
+            businessUnit: state.procurement.businessUnit || null,
+            warehouse: state.inventory.warehouse || null,
+            storageLocation: state.inventory.storageLocation || null,
+            unitProductionQty: toNum(state.inventory.unitProductionQty),
+            minLotSize: toNum(state.inventory.minLot),
+            standardLotSize: toNum(state.inventory.standardLot),
+            safetyStock: toNum(state.inventory.safetyStock),
+            avgDefectRate: toNum(state.inventory.defectRate),
+            procurementLeadTime: toNum(state.inventory.leadTimeDays),
+            reorderPoint: toNum(state.inventory.reorderPoint),
+            inventoryCountCycle: toNum(state.inventory.cycleCountPeriod),
+            deliveryContainer: state.inventory.deliveryContainer || null,
+            unit: state.technical.salesUnit || "EA",
+            salesUnitCode: state.technical.salesUnit || "EA",
+            unitConversion: state.technical.salesUnitConversion || null,
+            itemWeight: toNum(state.technical.weightKg),
+            drawingSize: state.technical.drawingSize || null,
+            packQty: toNum(state.technical.packQty),
+            customerWarehouse: state.technical.customerSpec || null,
+            hNoDiameter: state.technical.hNo || null,
+            lNoSpecificGravity: state.technical.lNo || null,
+            receiptContainer: state.technical.deliveryContainer || null,
+          };
+          const res = await fetch(`/api/items/${editingItem.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!data.ok) { alert("수정 실패: " + data.message); return; }
           const now = new Date();
-          const updatedAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-            now.getDate()
-          ).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(
-            now.getMinutes()
-          ).padStart(2, "0")}`;
           setRows((prev) =>
             prev.map((r) =>
               r.id !== editingItem.id
                 ? r
                 : {
                     ...r,
-                    itemNo: state.basicInfo.itemNo,
-                    itemName: state.basicInfo.itemName,
-                    itemStatusCategory: state.basicInfo.itemStatusCategory as ItemStatusCategory,
-                    specification: state.basicInfo.specification,
-                    drawingNo: state.basicInfo.drawingNo,
-                    drawingFlag: Boolean(state.basicInfo.drawingNo),
-                    hasDrawing: Boolean(state.basicInfo.drawingNo),
-                    updatedAt,
+                    itemNo: payload.itemNo,
+                    itemName: payload.itemName,
+                    specification: payload.specification ?? "",
+                    drawingNo: payload.drawingNo ?? "",
+                    itemStatusCategory: payload.itemStatusCategory as ItemStatusCategory,
+                    form: payload.form ?? "",
+                    type: payload.type ?? "",
+                    vehicleModel: payload.vehicleModel ?? "",
+                    itemUserCategoryCode: payload.itemUserCategoryCode ?? "",
+                    itemUsageClassificationCode: payload.itemUsageClassificationCode ?? "",
+                    material: payload.material ?? "",
+                    businessUnit: payload.businessUnit ?? "",
+                    supplierCode: payload.supplierCode ?? "",
+                    supplierItemNo: payload.supplierItemNo ?? "",
+                    unit: payload.unit ?? "EA",
+                    salesUnitCode: payload.salesUnitCode ?? "EA",
+                    unitConversion: payload.unitConversion ?? "",
+                    itemWeight: payload.itemWeight ?? 0,
+                    packQty: payload.packQty ?? 0,
+                    drawingFlag: Boolean(payload.drawingNo),
+                    hasDrawing: Boolean(payload.drawingNo),
+                    updatedAt: now.toLocaleString("ko-KR"),
                     updatedBy: "사용자",
                   }
             )
@@ -1720,26 +2350,6 @@ function Field({
   );
 }
 
-function CheckboxWithLabel({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="inline-flex items-center gap-1.5 text-[14px] text-slate-600">
-      <Checkbox
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-3.5 w-3.5"
-      />
-      {label}
-    </label>
-  );
-}
 
 function Section({
   title,

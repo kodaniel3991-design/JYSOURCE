@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 export interface Column<T> {
   key: string;
   header: string;
-  cell?: (row: T) => React.ReactNode;
+  cell?: (row: T, index: number) => React.ReactNode;
   className?: string;
   sortable?: boolean;
 }
@@ -88,7 +88,7 @@ export function DataTable<T>({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {safeData.map((row) => (
+            {safeData.map((row, rowIndex) => (
               <TableRow
                 key={keyExtractor(row)}
                 className={onRowClick ? "cursor-pointer" : undefined}
@@ -97,7 +97,7 @@ export function DataTable<T>({
                 {columns.map((col) => (
                   <TableCell key={col.key} className={col.className}>
                     {col.cell
-                      ? col.cell(row)
+                      ? col.cell(row, rowIndex)
                       : (row as Record<string, unknown>)[col.key] as React.ReactNode}
                   </TableCell>
                 ))}
