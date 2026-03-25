@@ -65,6 +65,7 @@ export function AppHeader({ username, factory, isAdmin }: AppHeaderProps) {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.removeItem(STORAGE_KEY);
     router.push("/login");
     router.refresh();
   };

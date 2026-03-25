@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { MasterListGrid } from "@/components/common/master-list-grid";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { purchaseOrders, poStatusLabels } from "@/lib/mock/purchase-orders";
-import { Search, RotateCcw } from "lucide-react";
+import { SearchPanel } from "@/components/common/search-panel";
 import type { PurchaseOrder, POItem } from "@/types/purchase";
 
 type ReceiptStatusRow = {
@@ -276,6 +275,15 @@ export default function PurchaseReceiptStatusPage() {
     return result;
   }, [filtered, criteria.viewMode]);
 
+  const handleSearch = useCallback(() => {
+    setCriteria(draft);
+  }, [draft]);
+
+  const resetFilters = useCallback(() => {
+    setDraft(initialParams);
+    setCriteria(initialParams);
+  }, []);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -283,147 +291,101 @@ export default function PurchaseReceiptStatusPage() {
         description="사업장, 입고예정일자, 공급사 및 상태 조건으로 발주대비 입고현황을 조회합니다. (데모)"
       />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <span className="text-sm font-medium text-muted-foreground">
-            검색 조건
-          </span>
-        </CardHeader>
-        <CardContent className="space-y-3 text-xs">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1">
-              <span className="text-[12px] text-slate-600">사업장</span>
-              <select
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                value={draft.plant}
-                onChange={(e) =>
-                  setDraft((prev) => ({ ...prev, plant: e.target.value }))
-                }
-              >
-                <option value="">전체</option>
-                <option value="gimhae">김해공장</option>
-                <option value="ulsan">울산공장</option>
-                <option value="pyeongtaek">평택공장</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[12px] text-slate-600">입고예정일자</span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="date"
-                  value={draft.fromDueDate}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      fromDueDate: e.target.value,
-                    }))
-                  }
-                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
-                />
-                <span className="text-[11px] text-muted-foreground">~</span>
-                <input
-                  type="date"
-                  value={draft.toDueDate}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      toDueDate: e.target.value,
-                    }))
-                  }
-                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[12px] text-slate-600">발주일자</span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="date"
-                  value={draft.fromOrderDate}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      fromOrderDate: e.target.value,
-                    }))
-                  }
-                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
-                />
-                <span className="text-[11px] text-muted-foreground">~</span>
-                <input
-                  type="date"
-                  value={draft.toOrderDate}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      toOrderDate: e.target.value,
-                    }))
-                  }
-                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[12px] text-slate-600">조회구분</span>
-              <select
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                value={draft.viewMode}
+      <SearchPanel
+        onSearch={handleSearch}
+        onReset={resetFilters}
+        totalCountLabel={`발주금액 합계 ${formatCurrency(totalOrdered)}, 입고금액 합계(추정) ${formatCurrency(totalReceived)}, 발주대비 입고율(추정) ${overallRate}%`}
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1">
+            <span className="text-[12px] text-slate-600">사업장</span>
+            <select
+              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+              value={draft.plant}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, plant: e.target.value }))
+              }
+            >
+              <option value="">전체</option>
+              <option value="gimhae">김해공장</option>
+              <option value="ulsan">울산공장</option>
+              <option value="pyeongtaek">평택공장</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[12px] text-slate-600">입고예정일자</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={draft.fromDueDate}
                 onChange={(e) =>
                   setDraft((prev) => ({
                     ...prev,
-                    viewMode: e.target.value as SearchParams["viewMode"],
+                    fromDueDate: e.target.value,
                   }))
                 }
-              >
-                <option value="차종별">차종별</option>
-                <option value="거래처별">거래처별</option>
-              </select>
+                className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+              />
+              <span className="text-[11px] text-muted-foreground">~</span>
+              <input
+                type="date"
+                value={draft.toDueDate}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    toDueDate: e.target.value,
+                  }))
+                }
+                className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+              />
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setCriteria(draft);
-                }}
-                className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary"
-              >
-                <Search className="mr-1.5 h-4 w-4" />
-                검색
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setDraft(initialParams);
-                  setCriteria(initialParams);
-                }}
-                className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary"
-              >
-                <RotateCcw className="mr-1.5 h-4 w-4" />
-                필터 초기화
-              </Button>
-            </div>
-            <div className="text-[11px] text-muted-foreground">
-              발주금액 합계{" "}
-              <span className="font-semibold text-foreground">
-                {formatCurrency(totalOrdered)}
-              </span>
-              , 입고금액 합계(추정){" "}
-              <span className="font-semibold text-foreground">
-                {formatCurrency(totalReceived)}
-              </span>
-              , 발주대비 입고율(추정){" "}
-              <span className="font-semibold text-foreground">
-                {overallRate}%
-              </span>
+          <div className="space-y-1">
+            <span className="text-[12px] text-slate-600">발주일자</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={draft.fromOrderDate}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    fromOrderDate: e.target.value,
+                  }))
+                }
+                className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+              />
+              <span className="text-[11px] text-muted-foreground">~</span>
+              <input
+                type="date"
+                value={draft.toOrderDate}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    toOrderDate: e.target.value,
+                  }))
+                }
+                className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="space-y-1">
+            <span className="text-[12px] text-slate-600">조회구분</span>
+            <select
+              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+              value={draft.viewMode}
+              onChange={(e) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  viewMode: e.target.value as SearchParams["viewMode"],
+                }))
+              }
+            >
+              <option value="차종별">차종별</option>
+              <option value="거래처별">거래처별</option>
+            </select>
+          </div>
+        </div>
+      </SearchPanel>
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">

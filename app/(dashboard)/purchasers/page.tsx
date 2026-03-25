@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,8 @@ import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { MasterListGrid } from "@/components/common/master-list-grid";
 import { Select } from "@/components/ui/select";
 import type { PurchaserRecord } from "@/types/purchaser";
-import { Search, RotateCcw, Upload, X, Download } from "lucide-react";
+import { Upload, X, Download } from "lucide-react";
+import { SearchPanel } from "@/components/common/search-panel";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 import {
   PrimaryActionButton,
@@ -126,7 +127,7 @@ export default function PurchasersPage() {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [page, setPage] = useCachedState<number>("purchasers/page", 1);
-  const pageSize = 10;
+  const pageSize = 20;
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<
     "export" | "sort" | "columns" | "view"
@@ -696,62 +697,48 @@ export default function PurchasersPage() {
       />
 
       {/* 검색 조건 */}
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle className="text-base">검색 조건</CardTitle>
-        </CardHeader>
-        <CardContent className="text-xs">
-          <div ref={searchRef} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field
-              label="구매처명"
-              value={filters.purchaserName}
-              onChange={(v) => handleFilterChange("purchaserName", v)}
+      <SearchPanel
+        onSearch={handleSearch}
+        onReset={resetFilters}
+        loading={loading}
+        totalCountLabel={`총 ${filteredList.length.toLocaleString("ko-KR")}건이 조회되었습니다.`}
+      >
+        <div ref={searchRef} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field
+            label="구매처명"
+            value={filters.purchaserName}
+            onChange={(v) => handleFilterChange("purchaserName", v)}
+          />
+          <div className="space-y-1">
+            <Label className="text-[14px] text-slate-600">거래형태</Label>
+            <Select
+              value={filters.transactionType}
+              onChange={(v) => handleFilterChange("transactionType", v)}
+              options={transactionTypeOptions}
+              className="h-8 text-xs"
             />
-            <div className="space-y-1">
-              <Label className="text-[14px] text-slate-600">거래형태</Label>
-              <Select
-                value={filters.transactionType}
-                onChange={(v) => handleFilterChange("transactionType", v)}
-                options={transactionTypeOptions}
-                className="h-8 text-xs"
-              />
-            </div>
-            <Field
-              label="사업자번호"
-              value={filters.businessNo}
-              onChange={(v) => handleFilterChange("businessNo", v)}
+          </div>
+          <Field
+            label="사업자번호"
+            value={filters.businessNo}
+            onChange={(v) => handleFilterChange("businessNo", v)}
+          />
+          <div className="space-y-1">
+            <Label className="text-[14px] text-slate-600">거래여부</Label>
+            <Select
+              value={filters.tradeStatus}
+              onChange={(v) =>
+                handleFilterChange(
+                  "tradeStatus",
+                  v as PurchaserFilterState["tradeStatus"]
+                )
+              }
+              options={tradeStatusOptions}
+              className="h-8 text-xs"
             />
-            <div className="space-y-1">
-              <Label className="text-[14px] text-slate-600">거래여부</Label>
-              <Select
-                value={filters.tradeStatus}
-                onChange={(v) =>
-                  handleFilterChange(
-                    "tradeStatus",
-                    v as PurchaserFilterState["tradeStatus"]
-                  )
-                }
-                options={tradeStatusOptions}
-                className="h-8 text-xs"
-              />
-            </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={handleSearch} disabled={loading}>
-              <Search className="mr-1.5 h-4 w-4" />
-              {loading ? "조회 중..." : "검색"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={resetFilters}>
-              <RotateCcw className="mr-1.5 h-4 w-4" />
-              필터 초기화
-            </Button>
-            <p className="text-[11px] text-muted-foreground">
-              총 <span className="font-semibold">{filteredList.length}</span>건이
-              조회되었습니다.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SearchPanel>
 
       {/* 그리드 */}
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">

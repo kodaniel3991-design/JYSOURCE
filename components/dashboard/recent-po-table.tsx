@@ -16,6 +16,12 @@ interface RecentPOTableProps {
 export function RecentPOTable({ data }: RecentPOTableProps) {
   const columns: Column<PurchaseOrderSummary>[] = [
     {
+      key: "__no__",
+      header: "No",
+      className: "w-10 text-center text-muted-foreground",
+      cell: (_row, index) => index + 1,
+    },
+    {
       key: "poNumber",
       header: "PO 번호",
       cell: (row) => (

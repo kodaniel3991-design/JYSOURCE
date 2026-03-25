@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,9 +18,10 @@ import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CrudActions } from "@/components/common/crud-actions";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
-import { MasterListGrid } from "@/components/common/master-list-grid";
+import { MasterListGrid, type MasterListGridColumn } from "@/components/common/master-list-grid";
 import type { ModelCodeRecord } from "@/types/model-code";
-import { Search, RotateCcw } from "lucide-react";
+import { Search } from "lucide-react";
+import { SearchPanel } from "@/components/common/search-panel";
 import { ModelCodeRegisterSheet } from "@/components/model-codes/model-code-register-sheet";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 
@@ -53,11 +55,11 @@ function Field({
 }
 
 export default function ModelCodesPage() {
-  const [rows, setRows] = useState<ModelCodeRecord[]>([]);
+  const [rows, setRows] = useCachedState<ModelCodeRecord[]>("model-codes/rows", []);
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useCachedState<boolean>("model-codes/hasSearched", false);
   const searchRef = useEnterNavigation();
-  const [filters, setFilters] = useState<ModelCodeFilterState>({
+  const [filters, setFilters] = useCachedState<ModelCodeFilterState>("model-codes/filters", {
     modelCode: "",
     modelCodeName: "",
     customerNo: "",
@@ -65,14 +67,14 @@ export default function ModelCodesPage() {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const [page, setPage] = useCachedState<number>("model-codes/page", 1);
+  const pageSize = 20;
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<
     "export" | "sort" | "columns" | "view"
   >("sort");
-  const [sortKey, setSortKey] = useState<keyof ModelCodeRecord>("modelCode");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortKey, setSortKey] = useCachedState<keyof ModelCodeRecord>("model-codes/sortKey", "modelCode");
+  const [sortDir, setSortDir] = useCachedState<"asc" | "desc">("model-codes/sortDir", "asc");
   const [stripedRows, setStripedRows] = useState(true);
   const [compactView, setCompactView] = useState(true);
 
@@ -199,8 +201,18 @@ export default function ModelCodesPage() {
   const visibleColumns = useMemo(() => {
     const set = new Set(visibleColumnKeys);
     const cols = allColumns.filter((c) => set.has(c.key));
-    return cols.length > 0 ? cols : allColumns.slice(0, 1);
-  }, [allColumns, visibleColumnKeys]);
+    const filtered = cols.length > 0 ? cols : allColumns.slice(0, 1);
+    const noCol: MasterListGridColumn<ModelCodeRecord> = {
+      key: "__no__",
+      header: "No",
+      minWidth: 48,
+      maxWidth: 48,
+      headerClassName: "text-center",
+      cellClassName: "text-center text-muted-foreground",
+      cell: (_row, index) => (page - 1) * pageSize + index + 1,
+    };
+    return [noCol, ...filtered];
+  }, [allColumns, visibleColumnKeys, page, pageSize]);
 
   const sortOptions = useMemo(
     () =>
@@ -300,63 +312,47 @@ export default function ModelCodesPage() {
       />
 
       {/* 검색 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">검색 조건</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            모델코드, 모델코드 명, 고객번호로 검색할 수 있습니다.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4 text-xs">
-          <div ref={searchRef} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Field
-              label="모델코드"
-              value={filters.modelCode}
-              onChange={(v) => handleFilterChange("modelCode", v)}
-            />
-            <Field
-              label="모델코드 명"
-              value={filters.modelCodeName}
-              onChange={(v) => handleFilterChange("modelCodeName", v)}
-            />
-            <div className="space-y-1">
-              <Label className="text-[14px] text-slate-600">고객번호</Label>
-              <div className="flex gap-1">
-                <Input
-                  value={filters.customerNo}
-                  onChange={(e) =>
-                    handleFilterChange("customerNo", e.target.value)
-                  }
-                  className="h-8 flex-1 text-xs"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  title="고객 조회"
-                >
-                  <Search className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+      <SearchPanel
+        description="모델코드, 모델코드 명, 고객번호로 검색할 수 있습니다."
+        onSearch={handleSearch}
+        onReset={resetFilters}
+        loading={loading}
+        totalCountLabel={`총 ${filteredList.length.toLocaleString("ko-KR")}건이 조회되었습니다.`}
+      >
+        <div ref={searchRef} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <Field
+            label="모델코드"
+            value={filters.modelCode}
+            onChange={(v) => handleFilterChange("modelCode", v)}
+          />
+          <Field
+            label="모델코드 명"
+            value={filters.modelCodeName}
+            onChange={(v) => handleFilterChange("modelCodeName", v)}
+          />
+          <div className="space-y-1">
+            <Label className="text-[14px] text-slate-600">고객번호</Label>
+            <div className="flex gap-1">
+              <Input
+                value={filters.customerNo}
+                onChange={(e) =>
+                  handleFilterChange("customerNo", e.target.value)
+                }
+                className="h-8 flex-1 text-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                title="고객 조회"
+              >
+                <Search className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={handleSearch} disabled={loading}>
-              <Search className="mr-1.5 h-4 w-4" />
-              {loading ? "조회 중..." : "검색"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={resetFilters}>
-              <RotateCcw className="mr-1.5 h-4 w-4" />
-              필터 초기화
-            </Button>
-            <p className="text-[11px] text-muted-foreground">
-              총 <span className="font-semibold">{filteredList.length}</span>건이
-              조회되었습니다.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SearchPanel>
 
       {/* 그리드: 남은 높이를 채우고 내부만 스크롤 */}
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">

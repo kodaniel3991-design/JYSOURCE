@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/page-header";
 import { POStatusBadge } from "@/components/common/status-badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,8 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { poStatusLabels } from "@/lib/mock/purchase-orders";
 import { suppliers } from "@/lib/mock/suppliers";
 import type { PurchaseOrderSummary } from "@/types/purchase";
-import { FileText, MoreHorizontal, PackageCheck, Search, RotateCcw } from "lucide-react";
+import { FileText, MoreHorizontal, PackageCheck, Search } from "lucide-react";
+import { SearchPanel } from "@/components/common/search-panel";
 import { ReceiptProcessSheet } from "@/components/purchase-orders/receipt-process-sheet";
 import type { POStatus } from "@/types/purchase";
 import { MasterListGrid } from "@/components/common/master-list-grid";
@@ -37,7 +38,8 @@ const supplierOptions: SelectOption[] = suppliers.map((s) => ({
   label: s.name,
 }));
 
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
+const COLLAPSED_PAGE_SIZE = 20;
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
@@ -50,6 +52,8 @@ export default function PurchaseOrdersPage() {
   const [fromDate, setFromDate] = useCachedState<string>("po-list/fromDate", "");
   const [toDate, setToDate] = useCachedState<string>("po-list/toDate", "");
   const [page, setPage] = useCachedState<number>("po-list/page", 1);
+  const [searchCollapsed, setSearchCollapsed] = useState(false);
+  const pageSize = searchCollapsed ? COLLAPSED_PAGE_SIZE : DEFAULT_PAGE_SIZE;
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [receiptSheetOpen, setReceiptSheetOpen] = useState(false);
@@ -123,9 +127,9 @@ export default function PurchaseOrdersPage() {
   }, [filtered, sortDir, sortKey]);
 
   const paginated = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return sorted.slice(start, start + PAGE_SIZE);
-  }, [sorted, page]);
+    const start = (page - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [sorted, page, pageSize]);
 
   const totalOrders = list.length;
   const openOrders = useMemo(
@@ -444,84 +448,72 @@ export default function PurchaseOrdersPage() {
       </div>
 
       {/* 검색 조건 */}
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle className="text-base">검색 조건</CardTitle>
-        </CardHeader>
-        <CardContent className="text-xs">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {/* PO번호/공급사명 */}
-            <div className="space-y-1">
-              <Label className="text-[14px] text-slate-600">PO번호/공급사명</Label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="검색..."
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  className="h-8 pl-8 text-xs"
-                />
-              </div>
-            </div>
-            {/* 공급사 */}
-            <div className="space-y-1">
-              <Label className="text-[14px] text-slate-600">공급사</Label>
-              <Select
-                options={[{ value: "", label: "전체" }, ...supplierOptions]}
-                value={supplierId}
-                onChange={handleSupplierChange}
-                className="h-8 text-xs"
-              />
-            </div>
-            {/* 상태 */}
-            <div className="space-y-1">
-              <Label className="text-[14px] text-slate-600">상태</Label>
-              <Select
-                options={[{ value: "", label: "전체" }, ...statusOptions]}
-                value={status}
-                onChange={handleStatusChange}
-                className="h-8 text-xs"
-              />
-            </div>
-            {/* 시작일자 */}
-            <div className="space-y-1">
-              <Label className="text-[14px] text-slate-600">시작일자</Label>
-              <input
-                type="date"
-                value={fromDate}
-                max={toDate || undefined}
-                onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-              />
-            </div>
-            {/* 완료일자 */}
-            <div className="space-y-1">
-              <Label className="text-[14px] text-slate-600">완료일자</Label>
-              <input
-                type="date"
-                value={toDate}
-                min={fromDate || undefined}
-                onChange={(e) => { setToDate(e.target.value); setPage(1); }}
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+      <SearchPanel
+        onSearch={handleSearch}
+        onReset={resetFilters}
+        loading={loading}
+        totalCountLabel={`총 ${filtered.length.toLocaleString("ko-KR")}건이 조회되었습니다.`}
+        onCollapsedChange={(c) => { setSearchCollapsed(c); setPage(1); }}
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {/* PO번호/공급사명 */}
+          <div className="space-y-1">
+            <Label className="text-[14px] text-slate-600">PO번호/공급사명</Label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="검색..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="h-8 pl-8 text-xs"
               />
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={handleSearch} disabled={loading}>
-              <Search className="mr-1.5 h-4 w-4" />
-              {loading ? "조회 중..." : "검색"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={resetFilters}>
-              <RotateCcw className="mr-1.5 h-4 w-4" />
-              필터 초기화
-            </Button>
-            <p className="text-[11px] text-muted-foreground">
-              총 <span className="font-semibold">{filtered.length}</span>건이 조회되었습니다.
-            </p>
+          {/* 공급사 */}
+          <div className="space-y-1">
+            <Label className="text-[14px] text-slate-600">공급사</Label>
+            <Select
+              options={[{ value: "", label: "전체" }, ...supplierOptions]}
+              value={supplierId}
+              onChange={handleSupplierChange}
+              className="h-8 text-xs"
+            />
           </div>
-        </CardContent>
-      </Card>
+          {/* 상태 */}
+          <div className="space-y-1">
+            <Label className="text-[14px] text-slate-600">상태</Label>
+            <Select
+              options={[{ value: "", label: "전체" }, ...statusOptions]}
+              value={status}
+              onChange={handleStatusChange}
+              className="h-8 text-xs"
+            />
+          </div>
+          {/* 시작일자 */}
+          <div className="space-y-1">
+            <Label className="text-[14px] text-slate-600">시작일자</Label>
+            <input
+              type="date"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+            />
+          </div>
+          {/* 완료일자 */}
+          <div className="space-y-1">
+            <Label className="text-[14px] text-slate-600">완료일자</Label>
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+            />
+          </div>
+        </div>
+      </SearchPanel>
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -586,7 +578,7 @@ export default function PurchaseOrdersPage() {
               onRowClick={(row) => router.push(`/purchase-orders/${row.id}`)}
               pagination={{
                 page,
-                pageSize: PAGE_SIZE,
+                pageSize,
                 total: filtered.length,
                 onPageChange: setPage,
               }}

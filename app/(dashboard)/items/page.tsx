@@ -22,7 +22,7 @@ import {
   SecondaryActionButton,
 } from "@/components/common/action-buttons";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
-import { MasterListGrid } from "@/components/common/master-list-grid";
+import { MasterListGrid, type MasterListGridColumn } from "@/components/common/master-list-grid";
 import { Badge } from "@/components/ui/badge";
 import dynamic from "next/dynamic";
 import {
@@ -793,7 +793,7 @@ export default function ItemsPage() {
   const [editingItem, setEditingItem] = useState<ItemMasterRecord | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [page, setPage] = useCachedState<number>("items/page", 1);
-  const pageSize = 10;
+  const pageSize = 20;
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<
     "export" | "sort" | "columns" | "view"
@@ -1133,8 +1133,18 @@ export default function ItemsPage() {
   const itemColumns = useMemo(() => {
     const set = new Set(visibleColumnKeys);
     const cols = allItemColumns.filter((c) => set.has(c.key));
-    return cols.length > 0 ? cols : allItemColumns.slice(0, 1);
-  }, [allItemColumns, visibleColumnKeys]);
+    const filtered = cols.length > 0 ? cols : allItemColumns.slice(0, 1);
+    const noCol: MasterListGridColumn<ItemMasterRecord> = {
+      key: "__no__",
+      header: "No",
+      minWidth: 48,
+      maxWidth: 48,
+      headerClassName: "text-center",
+      cellClassName: "text-center text-muted-foreground",
+      cell: (_row, index) => (page - 1) * pageSize + index + 1,
+    };
+    return [noCol, ...filtered];
+  }, [allItemColumns, visibleColumnKeys, page, pageSize]);
 
   const sortOptions = useMemo(
     () =>

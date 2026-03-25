@@ -12,6 +12,7 @@ import {
   FolderOpen,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Car,
   Building2,
   ShieldCheck,
@@ -21,6 +22,8 @@ import {
   Layers,
   PackageCheck,
   Truck,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,16 +75,8 @@ const settingsNavGroup = {
   label: "설정",
   icon: Settings,
   children: [
-    {
-      href: "/settings/common-codes",
-      label: "공통코드 관리",
-      icon: Settings,
-    },
-    {
-      href: "/settings/display",
-      label: "화면 설정",
-      icon: LayoutDashboard,
-    },
+    { href: "/settings/common-codes", label: "공통코드 관리", icon: Settings },
+    { href: "/settings/display", label: "화면 설정", icon: LayoutDashboard },
   ],
 };
 
@@ -98,327 +93,178 @@ const adminNavGroup = {
   ],
 };
 
-export function AppSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
+interface AppSidebarProps {
+  isAdmin?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
+  onNavigate?: () => void;
+}
+
+export function AppSidebar({ isAdmin = false, collapsed = false, onToggle, onNavigate }: AppSidebarProps) {
   const pathname = usePathname();
   const isMasterActive =
     pathname.startsWith("/items") ||
     pathname.startsWith("/model-codes") ||
     pathname.startsWith("/item-type-codes") ||
     pathname.startsWith("/item-types") ||
-    pathname.startsWith("/purchasers");
+    pathname.startsWith("/purchasers") ||
+    pathname.startsWith("/purchase-prices");
   const isPoActive = pathname.startsWith("/purchase-orders");
   const isReceiptActive = pathname.startsWith("/purchase-receipts");
   const isPerformanceActive = pathname.startsWith("/purchase-orders/performance");
   const isSettingsActive = pathname.startsWith("/settings");
   const isAdminActive = pathname.startsWith("/admin");
+
   const [masterOpen, setMasterOpen] = useState(isMasterActive);
   const [poOpen, setPoOpen] = useState(isPoActive);
   const [receiptOpen, setReceiptOpen] = useState(isReceiptActive);
   const [performanceOpen, setPerformanceOpen] = useState(isPerformanceActive);
   const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
   const [adminOpen, setAdminOpen] = useState(isAdminActive);
-  useEffect(() => {
-    if (isMasterActive) setMasterOpen(true);
-  }, [isMasterActive]);
-  useEffect(() => {
-    if (isPoActive) setPoOpen(true);
-  }, [isPoActive]);
-  useEffect(() => {
-    if (isReceiptActive) setReceiptOpen(true);
-  }, [isReceiptActive]);
-  useEffect(() => {
-    if (isPerformanceActive) setPerformanceOpen(true);
-  }, [isPerformanceActive]);
-  useEffect(() => {
-    if (isSettingsActive) setSettingsOpen(true);
-  }, [isSettingsActive]);
-  useEffect(() => {
-    if (isAdminActive) setAdminOpen(true);
-  }, [isAdminActive]);
+
+  useEffect(() => { if (isMasterActive) setMasterOpen(true); }, [isMasterActive]);
+  useEffect(() => { if (isPoActive) setPoOpen(true); }, [isPoActive]);
+  useEffect(() => { if (isReceiptActive) setReceiptOpen(true); }, [isReceiptActive]);
+  useEffect(() => { if (isPerformanceActive) setPerformanceOpen(true); }, [isPerformanceActive]);
+  useEffect(() => { if (isSettingsActive) setSettingsOpen(true); }, [isSettingsActive]);
+  useEffect(() => { if (isAdminActive) setAdminOpen(true); }, [isAdminActive]);
+
+  // 접힌 상태에서 아이콘 클릭 → 사이드바 펼치기
+  const renderCollapsedIcon = (Icon: React.ElementType, label: string, isActive: boolean) => (
+    <button
+      key={label}
+      type="button"
+      title={label}
+      onClick={onToggle}
+      className={cn(
+        "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+        isActive
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      <Icon className="h-5 w-5" />
+    </button>
+  );
+
+  const renderCollapsedGroup = (
+    GroupIcon: React.ElementType,
+    groupLabel: string,
+    isActive: boolean,
+  ) => (
+    <button
+      key={groupLabel}
+      type="button"
+      title={groupLabel}
+      onClick={onToggle}
+      className={cn(
+        "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+        isActive
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      <GroupIcon className="h-5 w-5" />
+    </button>
+  );
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card">
-      <div className="flex h-16 items-center border-b px-6">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 font-semibold"
+    <aside
+      className={cn(
+        "fixed left-0 top-0 z-40 h-screen border-r bg-card transition-[width] duration-300 overflow-hidden",
+        collapsed ? "w-16" : "w-64"
+      )}
+    >
+      {/* 로고 + 토글 버튼 */}
+      <div className="flex h-16 items-center border-b px-3">
+        {!collapsed && (
+          <Link href="/dashboard" className="flex flex-1 items-center gap-2 font-semibold overflow-hidden">
+            <span className="text-lg text-primary whitespace-nowrap">JYPurch</span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">구매관리 플랫폼</span>
+          </Link>
+        )}
+        {collapsed && <div className="flex-1" />}
+        <button
+          type="button"
+          onClick={onToggle}
+          title={collapsed ? "메뉴 펼치기" : "메뉴 접기"}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
-          <span className="text-lg text-primary">JYPurch</span>
-          <span className="text-xs text-muted-foreground">
-            구매관리 플랫폼
-          </span>
-        </Link>
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
       </div>
-      <nav className="flex flex-col gap-1 p-4">
-        {topNavItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {item.label}
-            </Link>
-          );
-        })}
 
-        {/* 기준정보 관리 (상위) + 품목관리 (하위) */}
-        <div className="py-1">
-          <button
-            type="button"
-            onClick={() => setMasterOpen((o) => !o)}
-            className={cn(
-              "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              isMasterActive
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <masterNavGroup.icon className="h-5 w-5 shrink-0" />
-              <span>{masterNavGroup.label}</span>
-            </div>
-            {masterOpen ? (
-              <ChevronDown className="h-4 w-4 shrink-0" />
-            ) : (
-              <ChevronRight className="h-4 w-4 shrink-0" />
-            )}
-          </button>
-          {masterOpen && (
-            <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
-              {masterNavGroup.children.map((child) => {
-                const isChildActive =
-                  pathname === child.href || pathname.startsWith(child.href);
-                const Icon = child.icon;
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                      isChildActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {child.label}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        {/* 구매오더 그룹: 현황 / 신규 */}
-        <div className="py-1">
-          <button
-            type="button"
-            onClick={() => setPoOpen((o) => !o)}
-            className={cn(
-              "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              isPoActive
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <purchaseOrderNavGroup.icon className="h-5 w-5 shrink-0" />
-              <span>{purchaseOrderNavGroup.label}</span>
-            </div>
-            {poOpen ? (
-              <ChevronDown className="h-4 w-4 shrink-0" />
-            ) : (
-              <ChevronRight className="h-4 w-4 shrink-0" />
-            )}
-          </button>
-          {poOpen && (
-            <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
-              {purchaseOrderNavGroup.children.map((child) => {
-                const isChildActive = pathname === child.href;
-                const Icon = child.icon;
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                      isChildActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {child.label}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* 접힌 상태 */}
+      {collapsed && (
+        <nav className="flex flex-col items-center gap-1 p-2 pt-3">
+          {topNavItems.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return renderCollapsedIcon(item.icon, item.label, isActive);
+          })}
+          {renderCollapsedGroup(masterNavGroup.icon, masterNavGroup.label, isMasterActive)}
+          {renderCollapsedGroup(purchaseOrderNavGroup.icon, purchaseOrderNavGroup.label, isPoActive && !isPerformanceActive)}
+          {renderCollapsedGroup(receiptNavGroup.icon, receiptNavGroup.label, isReceiptActive)}
+          {renderCollapsedGroup(performanceNavGroup.icon, performanceNavGroup.label, isPerformanceActive)}
+          {bottomNavItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href);
+            return renderCollapsedIcon(item.icon, item.label, isActive);
+          })}
+          {isAdmin && renderCollapsedGroup(adminNavGroup.icon, adminNavGroup.label, isAdminActive)}
+          {renderCollapsedGroup(settingsNavGroup.icon, settingsNavGroup.label, isSettingsActive)}
+        </nav>
+      )}
 
-        {/* 구매입고관리 그룹 */}
-        <div className="py-1">
-          <button
-            type="button"
-            onClick={() => setReceiptOpen((o) => !o)}
-            className={cn(
-              "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              isReceiptActive
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <receiptNavGroup.icon className="h-5 w-5 shrink-0" />
-              <span>{receiptNavGroup.label}</span>
-            </div>
-            {receiptOpen ? (
-              <ChevronDown className="h-4 w-4 shrink-0" />
-            ) : (
-              <ChevronRight className="h-4 w-4 shrink-0" />
-            )}
-          </button>
-          {receiptOpen && (
-            <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
-              {receiptNavGroup.children.map((child) => {
-                const isChildActive = pathname === child.href || pathname.startsWith(child.href);
-                const Icon = child.icon;
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                      isChildActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {child.label}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* 펼친 상태 */}
+      {!collapsed && (
+        <nav className="flex flex-col gap-1 p-4">
+          {topNavItems.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                {item.label}
+              </Link>
+            );
+          })}
 
-        {/* 구매실적관리 그룹: 실적 / 발주대비 입고현황 */}
-        <div className="py-1">
-          <button
-            type="button"
-            onClick={() => setPerformanceOpen((o) => !o)}
-            className={cn(
-              "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              isPerformanceActive
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <performanceNavGroup.icon className="h-5 w-5 shrink-0" />
-              <span>{performanceNavGroup.label}</span>
-            </div>
-            {performanceOpen ? (
-              <ChevronDown className="h-4 w-4 shrink-0" />
-            ) : (
-              <ChevronRight className="h-4 w-4 shrink-0" />
-            )}
-          </button>
-          {performanceOpen && (
-            <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
-              {performanceNavGroup.children.map((child) => {
-                const isChildActive = pathname === child.href;
-                const Icon = child.icon;
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                      isChildActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {child.label}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {bottomNavItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {item.label}
-            </Link>
-          );
-        })}
-
-        {/* 시스템 관리 그룹: 관리자 전용 */}
-        {isAdmin && (
+          {/* 기준정보 관리 */}
           <div className="py-1">
             <button
               type="button"
-              onClick={() => setAdminOpen((o) => !o)}
+              onClick={() => setMasterOpen((o) => !o)}
               className={cn(
                 "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                isAdminActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                isMasterActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <div className="flex items-center gap-3">
-                <adminNavGroup.icon className="h-5 w-5 shrink-0" />
-                <span>{adminNavGroup.label}</span>
+                <masterNavGroup.icon className="h-5 w-5 shrink-0" />
+                <span>{masterNavGroup.label}</span>
               </div>
-              {adminOpen ? (
-                <ChevronDown className="h-4 w-4 shrink-0" />
-              ) : (
-                <ChevronRight className="h-4 w-4 shrink-0" />
-              )}
+              {masterOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
             </button>
-            {adminOpen && (
+            {masterOpen && (
               <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
-                {adminNavGroup.children.map((child) => {
+                {masterNavGroup.children.map((child) => {
                   const isChildActive = pathname === child.href || pathname.startsWith(child.href);
                   const Icon = child.icon;
                   return (
                     <Link
                       key={child.href}
                       href={child.href}
+                      onClick={onNavigate}
                       className={cn(
                         "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                        isChildActive
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        isChildActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0" />
@@ -429,55 +275,230 @@ export function AppSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
               </div>
             )}
           </div>
-        )}
 
-        {/* 설정 그룹: 공통코드 관리 등 (맨 아래) */}
-        <div className="py-1">
-          <button
-            type="button"
-            onClick={() => setSettingsOpen((o) => !o)}
-            className={cn(
-              "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              isSettingsActive
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          {/* 구매오더 */}
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => setPoOpen((o) => !o)}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isPoActive && !isPerformanceActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <purchaseOrderNavGroup.icon className="h-5 w-5 shrink-0" />
+                <span>{purchaseOrderNavGroup.label}</span>
+              </div>
+              {poOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+            </button>
+            {poOpen && (
+              <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
+                {purchaseOrderNavGroup.children.map((child) => {
+                  const isChildActive = pathname === child.href;
+                  const Icon = child.icon;
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                        isChildActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {child.label}
+                    </Link>
+                  );
+                })}
+              </div>
             )}
-          >
-            <div className="flex items-center gap-3">
-              <settingsNavGroup.icon className="h-5 w-5 shrink-0" />
-              <span>{settingsNavGroup.label}</span>
-            </div>
-            {settingsOpen ? (
-              <ChevronDown className="h-4 w-4 shrink-0" />
-            ) : (
-              <ChevronRight className="h-4 w-4 shrink-0" />
+          </div>
+
+          {/* 구매입고관리 */}
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => setReceiptOpen((o) => !o)}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isReceiptActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <receiptNavGroup.icon className="h-5 w-5 shrink-0" />
+                <span>{receiptNavGroup.label}</span>
+              </div>
+              {receiptOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+            </button>
+            {receiptOpen && (
+              <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
+                {receiptNavGroup.children.map((child) => {
+                  const isChildActive = pathname === child.href || pathname.startsWith(child.href);
+                  const Icon = child.icon;
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                        isChildActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {child.label}
+                    </Link>
+                  );
+                })}
+              </div>
             )}
-          </button>
-          {settingsOpen && (
-            <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
-              {settingsNavGroup.children.map((child) => {
-                const isChildActive = pathname === child.href;
-                const Icon = child.icon;
-                return (
-                  <Link
-                    key={child.href}
-                    href={child.href}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                      isChildActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {child.label}
-                  </Link>
-                );
-              })}
+          </div>
+
+          {/* 구매실적관리 */}
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => setPerformanceOpen((o) => !o)}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isPerformanceActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <performanceNavGroup.icon className="h-5 w-5 shrink-0" />
+                <span>{performanceNavGroup.label}</span>
+              </div>
+              {performanceOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+            </button>
+            {performanceOpen && (
+              <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
+                {performanceNavGroup.children.map((child) => {
+                  const isChildActive = pathname === child.href;
+                  const Icon = child.icon;
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                        isChildActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {child.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 분석 */}
+          {bottomNavItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                {item.label}
+              </Link>
+            );
+          })}
+
+          {/* 시스템 관리 (관리자 전용) */}
+          {isAdmin && (
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => setAdminOpen((o) => !o)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  isAdminActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <adminNavGroup.icon className="h-5 w-5 shrink-0" />
+                  <span>{adminNavGroup.label}</span>
+                </div>
+                {adminOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+              </button>
+              {adminOpen && (
+                <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
+                  {adminNavGroup.children.map((child) => {
+                    const isChildActive = pathname === child.href || pathname.startsWith(child.href);
+                    const Icon = child.icon;
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                          isChildActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {child.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
-        </div>
-      </nav>
+
+          {/* 설정 */}
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen((o) => !o)}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isSettingsActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <settingsNavGroup.icon className="h-5 w-5 shrink-0" />
+                <span>{settingsNavGroup.label}</span>
+              </div>
+              {settingsOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+            </button>
+            {settingsOpen && (
+              <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
+                {settingsNavGroup.children.map((child) => {
+                  const isChildActive = pathname === child.href;
+                  const Icon = child.icon;
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                        isChildActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {child.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </nav>
+      )}
     </aside>
   );
 }

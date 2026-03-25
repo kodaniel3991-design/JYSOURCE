@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,7 @@ import { CrudActions } from "@/components/common/crud-actions";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { MasterListGrid } from "@/components/common/master-list-grid";
 import type { ItemTypeRecord } from "@/types/item-type";
-import { Search, RotateCcw } from "lucide-react";
+import { SearchPanel } from "@/components/common/search-panel";
 import { ItemTypeRegisterSheet } from "@/components/item-types/item-type-register-sheet";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 import { itemTypes as mockData } from "@/lib/mock/item-types";
@@ -53,20 +54,20 @@ function Field({
 }
 
 export default function ItemTypesPage() {
-  const [rows, setRows] = useState<ItemTypeRecord[]>([]);
+  const [rows, setRows] = useCachedState<ItemTypeRecord[]>("item-types/rows", []);
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useCachedState<boolean>("item-types/hasSearched", false);
   const searchRef = useEnterNavigation();
-  const [filters, setFilters] = useState<FilterState>({ itemTypeCode: "", itemTypeName: "" });
+  const [filters, setFilters] = useCachedState<FilterState>("item-types/filters", { itemTypeCode: "", itemTypeName: "" });
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const pageSize = 15;
+  const [page, setPage] = useCachedState<number>("item-types/page", 1);
+  const pageSize = 20;
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("sort");
-  const [sortKey, setSortKey] = useState<keyof ItemTypeRecord>("itemTypeCode");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortKey, setSortKey] = useCachedState<keyof ItemTypeRecord>("item-types/sortKey", "itemTypeCode");
+  const [sortDir, setSortDir] = useCachedState<"asc" | "desc">("item-types/sortDir", "asc");
   const [stripedRows, setStripedRows] = useState(true);
   const [compactView, setCompactView] = useState(true);
 
@@ -205,39 +206,26 @@ export default function ItemTypesPage() {
       />
 
       {/* 검색 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">검색 조건</CardTitle>
-          <p className="text-xs text-muted-foreground">품목유형코드, 품목유형명으로 검색할 수 있습니다.</p>
-        </CardHeader>
-        <CardContent className="space-y-4 text-xs">
-          <div ref={searchRef} className="grid gap-3 sm:grid-cols-2">
-            <Field
-              label="품목유형코드"
-              value={filters.itemTypeCode}
-              onChange={(v) => handleFilterChange("itemTypeCode", v)}
-            />
-            <Field
-              label="품목유형명"
-              value={filters.itemTypeName}
-              onChange={(v) => handleFilterChange("itemTypeName", v)}
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={handleSearch} disabled={loading}>
-              <Search className="mr-1.5 h-4 w-4" />
-              {loading ? "조회 중..." : "검색"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={resetFilters}>
-              <RotateCcw className="mr-1.5 h-4 w-4" />
-              필터 초기화
-            </Button>
-            <p className="text-[11px] text-muted-foreground">
-              총 <span className="font-semibold">{filteredList.length}</span>건이 조회되었습니다.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <SearchPanel
+        description="품목유형코드, 품목유형명으로 검색할 수 있습니다."
+        onSearch={handleSearch}
+        onReset={resetFilters}
+        loading={loading}
+        totalCountLabel={`총 ${filteredList.length.toLocaleString("ko-KR")}건이 조회되었습니다.`}
+      >
+        <div ref={searchRef} className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label="품목유형코드"
+            value={filters.itemTypeCode}
+            onChange={(v) => handleFilterChange("itemTypeCode", v)}
+          />
+          <Field
+            label="품목유형명"
+            value={filters.itemTypeName}
+            onChange={(v) => handleFilterChange("itemTypeName", v)}
+          />
+        </div>
+      </SearchPanel>
 
       {/* 그리드 */}
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">

@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { AppSidebar } from "@/components/layout/app-sidebar";
-import { AppHeader } from "@/components/layout/app-header";
+import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { verifyToken, SESSION_COOKIE } from "@/lib/auth/session";
 
 const ADMIN_USERNAME = process.env.AUTH_USERNAME ?? "admin";
@@ -27,17 +26,13 @@ export default async function DashboardLayout({
 
   try {
     return (
-      <div className="min-h-screen bg-background">
-        <AppSidebar isAdmin={isAdmin} />
-        <div className="pl-64">
-          <AppHeader
-            username={session?.username}
-            factory={session?.factory}
-            isAdmin={isAdmin}
-          />
-          <main className="p-6">{children}</main>
-        </div>
-      </div>
+      <SidebarLayout
+        username={session?.username}
+        factory={session?.factory}
+        isAdmin={isAdmin}
+      >
+        {children}
+      </SidebarLayout>
     );
   } catch (e) {
     console.error("[DashboardLayout] render error", e);

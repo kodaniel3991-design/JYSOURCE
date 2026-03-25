@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select } from "@/components/ui/select";
 import { CrudActions } from "@/components/common/crud-actions";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { MasterListGrid } from "@/components/common/master-list-grid";
@@ -42,9 +44,9 @@ interface PurchasePriceChangeLog {
 }
 
 export default function PurchasePricesPage() {
-  const [rows, setRows] = useState<PurchasePriceRecord[]>([]);
+  const [rows, setRows] = useCachedState<PurchasePriceRecord[]>("purchase-prices/rows", []);
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useCachedState<boolean>("purchase-prices/hasSearched", false);
   const searchRef = useEnterNavigation();
 
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export default function PurchasePricesPage() {
       setHasSearched(true);
     }
   }, []);
-  const [filters, setFilters] = useState<PurchasePriceFilterState>({
+  const [filters, setFilters] = useCachedState<PurchasePriceFilterState>("purchase-prices/filters", {
     itemCode: "",
     itemName: "",
     supplierName: "",
@@ -77,11 +79,21 @@ export default function PurchasePricesPage() {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [sortMode, setSortMode] = useState<
-    "none" | "unitPriceAsc" | "unitPriceDesc"
-  >("none");
+  const [page, setPage] = useCachedState<number>("purchase-prices/page", 1);
+  const pageSize = 20;
+  const [sortKey, setSortKey] = useCachedState<keyof PurchasePriceRecord>("purchase-prices/sortKey", "itemCode");
+  const [sortDir, setSortDir] = useCachedState<"asc" | "desc">("purchase-prices/sortDir", "asc");
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+  const [stripedRows, setStripedRows] = useState(true);
+  const [compactView, setCompactView] = useState(true);
+  const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>([
+    "__no__", "itemCode", "itemName", "itemSpec", "itemMaterialName",
+    "supplierCode", "applyDate", "unitPrice", "isTempPrice",
+    "warehouseCode", "storageLocationCode", "orderRate", "priceNotUsed",
+    "outsourcingOrderIssue", "outsourcingMethod", "outsourcingReceiptItemCode",
+    "workOrderNo", "plant", "validDate", "validDateAdjust", "currencyCode",
+  ]);
   const [changeLogs, setChangeLogs] = useState<PurchasePriceChangeLog[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [excelSheetOpen, setExcelSheetOpen] = useState(false);
@@ -124,14 +136,19 @@ export default function PurchasePricesPage() {
     });
 
     const sorted = [...result];
-    if (sortMode === "unitPriceAsc") {
-      sorted.sort((a, b) => a.unitPrice - b.unitPrice);
-    } else if (sortMode === "unitPriceDesc") {
-      sorted.sort((a, b) => b.unitPrice - a.unitPrice);
-    }
+    sorted.sort((a, b) => {
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      if (typeof av === "number" && typeof bv === "number") {
+        return sortDir === "asc" ? av - bv : bv - av;
+      }
+      return sortDir === "asc"
+        ? String(av).localeCompare(String(bv), "ko")
+        : String(bv).localeCompare(String(av), "ko");
+    });
 
     return sorted;
-  }, [filters, rows, sortMode]);
+  }, [filters, rows, sortKey, sortDir]);
 
   const total = filteredList.length;
   const start = (page - 1) * pageSize;
@@ -139,6 +156,15 @@ export default function PurchasePricesPage() {
 
   const columns = useMemo<MasterListGridColumn<PurchasePriceRecord>[]>(
     () => [
+      {
+        key: "__no__",
+        header: "No",
+        minWidth: 48,
+        maxWidth: 48,
+        headerClassName: "text-center",
+        cellClassName: "text-center text-muted-foreground",
+        cell: (_row, index) => (page - 1) * pageSize + index + 1,
+      },
       { key: "itemCode", header: "품목번호", minWidth: 120, maxWidth: 140 },
       { key: "itemName", header: "품목명", minWidth: 160, maxWidth: 200 },
       { key: "itemSpec", header: "품목규격", minWidth: 180, maxWidth: 220 },
@@ -232,8 +258,24 @@ export default function PurchasePricesPage() {
       },
       { key: "currencyCode", header: "통화코드", minWidth: 80, maxWidth: 90 },
     ],
-    []
+    [page, pageSize]
   );
+
+  const allColumns = columns;
+  const visibleColumns = useMemo(
+    () => allColumns.filter((c) => visibleColumnKeys.includes(c.key as string)),
+    [allColumns, visibleColumnKeys]
+  );
+
+  const sortOptions = [
+    { value: "itemCode", label: "품목번호" },
+    { value: "itemName", label: "품목명" },
+    { value: "unitPrice", label: "구매단가" },
+    { value: "applyDate", label: "적용일자" },
+    { value: "supplierCode", label: "구매처번호" },
+  ];
+
+  const toggleSortDir = () => setSortDir((d) => (d === "asc" ? "desc" : "asc"));
 
   const handleExport = () => {
     if (filteredList.length === 0) return;
@@ -302,21 +344,6 @@ export default function PurchasePricesPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  const handleToggleSort = () => {
-    setSortMode((prev) =>
-      prev === "none"
-        ? "unitPriceAsc"
-        : prev === "unitPriceAsc"
-          ? "unitPriceDesc"
-          : "none"
-    );
-  };
-
-  const handleToggleView = () => {
-    setPageSize((prev) => (prev === 10 ? 20 : 10));
-    setPage(1);
   };
 
   const handleExcelFile = useCallback(
@@ -616,27 +643,29 @@ export default function PurchasePricesPage() {
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-end space-y-0">
             <DataGridToolbar
-            onExport={handleExport}
-            onSort={handleToggleSort}
-            onView={handleToggleView}
-          />
+              active={gridSettingsOpen ? gridSettingsTab : undefined}
+              onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+              onSort={() => { setGridSettingsTab("sort"); setGridSettingsOpen(true); toggleSortDir(); }}
+              onColumns={() => { setGridSettingsTab("columns"); setGridSettingsOpen(true); }}
+              onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
+            />
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1">
             <MasterListGrid<PurchasePriceRecord>
-              columns={columns}
+              columns={visibleColumns}
               data={paged}
               keyExtractor={(r) => r.id}
               onRowClick={(row) => setSelectedRowId(row.id)}
               selectedRowId={selectedRowId}
-              variant="striped"
+              variant={stripedRows ? "striped" : "default"}
               pagination={{
                 page,
                 pageSize,
                 total,
                 onPageChange: setPage,
               }}
-              getRowClassName={() => ""}
+              getRowClassName={() => compactView ? "" : "h-10"}
               maxHeight="100%"
               emptyMessage={loadError ? loadError : !hasSearched ? "검색 버튼을 클릭하면 조회됩니다." : loading ? "조회 중..." : "조건에 맞는 구매단가가 없습니다."}
             />
@@ -707,6 +736,104 @@ export default function PurchasePricesPage() {
           );
         }}
       />
+
+      {/* 그리드 설정 시트 */}
+      <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>그리드 설정</SheetTitle>
+            <SheetDescription className="text-xs">
+              내보내기 · 정렬 · 컬럼 · 보기 설정
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-4 space-y-5 text-xs">
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant={gridSettingsTab === "export" ? "default" : "outline"} onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+              <Button size="sm" variant={gridSettingsTab === "sort" ? "default" : "outline"} onClick={() => setGridSettingsTab("sort")}>정렬</Button>
+              <Button size="sm" variant={gridSettingsTab === "columns" ? "default" : "outline"} onClick={() => setGridSettingsTab("columns")}>컬럼</Button>
+              <Button size="sm" variant={gridSettingsTab === "view" ? "default" : "outline"} onClick={() => setGridSettingsTab("view")}>보기</Button>
+            </div>
+
+            {gridSettingsTab === "export" && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">
+                  검색/정렬된 전체 구매단가 데이터가 CSV 파일로 다운로드됩니다.
+                </p>
+                <Button size="sm" onClick={() => { handleExport(); setGridSettingsOpen(false); }}>
+                  CSV 내보내기
+                </Button>
+              </div>
+            )}
+
+            {gridSettingsTab === "sort" && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">정렬 기준</Label>
+                  <Select
+                    className="h-9 text-xs"
+                    value={sortKey}
+                    options={sortOptions}
+                    onChange={(v) => setSortKey(v as keyof PurchasePriceRecord)}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={toggleSortDir}>
+                    {sortDir === "asc" ? "오름차순" : "내림차순"}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    정렬은 즉시 목록에 적용됩니다.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {gridSettingsTab === "columns" && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">표시할 컬럼을 선택하세요. (최소 1개 유지)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {allColumns.filter((c) => c.key !== "__no__").map((c) => {
+                    const checked = visibleColumnKeys.includes(c.key as string);
+                    return (
+                      <label key={c.key as string} className="flex items-center gap-2 rounded-md border px-2 py-1.5">
+                        <Checkbox
+                          checked={checked}
+                          onChange={(e) => {
+                            const next = e.target.checked;
+                            setVisibleColumnKeys((prev) => {
+                              if (next) return Array.from(new Set([...prev, c.key as string]));
+                              const filtered = prev.filter((k) => k !== c.key);
+                              return filtered.length > 0 ? filtered : prev;
+                            });
+                          }}
+                        />
+                        <span className="text-[11px]">{c.header}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setVisibleColumnKeys(allColumns.map((c) => c.key as string))}>전체 선택</Button>
+                  <Button size="sm" variant="outline" onClick={() => setVisibleColumnKeys(["__no__", "itemCode", "itemName", "supplierCode", "applyDate", "unitPrice"])}>기본값</Button>
+                </div>
+              </div>
+            )}
+
+            {gridSettingsTab === "view" && (
+              <div className="space-y-3">
+                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span className="text-[11px] text-muted-foreground">줄무늬 표시</span>
+                  <Checkbox checked={stripedRows} onChange={(e) => setStripedRows(e.target.checked)} />
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span className="text-[11px] text-muted-foreground">컴팩트 보기</span>
+                  <Checkbox checked={compactView} onChange={(e) => setCompactView(e.target.checked)} />
+                </label>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* EXCEL 업로드 시트 */}
       <Sheet

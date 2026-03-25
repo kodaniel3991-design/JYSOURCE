@@ -8,7 +8,7 @@ import { MasterListGrid } from "@/components/common/master-list-grid";
 import { formatCurrency } from "@/lib/utils";
 import { purchaseOrderSummaries } from "@/lib/mock/purchase-orders";
 import type { PurchaseOrderSummary } from "@/types/purchase";
-import { Search, RotateCcw } from "lucide-react";
+import { SearchPanel } from "@/components/common/search-panel";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import {
   Sheet,
@@ -241,6 +241,15 @@ export default function ClosingStatusPage() {
     (XLSX as any).writeFile(wb, fileName);
   }, [displayRows, getUsageKind]);
 
+  const handleSearch = useCallback(() => {
+    setCriteria(draft);
+  }, [draft]);
+
+  const resetFilters = useCallback(() => {
+    setDraft(initialParams);
+    setCriteria(initialParams);
+  }, []);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -248,96 +257,62 @@ export default function ClosingStatusPage() {
         description="기간·공급사·상태 기준으로 구매오더의 마감 현황을 조회합니다. (데모)"
       />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <span className="text-sm font-medium text-muted-foreground">
-            검색 조건
-          </span>
-        </CardHeader>
-        <CardContent className="space-y-3 text-xs">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1">
-              <span className="text-[12px] text-slate-600">사업장</span>
-              <select
-                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-                value={draft.plant}
+      <SearchPanel
+        onSearch={handleSearch}
+        onReset={resetFilters}
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1">
+            <span className="text-[12px] text-slate-600">사업장</span>
+            <select
+              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+              value={draft.plant}
+              onChange={(e) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  plant: e.target.value,
+                }))
+              }
+            >
+              <option value="">전체</option>
+              <option value="gimhae">김해공장</option>
+              <option value="ulsan">울산공장</option>
+              <option value="pyeongtaek">평택공장</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[12px] text-slate-600">납기일자</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                value={draft.fromDueDate}
                 onChange={(e) =>
                   setDraft((prev) => ({
                     ...prev,
-                    plant: e.target.value,
+                    fromDueDate: e.target.value,
                   }))
                 }
-              >
-                <option value="">전체</option>
-                <option value="gimhae">김해공장</option>
-                <option value="ulsan">울산공장</option>
-                <option value="pyeongtaek">평택공장</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <span className="text-[12px] text-slate-600">납기일자</span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="date"
-                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
-                  value={draft.fromDueDate}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      fromDueDate: e.target.value,
-                    }))
-                  }
-                />
-                <span className="text-[11px] text-muted-foreground">~</span>
-                <input
-                  type="date"
-                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
-                  value={draft.toDueDate}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      toDueDate: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            {/* 네 번째 칼럼은 비워두어 2개 조건 중심의 단순한 레이아웃 유지 */}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setCriteria(draft);
-                }}
-                className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary"
-              >
-                <Search className="mr-1.5 h-4 w-4" />
-                검색
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setDraft(initialParams);
-                  setCriteria(initialParams);
-                }}
-                className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary"
-              >
-                <RotateCcw className="mr-1.5 h-4 w-4" />
-                필터 초기화
-              </Button>
+              />
+              <span className="text-[11px] text-muted-foreground">~</span>
+              <input
+                type="date"
+                className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
+                value={draft.toDueDate}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    toDueDate: e.target.value,
+                  }))
+                }
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* 네 번째 칼럼은 비워두어 2개 조건 중심의 단순한 레이아웃 유지 */}
+        </div>
+      </SearchPanel>
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
