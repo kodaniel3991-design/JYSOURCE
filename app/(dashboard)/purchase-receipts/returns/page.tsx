@@ -789,27 +789,25 @@ export default function PurchaseReturnsPage() {
     {/* 품목 선택 모달 */}
     <ItemSelectModal
       open={isItemModalOpen}
-      initialSearch={itemCode}
+      onOpenChange={setIsItemModalOpen}
       onSelect={(item) => {
-        setItemCode(item.ItemNo);
-        setItemName(item.ItemName);
+        setItemCode(item.itemCode);
+        setItemName(item.itemName);
         setIsItemModalOpen(false);
         setTimeout(() => refSupplierCode.current?.focus(), 0);
       }}
-      onClose={() => { setIsItemModalOpen(false); setTimeout(() => refItemCode.current?.focus(), 0); }}
     />
 
     {/* 구매처 선택 팝업 */}
     <SupplierSelectPopup
       open={isSupplierPopupOpen}
-      initialSearch={supplierCode}
-      onSelect={(s) => {
-        setSupplierCode(s.SupplierCode);
-        setSupplierName(s.SupplierName);
+      onOpenChange={setIsSupplierPopupOpen}
+      onSelect={(code, name) => {
+        setSupplierCode(code);
+        setSupplierName(name);
         setIsSupplierPopupOpen(false);
         setTimeout(() => refModel.current?.focus(), 0);
       }}
-      onClose={() => { setIsSupplierPopupOpen(false); setTimeout(() => refSupplierCode.current?.focus(), 0); }}
     />
 
     {/* 거래명세서 미리보기 모달 */}

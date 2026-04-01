@@ -282,7 +282,7 @@ export default function PurchasePricesPage() {
       if (c.key === "__no__") return true;
       if (filteredList.length === 0) return true;
       return filteredList.some((row) => {
-        const val = (row as Record<string, unknown>)[c.key];
+        const val = (row as unknown as Record<string, unknown>)[c.key];
         return val !== null && val !== undefined && val !== "";
       });
     }),

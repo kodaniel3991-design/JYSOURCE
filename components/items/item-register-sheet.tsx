@@ -9,6 +9,7 @@ import {
   defaultItemRegisterState,
   type ItemRegisterState,
   type ItemRegisterBasicInfo,
+  type ItemRegisterClassification,
 } from "@/types/item-register";
 import { suppliers } from "@/lib/mock/suppliers";
 import type { SelectOption } from "@/lib/item-register-options";
@@ -90,7 +91,8 @@ export function ItemRegisterSheet({
       if (copied && Object.keys(copied).length > 0) {
         setState((prev) => ({
           ...prev,
-          basicInfo: { ...prev.basicInfo, ...copied },
+          basicInfo: { ...prev.basicInfo, ...(copied as Partial<ItemRegisterBasicInfo>) },
+          classification: { ...prev.classification, ...(copied as Partial<ItemRegisterClassification>) },
         }));
       }
     },
@@ -162,7 +164,7 @@ export function ItemRegisterSheet({
 }
 
 /** 품목번호로 복사 시 mock: 입력한 번호를 규격/도면번호에 반영 */
-function mockCopyFromItemNo(itemNo: string): Partial<ItemRegisterBasicInfo> {
+function mockCopyFromItemNo(itemNo: string): Partial<ItemRegisterClassification> {
   return {
     specification: `복사: ${itemNo}`,
     drawingNo: itemNo ? `DRW-${itemNo.slice(-6)}` : "",

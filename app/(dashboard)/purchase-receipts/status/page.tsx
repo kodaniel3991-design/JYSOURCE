@@ -698,8 +698,8 @@ export default function ReceiptStatusPage() {
           open={isItemModalOpen}
           onOpenChange={(open) => { if (!open) setIsItemModalOpen(false); }}
           onSelect={(item) => {
-            setItemCode(item.ItemNo);
-            setItemName(item.ItemName);
+            setItemCode(item.itemCode);
+            setItemName(item.itemName);
             setIsItemModalOpen(false);
             setTimeout(() => refSupplierCode.current?.focus(), 0);
           }}

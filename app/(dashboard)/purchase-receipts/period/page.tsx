@@ -185,7 +185,7 @@ export default function ReceiptPeriodPage() {
       if (!dg) { dg = { receiptDate: item.receiptDate, rows: [] }; sg.dateGroups.push(dg); }
       dg.rows.push(item);
     }
-    for (const sg of supplierMap.values()) {
+    for (const sg of Array.from(supplierMap.values())) {
       sg.dateGroups.sort((a, b) => a.receiptDate.localeCompare(b.receiptDate));
     }
     return Array.from(supplierMap.values());
@@ -213,7 +213,7 @@ export default function ReceiptPeriodPage() {
     }
 
     const supplierMap = new Map<string, SupplierItemGroup>();
-    for (const row of aggMap.values()) {
+    for (const row of Array.from(aggMap.values())) {
       const sk = row.supplierCode || "__NONE__";
       if (!supplierMap.has(sk)) {
         supplierMap.set(sk, {

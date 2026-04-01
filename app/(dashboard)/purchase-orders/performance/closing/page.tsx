@@ -45,7 +45,8 @@ type RawItem = {
 
 type RowKind = "data" | "subtotal_form" | "subtotal_model" | "total_form" | "total_model" | "total_all";
 
-type ClosingRow = RawItem & {
+type ClosingRow = Omit<RawItem, "inputQty"> & {
+  inputQty?: number;
   id: string;
   rowKind: RowKind;
   mergeKey: string;

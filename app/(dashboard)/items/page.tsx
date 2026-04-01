@@ -846,7 +846,7 @@ export default function ItemsPage() {
   const [excelManager, setExcelManager] = useState("");
   const excelFileInputRef = useRef<HTMLInputElement>(null);
 
-  const getItemByNo = useCallback((itemNo: string): Partial<ItemRegisterBasicInfo> | null => {
+  const getItemByNo = useCallback((itemNo: string): (Partial<ItemRegisterBasicInfo> & { specification?: string; drawingNo?: string }) | null => {
     const found = rows.find((it) => it.itemNo === itemNo);
     if (!found) return null;
     return {
@@ -2211,28 +2211,28 @@ export default function ItemsPage() {
             id: String(data.id),
             itemNo: state.basicInfo.itemNo,
             itemName: state.basicInfo.itemName,
-            specification: state.basicInfo.specification,
+            specification: state.classification.specification,
             form: state.basicInfo.itemForm,
             type: state.basicInfo.itemType,
             unit: state.technical.salesUnit || "EA",
             supplierItemNo: state.procurement.supplierItemNo,
-            drawingNo: state.basicInfo.drawingNo,
-            supplierCode: state.procurement.supplierId,
+            drawingNo: state.classification.drawingNo,
+            supplierCode: state.basicInfo.supplierId,
             supplierName: "",
             itemStatusCategory: (state.basicInfo.itemStatusCategory as ItemStatusCategory) ?? "ACTIVE",
             salesUnitCode: state.technical.salesUnit || "EA",
             unitConversion: state.technical.salesUnitConversion,
             itemWeight: toNum(state.technical.weightKg) ?? 0,
-            drawingFlag: Boolean(state.basicInfo.drawingNo),
+            drawingFlag: Boolean(state.classification.drawingNo),
             materialFlag: false, repairFlag: false, miscFlag: false,
             workingItemNo: "", itemSelection: "", owner: "",
             itemUserCategoryCode: state.classification.itemUserCategoryCode,
             material: state.classification.material,
-            vehicleModel: state.classification.productModel,
+            vehicleModel: state.basicInfo.productModel,
             itemUsageClassificationCode: state.classification.itemUsageClassificationCode,
             businessUnit: state.basicInfo.plant,
             packQty: toNum(state.technical.packQty) ?? 0,
-            hasImage: false, hasDrawing: Boolean(state.basicInfo.drawingNo),
+            hasImage: false, hasDrawing: Boolean(state.classification.drawingNo),
             updatedAt: now.toLocaleString("ko-KR"),
             updatedBy: "사용자",
           };

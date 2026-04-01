@@ -99,14 +99,16 @@ export async function GET(request: Request) {
         ORDER BY Amount DESC;
       `);
 
-    const kpiRow    = r.recordsets[0]?.[0] as Record<string, number> ?? {};
-    const delayRow  = r.recordsets[1]?.[0] as Record<string, number> ?? {};
-    const monthly   = (r.recordsets[2] ?? []) as { Month: string; Amount: number }[];
-    const suppSpend = (r.recordsets[3] ?? []) as { Name: string; Value: number }[];
-    const recentRaw = (r.recordsets[4] ?? []) as Record<string, unknown>[];
-    const delayedRaw= (r.recordsets[5] ?? []) as Record<string, unknown>[];
-    const topSup    = (r.recordsets[6] ?? []) as { Name: string; Amount: number }[];
-    const topItems  = (r.recordsets[7] ?? []) as { ItemName: string; OrderCount: number; Amount: number }[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rs = r.recordsets as any[];
+    const kpiRow    = rs[0]?.[0] as Record<string, number> ?? {};
+    const delayRow  = rs[1]?.[0] as Record<string, number> ?? {};
+    const monthly   = (rs[2] ?? []) as { Month: string; Amount: number }[];
+    const suppSpend = (rs[3] ?? []) as { Name: string; Value: number }[];
+    const recentRaw = (rs[4] ?? []) as Record<string, unknown>[];
+    const delayedRaw= (rs[5] ?? []) as Record<string, unknown>[];
+    const topSup    = (rs[6] ?? []) as { Name: string; Amount: number }[];
+    const topItems  = (rs[7] ?? []) as { ItemName: string; OrderCount: number; Amount: number }[];
 
     const today = new Date();
     const periodYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;

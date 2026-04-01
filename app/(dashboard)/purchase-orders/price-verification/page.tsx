@@ -506,8 +506,8 @@ export default function PriceVerificationPage() {
         open={isItemModalOpen}
         onOpenChange={setIsItemModalOpen}
         onSelect={(item) => {
-          setItemCode(item.ItemNo ?? "");
-          setItemName(item.ItemName ?? "");
+          setItemCode(item.itemCode ?? "");
+          setItemName(item.itemName ?? "");
           setIsItemModalOpen(false);
           setTimeout(() => refSupplierCode.current?.focus(), 0);
         }}
@@ -517,9 +517,9 @@ export default function PriceVerificationPage() {
       <SupplierSelectPopup
         open={isSupplierPopupOpen}
         onOpenChange={setIsSupplierPopupOpen}
-        onSelect={(s) => {
-          setSupplierCode(s.code ?? "");
-          setSupplierName(s.name ?? "");
+        onSelect={(code, name) => {
+          setSupplierCode(code ?? "");
+          setSupplierName(name ?? "");
           setIsSupplierPopupOpen(false);
           setTimeout(() => refModel.current?.focus(), 0);
         }}

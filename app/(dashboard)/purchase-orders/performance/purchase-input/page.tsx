@@ -20,6 +20,7 @@ type ListItem = {
 };
 
 type HeaderForm = {
+  inputNo?: string;
   supplierCode: string; supplierName: string; inputDate: string;
   status: string; buyerCode: string; buyerName: string;
   summary: string; deptCode: string; deptName: string;
@@ -321,7 +322,7 @@ export default function PurchaseInputPage() {
   const handleDeleteItems = async () => {
     if (!selectedId || !selectedItemIds.size) return;
     if (!confirm(`선택한 ${selectedItemIds.size}건을 삭제하시겠습니까?`)) return;
-    for (const itemId of selectedItemIds) {
+    for (const itemId of Array.from(selectedItemIds)) {
       await fetch(`/api/purchase-inputs/${selectedId}/items/${itemId}`, { method: "DELETE" });
     }
     setSelectedItemIds(new Set());
