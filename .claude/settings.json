@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \":*)",
+      "Read(//c/Users/temp1234/.claude/projects/d--JYS/**)",
+      "Read(//c/Windows/Fonts/**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft/Edge/Application/**)",
+      "Bash(ls \"d:/JYS/app/\\(dashboard\\)/purchase-orders/[id]/\")",
+      "Bash(wc -l \"d:/JYS/app/\\(dashboard\\)/purchase-orders/create/page.tsx\")",
+      "Bash(wc -l \"d:/JYS/app/\\(dashboard\\)/purchase-receipts/page.tsx\")"
+    ],
+    "additionalDirectories": [
+      "d:\\JYS\\app\\api\\purchase-orders\\[id]",
+      "d:\\JYS\\app\\api\\purchase-prices",
+      "d:\\JYS\\app\\api\\purchase-receipts\\history",
+      "d:\\JYS\\app\\api\\purchase-inputs\\[id]\\items"
+    ]
+  }
+}

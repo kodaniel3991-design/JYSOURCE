@@ -54,6 +54,9 @@ export function LineSpendChart({ data, title, className }: LineSpendChartProps) 
             contentStyle={{
               borderRadius: "8px",
               border: "1px solid hsl(var(--border))",
+              backgroundColor: "hsl(var(--card))",
+              color: "hsl(var(--card-foreground))",
+              fontSize: "12px",
             }}
             formatter={(value: number) => [formatCurrency(value), "금액"]}
             labelFormatter={(label) => `월: ${label}`}

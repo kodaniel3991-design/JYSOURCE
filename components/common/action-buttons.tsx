@@ -10,7 +10,7 @@ export function PrimaryActionButton({ className, ...props }: ButtonProps) {
       className={cn(
         // 기본: 흰 배경 + 연한 테두리
         // 호버: 테마 primary 색상으로 채워짐 (이미지의 업로드 버튼 느낌)
-        "border-slate-300 dark:border-slate-600 text-slate-800 hover:bg-primary hover:text-primary-foreground hover:border-primary",
+        "border-input text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary",
         className
       )}
       {...props}
@@ -27,7 +27,7 @@ export function SecondaryActionButton({ className, ...props }: ButtonProps) {
     <Button
       variant="outline"
       className={cn(
-        "border-slate-300 dark:border-slate-600 text-slate-800 hover:bg-slate-100 hover:text-slate-900",
+        "border-input text-muted-foreground hover:bg-muted hover:text-foreground",
         className
       )}
       {...props}

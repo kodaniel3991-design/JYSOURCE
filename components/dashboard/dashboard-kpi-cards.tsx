@@ -45,7 +45,7 @@ export function DashboardKPICards({
         value={`${delayedCount.toLocaleString()}건`}
         subtitle="주의 필요 발주"
         icon={AlertTriangle}
-        className="border-amber-100 bg-amber-50/60"
+        className="border-amber-200 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-900/20"
       />
     </section>
   );

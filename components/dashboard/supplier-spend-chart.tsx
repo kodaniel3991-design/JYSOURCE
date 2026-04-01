@@ -13,7 +13,7 @@ export function SupplierSpendChart({ data }: SupplierSpendChartProps) {
       <CardHeader>
         <CardTitle className="text-base">공급사별 구매 비중</CardTitle>
         <p className="text-xs text-muted-foreground">
-          현대금속, 동아테크, KJ Parts 등 상위 5개 공급사 기준
+          당월 구매금액 기준 상위 5개 공급사
         </p>
       </CardHeader>
       <CardContent>

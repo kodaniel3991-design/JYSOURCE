@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -14,7 +15,6 @@ import { POStatusBadge } from "@/components/common/status-badge";
 import { formatCurrency } from "@/lib/utils";
 import { suppliers } from "@/lib/mock/suppliers";
 import { poStatusLabels } from "@/lib/mock/purchase-orders";
-import { businessPlaceOptions, buyerOptions } from "@/lib/mock/po-options";
 import type { PurchaserRecord } from "@/types/purchaser";
 import type {
   POBasicFormData,
@@ -22,67 +22,9 @@ import type {
   POStatus,
 } from "@/types/purchase";
 import { MasterListGrid, type MasterListGridColumn } from "@/components/common/master-list-grid";
-import { Plus, Trash2, Search, RotateCcw, Save, X, Send, FileDown } from "lucide-react";
-import { getCommonCodes } from "@/lib/common-code-store";
-
-// 공통코드 관리의 통화코드에서 동적으로 생성
-function buildCurrencyOptions(): SelectOption[] {
-  return getCommonCodes("currency").map((c) => ({
-    value: c.code,
-    label: `${c.code}  ${c.name}`,
-    displayLabel: c.code,
-  }));
-}
-
-// 공통코드 관리의 부가세율에서 동적으로 생성
-function buildVatRateOptions(): SelectOption[] {
-  return getCommonCodes("vatRate").map((c) => ({
-    value: c.code,
-    label: c.name,
-  }));
-}
-
-// 공통코드 관리의 지급조건에서 동적으로 생성
-function buildPaymentTermOptions(): SelectOption[] {
-  return getCommonCodes("paymentTerm").map((c) => ({
-    value: c.code,
-    label: `${c.code}  ${c.name}`,
-    displayLabel: c.name,
-  }));
-}
-
-// 공통코드 관리의 지급형태에서 동적으로 생성
-function buildPaymentFormOptions(): SelectOption[] {
-  return getCommonCodes("paymentForm").map((c) => ({
-    value: c.code,
-    label: `${c.code}  ${c.name}`,
-    displayLabel: c.name,
-  }));
-}
-
-// 공통코드 관리의 수입구분에서 동적으로 생성
-function buildImportTypeOptions(): SelectOption[] {
-  return getCommonCodes("importType").map((c) => ({
-    value: c.code,
-    label: c.name,
-  }));
-}
-
-// 공통코드 관리의 창고코드에서 동적으로 생성
-function buildWarehouseOptions(): SelectOption[] {
-  return getCommonCodes("warehouse").map((c) => ({
-    value: c.code,
-    label: `${c.code}  ${c.name}`,
-    displayLabel: c.code,
-  }));
-}
-
-function buildWarehouseLabelMap(): Record<string, string> {
-  return getCommonCodes("warehouse").reduce(
-    (acc, c) => { acc[c.code] = `${c.code}  ${c.name}`; return acc; },
-    {} as Record<string, string>
-  );
-}
+import { SearchPopup } from "@/components/common/search-popup";
+import { Plus, Trash2, Search, RotateCcw, Save, X, Send, FileDown, Copy } from "lucide-react";
+import { FieldError } from "@/components/ui/field-error";
 
 const statusOptions: SelectOption[] = (["draft", "approved", "issued"] as const).map(
   (v) => ({ value: v, label: poStatusLabels[v] })
@@ -103,7 +45,7 @@ const defaultBasicForm: POBasicFormData = {
   orderDate: new Date().toISOString().slice(0, 10),
   vatRate: "10",
   importType: "domestic",
-  businessPlace: "gimhae",
+  businessPlace: "",
   packagingStatus: "",
   inspectionCondition: "",
   deliveryCondition: "",
@@ -116,7 +58,7 @@ const defaultSpecRow: Omit<POSpecItemRow, "amount"> = {
   itemName: "",
   material: "",
   specification: "",
-  warehouse: "10",
+  warehouse: "",
   quantity: 0,
   receivedQty: 0,
   unitPrice: 0,
@@ -140,29 +82,19 @@ type ItemMaster = {
   itemName: string;
   material?: string;
   spec?: string;
+  model?: string;
   unitPrice: number;
   supplierId: string;
 };
 
-/** 기본정보 등록 리스트 더미 10건 */
-const initialBasicInfoListDummy: BasicInfoListItem[] = [
-  { id: "dummy-1", orderNumber: "PO-2026-0001", orderStatus: "approved", supplierId: "sup-001", supplierName: "한국정밀기어", currencyCode: "KRW", paymentType: "transfer", paymentTerms: "net30", buyerCode: "2022-033", buyerName: "임정근", supplierQuotationNo: "QT-2026-001", supplierContactPerson: "김대영", advancePayment: "", orderDate: "2026-03-01", vatRate: "10", importType: "domestic", businessPlace: "gimhae", packagingStatus: "박스", inspectionCondition: "수입검사", deliveryCondition: "공장인도", otherCondition: "", notes: "" },
-  { id: "dummy-2", orderNumber: "PO-2026-0002", orderStatus: "issued", supplierId: "sup-002", supplierName: "일본스틸코리아", currencyCode: "KRW", paymentType: "l/c", paymentTerms: "net60", buyerCode: "2022-034", buyerName: "김구매", supplierQuotationNo: "QT-2026-002", supplierContactPerson: "다나카 히로시", advancePayment: "0", orderDate: "2026-03-02", vatRate: "10", importType: "import", businessPlace: "gimhae", packagingStatus: "파레트", inspectionCondition: "원료검사", deliveryCondition: "선적", otherCondition: "", notes: "긴급" },
-  { id: "dummy-3", orderNumber: "PO-2026-0003", orderStatus: "draft", supplierId: "sup-003", supplierName: "대우베어링", currencyCode: "KRW", paymentType: "transfer", paymentTerms: "net30", buyerCode: "2022-035", buyerName: "이발주", supplierQuotationNo: "", supplierContactPerson: "박준혁", advancePayment: "", orderDate: "2026-03-05", vatRate: "0", importType: "domestic", businessPlace: "ulsan", packagingStatus: "", inspectionCondition: "", deliveryCondition: "", otherCondition: "", notes: "" },
-  { id: "dummy-4", orderNumber: "PO-2026-0004", orderStatus: "approved", supplierId: "sup-004", supplierName: "독일오토파츠", currencyCode: "KRW", paymentType: "bill", paymentTerms: "net90", buyerCode: "2022-036", buyerName: "박담당", supplierQuotationNo: "QT-2026-004", supplierContactPerson: "Hans Mueller", advancePayment: "30", orderDate: "2026-03-06", vatRate: "10", importType: "import", businessPlace: "gimhae", packagingStatus: "목재케이스", inspectionCondition: "수입검사", deliveryCondition: "CIF", otherCondition: "", notes: "1차 납품" },
-  { id: "dummy-5", orderNumber: "PO-2026-0005", orderStatus: "issued", supplierId: "sup-005", supplierName: "중국동력전자", currencyCode: "KRW", paymentType: "transfer", paymentTerms: "net30", buyerCode: "2022-033", buyerName: "임정근", supplierQuotationNo: "QT-2026-005", supplierContactPerson: "王明", advancePayment: "", orderDate: "2026-02-28", vatRate: "10", importType: "import", businessPlace: "pyeongtaek", packagingStatus: "박스", inspectionCondition: "수입검사", deliveryCondition: "FOB", otherCondition: "", notes: "" },
-  { id: "dummy-6", orderNumber: "PO-2026-0006", orderStatus: "issued", supplierId: "sup-006", supplierName: "현대캐스팅", currencyCode: "KRW", paymentType: "transfer", paymentTerms: "net30", buyerCode: "2022-034", buyerName: "김구매", supplierQuotationNo: "QT-2026-006", supplierContactPerson: "이주영", advancePayment: "0", orderDate: "2026-02-20", vatRate: "10", importType: "domestic", businessPlace: "gimhae", packagingStatus: "파레트", inspectionCondition: "출하검사", deliveryCondition: "공장인도", otherCondition: "", notes: "종결" },
-  { id: "dummy-7", orderNumber: "PO-2026-0007", orderStatus: "issued", supplierId: "sup-001", supplierName: "한국정밀기어", currencyCode: "KRW", paymentType: "credit", paymentTerms: "net60", buyerCode: "2022-035", buyerName: "이발주", supplierQuotationNo: "QT-2026-007", supplierContactPerson: "김대영", advancePayment: "", orderDate: "2026-03-08", vatRate: "10", importType: "domestic", businessPlace: "ulsan", packagingStatus: "박스", inspectionCondition: "수입검사", deliveryCondition: "공장인도", otherCondition: "", notes: "" },
-  { id: "dummy-8", orderNumber: "PO-2026-0008", orderStatus: "approved", supplierId: "sup-002", supplierName: "일본스틸코리아", currencyCode: "KRW", paymentType: "transfer", paymentTerms: "net30", buyerCode: "2022-036", buyerName: "박담당", supplierQuotationNo: "", supplierContactPerson: "다나카 히로시", advancePayment: "", orderDate: "2026-03-10", vatRate: "0", importType: "domestic", businessPlace: "gimhae", packagingStatus: "", inspectionCondition: "", deliveryCondition: "", otherCondition: "", notes: "시험발주" },
-  { id: "dummy-9", orderNumber: "PO-2026-0009", orderStatus: "draft", supplierId: "sup-003", supplierName: "대우베어링", currencyCode: "KRW", paymentType: "transfer", paymentTerms: "net30", buyerCode: "2022-033", buyerName: "임정근", supplierQuotationNo: "QT-2026-009", supplierContactPerson: "박준혁", advancePayment: "", orderDate: "2026-03-12", vatRate: "10", importType: "domestic", businessPlace: "gimhae", packagingStatus: "박스", inspectionCondition: "수입검사", deliveryCondition: "공장인도", otherCondition: "", notes: "" },
-  { id: "dummy-10", orderNumber: "PO-2026-0010", orderStatus: "approved", supplierId: "sup-004", supplierName: "독일오토파츠", currencyCode: "KRW", paymentType: "l/c", paymentTerms: "net90", buyerCode: "2022-034", buyerName: "김구매", supplierQuotationNo: "QT-2026-010", supplierContactPerson: "Hans Mueller", advancePayment: "20", orderDate: "2026-03-11", vatRate: "10", importType: "import", businessPlace: "pyeongtaek", packagingStatus: "목재케이스", inspectionCondition: "수입검사", deliveryCondition: "CIF", otherCondition: "", notes: "" },
-];
 
 
 export default function CreatePurchaseOrderPage() {
   const [activeTab, setActiveTab] = useState<"basic" | "spec">("basic");
-  const [basicInfoList, setBasicInfoList] = useState<BasicInfoListItem[]>(initialBasicInfoListDummy);
+  const [basicInfoList, setBasicInfoList] = useState<BasicInfoListItem[]>([]);
   const [selectedBasicId, setSelectedBasicId] = useState<string | null>(null);
+  const [isFormActive, setIsFormActive] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<keyof POBasicFormData, string>>>({});
 
   // 왼쪽 리스트 컨테이너 높이 기반 동적 페이지 사이즈
   const listContentRef = useRef<HTMLDivElement>(null);
@@ -182,25 +114,133 @@ export default function CreatePurchaseOrderPage() {
     return () => ro.disconnect();
   }, []);
   // 공통코드에서 동적 생성
-  const currencyOptions = useMemo(() => buildCurrencyOptions(), []);
-  const vatRateOptions = useMemo(() => buildVatRateOptions(), []);
-  const paymentTermOptions = useMemo(() => buildPaymentTermOptions(), []);
-  const paymentFormOptions = useMemo(() => buildPaymentFormOptions(), []);
-  const importTypeOptions = useMemo(() => buildImportTypeOptions(), []);
-  const warehouseOptions = useMemo(() => buildWarehouseOptions(), []);
-  const warehouseLabelMap = useMemo(() => buildWarehouseLabelMap(), []);
+  const [currencyOptions,   setCurrencyOptions]   = useState<SelectOption[]>([]);
+  const [vatRateOptions,    setVatRateOptions]    = useState<SelectOption[]>([]);
+  const [paymentTermOptions,setPaymentTermOptions]= useState<SelectOption[]>([]);
+  const [paymentFormOptions,setPaymentFormOptions]= useState<SelectOption[]>([]);
+  const [importTypeOptions, setImportTypeOptions] = useState<SelectOption[]>([]);
+  const [warehouseOptions,  setWarehouseOptions]  = useState<SelectOption[]>([]);
+  const [warehouseLabelMap, setWarehouseLabelMap] = useState<Record<string, string>>({});
+  const [factoryOptions, setFactoryOptions] = useState<SelectOption[]>([]);
+
+  useEffect(() => {
+    const cats = ["currency","vatRate","paymentTerm","paymentForm","importType","warehouse"];
+    Promise.all(cats.map((cat) => fetch(`/api/common-codes?category=${cat}`).then((r) => r.json())))
+      .then(([cur, vat, pTerm, pForm, imp, wh]) => {
+        type C = { Code: string; Name: string };
+        if (cur.ok)   setCurrencyOptions(cur.items.map((c: C) => ({ value: c.Code, label: `${c.Code}  ${c.Name}`, displayLabel: c.Code })));
+        if (vat.ok)   setVatRateOptions(vat.items.map((c: C) => ({ value: c.Code, label: c.Name })));
+        if (pTerm.ok) setPaymentTermOptions(pTerm.items.map((c: C) => ({ value: c.Code, label: `${c.Code}  ${c.Name}`, displayLabel: c.Name })));
+        if (pForm.ok) setPaymentFormOptions(pForm.items.map((c: C) => ({ value: c.Code, label: `${c.Code}  ${c.Name}`, displayLabel: c.Name })));
+        if (imp.ok)   setImportTypeOptions(imp.items.map((c: C) => ({ value: c.Code, label: c.Name })));
+        if (wh.ok) {
+          setWarehouseOptions(wh.items.map((c: C) => ({ value: c.Code, label: `${c.Code}  ${c.Name}`, displayLabel: c.Code })));
+          setWarehouseLabelMap(Object.fromEntries(wh.items.map((c: C) => [c.Code, `${c.Code}  ${c.Name}`])));
+        }
+      }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/factories")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) {
+          setFactoryOptions(
+            data.factories.map((f: { FactoryCode: string; FactoryName: string }) => ({
+              value: f.FactoryCode,
+              label: `${f.FactoryCode} ${f.FactoryName}`,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [itemMaster, setItemMaster] = useState<ItemMaster[]>([]);
   const [purchasers, setPurchasers] = useState<PurchaserRecord[]>([]);
-  const [isPurchaserModalOpen, setIsPurchaserModalOpen] = useState(false);
-  const [purchaserSearch, setPurchaserSearch] = useState("");
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [userSearch, setUserSearch] = useState("");
+  const [isPurchaserPopupOpen, setIsPurchaserPopupOpen] = useState(false);
+  const [isUserPopupOpen, setIsUserPopupOpen] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const buyerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemSupplierDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemSupplierInputRef = useRef<HTMLInputElement>(null);
+  const itemModelInputRef = useRef<HTMLInputElement>(null);
+  const itemSearchInputRef = useRef<HTMLInputElement>(null);
+  const loginBuyerRef = useRef<{ buyerCode: string; buyerName: string }>({ buyerCode: "", buyerName: "" });
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
+  const [itemFilterModel, setItemFilterModel] = useState("");
+  const [itemFilterSupplierId, setItemFilterSupplierId] = useState("");
+  const [itemFilterSupplierName, setItemFilterSupplierName] = useState("");
+  const [isModelPopupOpen, setIsModelPopupOpen] = useState(false);
+  const [isItemSupplierPopupOpen, setIsItemSupplierPopupOpen] = useState(false);
+  const [modelSubSearch, setModelSubSearch] = useState("");
+  const [supplierSubSearch, setSupplierSubSearch] = useState("");
+  const [supplierHighlightIdx, setSupplierHighlightIdx] = useState(-1);
+  const [modelHighlightIdx, setModelHighlightIdx] = useState(-1);
+  const supplierHighlightRef = useRef<HTMLTableRowElement>(null);
+  const modelHighlightRef = useRef<HTMLTableRowElement>(null);
+  const [onlyWithPrice, setOnlyWithPrice] = useState(false);
+  const [priceItemCodes, setPriceItemCodes] = useState<Set<string>>(new Set());
+  const [itemHighlightIdx, setItemHighlightIdx] = useState(-1);
+  const itemListScrollRef = useRef<HTMLDivElement>(null);
+  const warehouseSelectRefs = useRef<(HTMLSelectElement | null)[]>([]);
+  const quantityInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const itemCodeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [activeSpecRowIndex, setActiveSpecRowIndex] = useState(0);
   const [basicForm, setBasicForm] = useState<POBasicFormData>(defaultBasicForm);
   const [specItems, setSpecItems] = useState<POSpecItemRow[]>([getDefaultSpecRow()]);
+  const [notifyModal, setNotifyModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
+  const [copyModal, setCopyModal] = useState<{ open: boolean; orderDate: string } | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; message: string; onConfirm: () => void } | null>(null);
+
+  useEffect(() => {
+    if (!notifyModal?.open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Enter") setNotifyModal(null);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [notifyModal?.open]);
+
+  // 구매오더 목록 로드
+  const loadBasicInfoList = () => {
+    fetch("/api/purchase-orders")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.ok) return;
+        const list: BasicInfoListItem[] = data.items.map((r: Record<string, unknown>) => ({
+          id:                   String(r.id),
+          orderNumber:          String(r.orderNumber),
+          orderStatus:          r.orderStatus as POStatus,
+          supplierId:           String(r.supplierId ?? ""),
+          supplierName:         String(r.supplierName ?? ""),
+          currencyCode:         String(r.currencyCode ?? ""),
+          paymentType:          String(r.paymentType ?? ""),
+          paymentTerms:         String(r.paymentTerms ?? ""),
+          buyerCode:            String(r.buyerCode ?? ""),
+          buyerName:            String(r.buyerName ?? ""),
+          supplierQuotationNo:  String(r.supplierQuotationNo ?? ""),
+          supplierContactPerson:String(r.supplierContactPerson ?? ""),
+          advancePayment:       String(r.advancePayment ?? ""),
+          orderDate:            String(r.orderDate ?? ""),
+          vatRate:              String(r.vatRate ?? ""),
+          importType:           String(r.importType ?? ""),
+          businessPlace:        String(r.businessPlace ?? ""),
+          packagingStatus:      String(r.packagingStatus ?? ""),
+          inspectionCondition:  String(r.inspectionCondition ?? ""),
+          deliveryCondition:    String(r.deliveryCondition ?? ""),
+          otherCondition:       String(r.otherCondition ?? ""),
+          notes:                String(r.notes ?? ""),
+        }));
+        list.sort((a, b) => b.orderNumber.localeCompare(a.orderNumber));
+        setBasicInfoList(list);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => { loadBasicInfoList(); }, []);
 
   // 로그인 사용자를 구매 발주자 초기값으로 설정
   useEffect(() => {
@@ -208,21 +248,15 @@ export default function CreatePurchaseOrderPage() {
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
-        const matched = buyerOptions.find((b) => b.code === data.username);
-        if (matched) {
-          setBasicForm((prev) => ({
-            ...prev,
-            buyerCode: matched.code,
-            buyerName: matched.name,
-          }));
-        } else {
-          // buyerOptions에 없더라도 username을 코드로 표시
-          setBasicForm((prev) => ({
-            ...prev,
-            buyerCode: data.username,
-            buyerName: "",
-          }));
-        }
+        const buyerCode = data.username ?? "";
+        const buyerName = data.userId ?? data.username ?? "";
+        loginBuyerRef.current = { buyerCode, buyerName };
+        setBasicForm((prev) => ({
+          ...prev,
+          buyerCode,
+          buyerName,
+          businessPlace: data.factory || prev.businessPlace,
+        }));
       })
       .catch(() => {});
   }, []);
@@ -273,6 +307,7 @@ export default function CreatePurchaseOrderPage() {
           itemName: x.ItemName ?? "",
           material: x.Material ?? "",
           spec: x.Specification ?? "",
+          model: x.VehicleModel ?? "",
           unitPrice: Number(x.PurchaseUnitPrice ?? 0),
         }));
         setItemMaster(mapped);
@@ -284,102 +319,202 @@ export default function CreatePurchaseOrderPage() {
     value: s.id,
     label: `${s.id} ${s.name}`,
   }));
-  const filteredUsers = useMemo(() => {
-    const keyword = userSearch.trim().toLowerCase();
-    if (!keyword) return buyerOptions;
-    return buyerOptions.filter(
-      (b) =>
-        b.code.toLowerCase().includes(keyword) ||
-        b.name.toLowerCase().includes(keyword)
-    );
-  }, [userSearch]);
+  // 품목 모달 열릴 때 해당 구매처 단가 목록 로드
+  useEffect(() => {
+    if (isItemModalOpen) setTimeout(() => itemSearchInputRef.current?.focus(), 0);
+  }, [isItemModalOpen]);
 
-  const filteredPurchasers: PurchaserRecord[] = useMemo(() => {
-    const keyword = purchaserSearch.trim().toLowerCase();
-    if (!keyword) return purchasers;
-    return purchasers.filter(
-      (p) =>
-        p.purchaserNo.toLowerCase().includes(keyword) ||
-        p.purchaserName.toLowerCase().includes(keyword)
-    );
-  }, [purchaserSearch]);
+  useEffect(() => {
+    if (!isItemModalOpen) return;
+    fetch("/api/purchase-prices")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.ok) return;
+        const supplierName = basicForm.supplierName.trim().toLowerCase();
+        const codes = new Set<string>(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (data.items as any[])
+            .filter((p) => (p.supplierName ?? "").trim().toLowerCase() === supplierName)
+            .map((p) => String(p.itemCode))
+        );
+        setPriceItemCodes(codes);
+      })
+      .catch(() => {});
+  }, [isItemModalOpen, basicForm.supplierName]);
 
-  // 현재 선택된 오더의 공급처 품목만 표시
-  const supplierItems: ItemMaster[] = useMemo(() => {
-    const sid = basicForm.supplierId;
-    return sid ? itemMaster.filter((i) => i.supplierId === sid) : itemMaster;
-  }, [basicForm.supplierId, itemMaster]);
+  const distinctModels = useMemo(() => {
+    const s = new Set<string>();
+    itemMaster.forEach((i) => { if (i.model) s.add(i.model); });
+    return Array.from(s).sort();
+  }, [itemMaster]);
+
+  const filteredPurchasersForPopup = useMemo(() => {
+    const kw = supplierSubSearch.trim().toLowerCase();
+    if (!kw) return purchasers;
+    return purchasers.filter((p) =>
+      p.purchaserNo.toLowerCase().includes(kw) || p.purchaserName.toLowerCase().includes(kw)
+    );
+  }, [supplierSubSearch, purchasers]);
+
+  const filteredModelsForPopup = useMemo(() => {
+    const kw = modelSubSearch.trim().toLowerCase();
+    if (!kw) return distinctModels;
+    return distinctModels.filter((m) => m.toLowerCase().includes(kw));
+  }, [modelSubSearch, distinctModels]);
+
+  useEffect(() => {
+    supplierHighlightRef.current?.scrollIntoView({ block: "nearest" });
+  }, [supplierHighlightIdx]);
+
+  useEffect(() => {
+    modelHighlightRef.current?.scrollIntoView({ block: "nearest" });
+  }, [modelHighlightIdx]);
 
   const filteredItems: ItemMaster[] = useMemo(() => {
     const keyword = itemSearch.trim().toLowerCase();
-    if (!keyword) return supplierItems;
-    return supplierItems.filter(
-      (i) =>
-        i.itemCode.toLowerCase().includes(keyword) ||
-        i.itemName.toLowerCase().includes(keyword)
-    );
-  }, [itemSearch, supplierItems]);
+    const modelKw = itemFilterModel.trim().toLowerCase();
+    const supplierKw = itemFilterSupplierId.trim().toLowerCase();
+    return itemMaster.filter((i) => {
+      if (onlyWithPrice && !priceItemCodes.has(i.itemCode)) return false;
+      if (keyword && !i.itemCode.toLowerCase().includes(keyword) && !i.itemName.toLowerCase().includes(keyword)) return false;
+      if (modelKw && !(i.model ?? "").toLowerCase().includes(modelKw)) return false;
+      if (supplierKw && !i.supplierId.toLowerCase().includes(supplierKw)) return false;
+      return true;
+    });
+  }, [itemSearch, itemFilterModel, itemFilterSupplierId, onlyWithPrice, priceItemCodes, itemMaster]);
+
+  useEffect(() => { setItemHighlightIdx(-1); }, [filteredItems]);
+
+  const itemVirtualizer = useVirtualizer({
+    count: filteredItems.length,
+    getScrollElement: () => itemListScrollRef.current,
+    estimateSize: () => 32,
+    overscan: 10,
+  });
+
+  useEffect(() => {
+    if (itemHighlightIdx >= 0) {
+      itemVirtualizer.scrollToIndex(itemHighlightIdx, { align: "auto" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemHighlightIdx]);
 
   const setBasic = (field: keyof POBasicFormData, value: string) => {
-    setBasicForm((prev) => {
-      const next = { ...prev, [field]: value };
-      if (field === "supplierId") {
-        // 정확일치 → 숫자값 일치(1 == 00001) → 앞자리 일치 순으로 조회
-        const trimmed = value.trim();
-        const p =
-          purchasers.find((x) => x.purchaserNo === trimmed) ??
-          purchasers.find((x) => parseInt(x.purchaserNo, 10) === parseInt(trimmed, 10)) ??
-          purchasers.find((x) => x.purchaserNo.startsWith(trimmed.padStart(5, "0")));
-        next.supplierName = p?.purchaserName ?? "";
-      }
-      if (field === "supplierName") {
-        // 구매처명 입력 시 정확일치 → 포함 순으로 supplierId 자동 조회
-        const trimmed = value.trim();
-        if (trimmed) {
-          const p =
-            purchasers.find((x) => x.purchaserName === trimmed) ??
-            purchasers.find((x) => x.purchaserName.includes(trimmed));
-          if (p) next.supplierId = p.purchaserNo;
-        } else {
-          next.supplierId = "";
-        }
-      }
-      if (field === "buyerCode") {
-        const b = buyerOptions.find((x) => x.code === value);
-        next.buyerName = b?.name ?? "";
-      }
-      return next;
-    });
+    setBasicForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleBasicFormReset = () => {
     setBasicForm((prev) => ({
       ...defaultBasicForm,
-      buyerCode: prev.buyerCode,
-      buyerName: prev.buyerName,
+      ...loginBuyerRef.current,
+      businessPlace: prev.businessPlace,
     }));
     setSelectedBasicId(null);
+    setErrors({});
   };
 
-  /** 오른쪽 폼에서 등록 클릭 시 리스트에 추가 */
-  const handleRegisterBasicInfo = () => {
-    const newId = `basic-${Date.now()}`;
-    const orderNumber = `PO-${new Date().getFullYear()}-${String(basicInfoList.length + 1).padStart(4, "0")}`;
-    const item: BasicInfoListItem = {
-      ...basicForm,
-      id: newId,
-      orderNumber,
-    };
-    setBasicInfoList((prev) => [...prev, item]);
-    setBasicForm((prev) => ({ ...defaultBasicForm, buyerCode: prev.buyerCode, buyerName: prev.buyerName }));
-    setSelectedBasicId(newId);  // 등록 후 새 오더를 자동 선택
+  /** 오른쪽 폼에서 등록 클릭 시 DB에 저장 */
+  const handleCopyConfirm = async () => {
+    if (!copyModal || !selectedBasicId) return;
+    setCopying(true);
+    try {
+      const copyRes = await fetch("/api/purchase-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...basicForm,
+          orderDate: copyModal.orderDate || basicForm.orderDate,
+          orderStatus: "draft",
+          items: specItems,
+        }),
+      });
+      const copyData = await copyRes.json();
+      if (!copyData.ok) { window.alert(copyData.message || "복사 실패"); return; }
+      setCopyModal(null);
+      await loadBasicInfoList();
+      const newId = String(copyData.id);
+      setSelectedBasicId(newId);
+      setIsFormActive(true);
+      const detailRes = await fetch(`/api/purchase-orders/${newId}`);
+      const detailData = await detailRes.json();
+      if (detailData.ok) {
+        setBasicForm(detailData.data.basicForm);
+        setSpecItems(detailData.data.specItems.length > 0 ? detailData.data.specItems : [getDefaultSpecRow()]);
+      }
+    } catch {
+      window.alert("복사 중 오류가 발생했습니다.");
+    } finally {
+      setCopying(false);
+    }
   };
 
-  /** 왼쪽 리스트 행 클릭 시 오른쪽 폼에 로드 */
-  const handleSelectBasicInfo = (row: BasicInfoListItem) => {
+  const handleRegisterBasicInfo = async () => {
+    try {
+      if (selectedBasicId) {
+        // 기존 PO 수정 (PUT)
+        const res = await fetch(`/api/purchase-orders/${selectedBasicId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...basicForm, items: specItems }),
+        });
+        const data = await res.json();
+        if (!data.ok) { setNotifyModal({ open: true, title: "저장 실패", message: data.message ?? "저장에 실패했습니다." }); return; }
+        await loadBasicInfoList();
+        // DB에서 다시 로드
+        const detailRes = await fetch(`/api/purchase-orders/${selectedBasicId}`);
+        const detailData = await detailRes.json();
+        if (detailData.ok) {
+          setBasicForm(detailData.data.basicForm);
+          setSpecItems(detailData.data.specItems.length > 0 ? detailData.data.specItems : [getDefaultSpecRow()]);
+        }
+      } else {
+        // 신규 PO 등록 (POST)
+        const res = await fetch("/api/purchase-orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...basicForm, items: [] }),
+        });
+        const data = await res.json();
+        if (!data.ok) { setNotifyModal({ open: true, title: "등록 실패", message: data.message ?? "등록에 실패했습니다." }); return; }
+        await loadBasicInfoList();
+        const newId = String(data.id);
+        setSelectedBasicId(newId);
+        const detailRes = await fetch(`/api/purchase-orders/${newId}`);
+        const detailData = await detailRes.json();
+        if (detailData.ok) {
+          setBasicForm(detailData.data.basicForm);
+          setSpecItems(detailData.data.specItems.length > 0 ? detailData.data.specItems : [getDefaultSpecRow()]);
+        }
+      }
+    } catch {
+      setNotifyModal({ open: true, title: "오류", message: selectedBasicId ? "저장 중 오류가 발생했습니다." : "등록 중 오류가 발생했습니다." });
+    }
+  };
+
+  /** 왼쪽 리스트 행 클릭 시 DB에서 기본정보+명세 로드 */
+  const handleSelectBasicInfo = async (row: BasicInfoListItem) => {
     setSelectedBasicId(row.id);
-    const { id: _id, orderNumber: _on, ...formData } = row;
-    setBasicForm(formData);
+    setIsFormActive(true);
+    setErrors({});
+    try {
+      const res = await fetch(`/api/purchase-orders/${row.id}`);
+      const data = await res.json();
+      if (!data.ok) {
+        // 로드 실패 시 리스트 데이터만 표시
+        const { id: _id, orderNumber: _on, ...formData } = row;
+        setBasicForm(formData);
+        setSpecItems([getDefaultSpecRow()]);
+        return;
+      }
+      setBasicForm(data.data.basicForm);
+      setSpecItems(
+        data.data.specItems.length > 0 ? data.data.specItems : [getDefaultSpecRow()]
+      );
+    } catch {
+      const { id: _id, orderNumber: _on, ...formData } = row;
+      setBasicForm(formData);
+      setSpecItems([getDefaultSpecRow()]);
+    }
   };
 
 
@@ -387,8 +522,8 @@ export default function CreatePurchaseOrderPage() {
     {
       key: "orderNumber",
       header: "오더번호",
-      minWidth: 96,
-      maxWidth: 104,
+      minWidth: 100,
+      maxWidth: 108,
       cell: (r) => (
         <span
           className="font-medium text-primary truncate block max-w-full"
@@ -401,8 +536,8 @@ export default function CreatePurchaseOrderPage() {
     {
       key: "supplierName",
       header: "구매처",
-      minWidth: 64,
-      maxWidth: 80,
+      minWidth: 88,
+      maxWidth: 110,
       cell: (r) => (
         <span
           className="truncate block max-w-full"
@@ -412,7 +547,7 @@ export default function CreatePurchaseOrderPage() {
         </span>
       ),
     },
-    { key: "orderDate", header: "발주일자", minWidth: 68, maxWidth: 76 },
+    { key: "orderDate", header: "발주일자", minWidth: 84, maxWidth: 92 },
     {
       key: "buyerName",
       header: "발주자",
@@ -427,8 +562,8 @@ export default function CreatePurchaseOrderPage() {
     {
       key: "orderStatus",
       header: "상태",
-      minWidth: 56,
-      maxWidth: 72,
+      minWidth: 52,
+      maxWidth: 68,
       cell: (r) => <POStatusBadge status={r.orderStatus} className="text-[10px] px-1.5 py-0" />,
     },
   ];
@@ -480,23 +615,42 @@ export default function CreatePurchaseOrderPage() {
     totalOrderAmount * (Number(basicForm.vatRate) || 0) / 100
   );
   const businessPlaceLabel =
-    businessPlaceOptions.find((o) => o.value === basicForm.businessPlace)?.label ??
+    factoryOptions.find((o) => o.value === basicForm.businessPlace)?.label ??
     basicForm.businessPlace;
 
 
   // --- 명세입력 버튼 동작 ---
 
 
-  const handleBulkOpen = () => {
+  const handleBulkOpen = async () => {
     if (!basicForm.supplierId) {
       window.alert("기본정보에서 구매처를 먼저 선택해 주세요.");
       return;
     }
-    if (supplierItems.length === 0) {
-      window.alert("선택된 구매처에 등록된 품목이 없습니다.");
+
+    // 단가 등록 품목코드 로드 (캐시된 값 우선 사용)
+    let codes = priceItemCodes;
+    if (codes.size === 0) {
+      try {
+        const res = await fetch("/api/purchase-prices");
+        const data = await res.json();
+        if (data.ok) {
+          const supplierName = basicForm.supplierName.trim().toLowerCase();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          codes = new Set<string>((data.items as any[])
+            .filter((p) => (p.supplierName ?? "").trim().toLowerCase() === supplierName)
+            .map((p) => String(p.itemCode)));
+          setPriceItemCodes(codes);
+        }
+      } catch { /* 로드 실패 시 빈 Set 유지 */ }
+    }
+
+    const bulkItems = itemMaster.filter((i) => codes.has(i.itemCode));
+    if (bulkItems.length === 0) {
+      window.alert("선택된 구매처에 등록된 단가 품목이 없습니다.");
       return;
     }
-    const newRows: POSpecItemRow[] = supplierItems.map((i) => ({
+    const newRows: POSpecItemRow[] = bulkItems.map((i) => ({
       ...getDefaultSpecRow(),
       itemCode: i.itemCode,
       itemName: i.itemName,
@@ -512,7 +666,7 @@ export default function CreatePurchaseOrderPage() {
     setActiveSpecRowIndex(0);
   };
 
-  const handleSpecRegister = () => {
+  const handleSpecRegister = async () => {
     if (specItems.length === 0 || !specItems.some((r) => r.itemCode)) {
       window.alert("등록할 명세가 없습니다. 품목을 먼저 추가해 주세요.");
       return;
@@ -522,29 +676,84 @@ export default function CreatePurchaseOrderPage() {
 
     if (!targetId) {
       // 기본정보가 아직 등록되지 않은 경우 자동 등록
-      const newId = `basic-${Date.now()}`;
-      const orderNumber = `PO-${new Date().getFullYear()}-${String(basicInfoList.length + 1).padStart(4, "0")}`;
-      const newItem: BasicInfoListItem = {
-        ...basicForm,
-        id: newId,
-        orderNumber,
-        orderStatus: "approved",
-      };
-      setBasicInfoList((prev) => [...prev, newItem]);
-      setSelectedBasicId(newId);
-      targetId = newId;
-    } else {
-      // 기존 기본정보 항목의 상태 및 내용 업데이트
-      setBasicInfoList((prev) =>
-        prev.map((row) =>
-          row.id === targetId
-            ? { ...row, ...basicForm, id: row.id, orderNumber: row.orderNumber, orderStatus: "approved" }
-            : row
-        )
-      );
+      try {
+        const res = await fetch("/api/purchase-orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...basicForm, orderStatus: "approved", items: specItems }),
+        });
+        const data = await res.json();
+        if (!data.ok) { window.alert("등록 실패: " + (data.message ?? "")); return; }
+        targetId = String(data.id);
+        setSelectedBasicId(targetId);
+        await loadBasicInfoList();
+        setNotifyModal({ open: true, title: "명세 등록", message: "명세가 등록되었습니다." });
+        return;
+      } catch {
+        window.alert("등록 중 오류가 발생했습니다.");
+        return;
+      }
     }
 
-    window.alert("명세가 등록되었습니다. (데모)");
+    // 기존 오더 업데이트
+    try {
+      const res = await fetch(`/api/purchase-orders/${targetId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...basicForm, orderStatus: "approved", items: specItems }),
+      });
+      const data = await res.json();
+      if (!data.ok) { window.alert("수정 실패: " + (data.message ?? "")); return; }
+      await loadBasicInfoList();
+      setNotifyModal({ open: true, title: "명세 등록", message: "명세가 등록되었습니다." });
+    } catch {
+      window.alert("수정 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleDeleteBasicInfo = async () => {
+    if (!selectedBasicId) return;
+    setConfirmModal({
+      open: true,
+      message: "선택한 오더를 삭제하시겠습니까?\n명세 품목도 함께 삭제됩니다.",
+      onConfirm: async () => {
+        setConfirmModal(null);
+        try {
+          const res = await fetch(`/api/purchase-orders/${selectedBasicId}`, { method: "DELETE" });
+          const data = await res.json();
+          if (!data.ok) { setNotifyModal({ open: true, title: "삭제 실패", message: data.message ?? "삭제에 실패했습니다." }); return; }
+          setSelectedBasicId(null);
+          setBasicForm({ ...defaultBasicForm, ...loginBuyerRef.current });
+          setSpecItems([getDefaultSpecRow()]);
+          setIsFormActive(false);
+          setErrors({});
+          await loadBasicInfoList();
+        } catch {
+          setNotifyModal({ open: true, title: "오류", message: "삭제 중 오류가 발생했습니다." });
+        }
+      },
+    });
+  };
+
+  /** 품목 선택 팝업에서 품목 선택 후 공통 처리 */
+  const selectItemFromModal = (item: ItemMaster, rowIndex: number) => {
+    // 다른 행에 이미 동일 품목코드가 있으면 선택 불가
+    const isDuplicate = specItems.some(
+      (r, i) => i !== rowIndex && r.itemCode === item.itemCode
+    );
+    if (isDuplicate) {
+      window.alert(`"${item.itemCode}" 은(는) 이미 명세에 등록된 품목입니다.`);
+      return;
+    }
+    updateSpecItem(rowIndex, "itemCode", item.itemCode);
+    updateSpecItem(rowIndex, "itemName", item.itemName);
+    updateSpecItem(rowIndex, "material", item.material ?? "");
+    updateSpecItem(rowIndex, "specification", item.spec ?? "");
+    updateSpecItem(rowIndex, "unitPrice", item.unitPrice);
+    setIsItemModalOpen(false);
+    setItemSearch(""); setItemFilterModel(""); setItemFilterSupplierId(""); setItemFilterSupplierName("");
+    setItemHighlightIdx(-1);
+    setTimeout(() => warehouseSelectRefs.current[rowIndex]?.focus(), 0);
   };
 
   const handlePoIssue = () => {
@@ -563,13 +772,33 @@ export default function CreatePurchaseOrderPage() {
       return;
     }
 
-    // 발행 확정 콜백을 opener에 등록
-    (window as Window & { __poIssueConfirm?: () => void }).__poIssueConfirm = () => {
-      setBasicInfoList((prev) =>
-        prev.map((row) =>
-          row.id === selectedBasicId ? { ...row, orderStatus: "issued" } : row
-        )
-      );
+    // 발행 확정 콜백을 opener에 등록 (sendEmail: 이메일 발송 여부)
+    const issueId = selectedBasicId;
+    (window as Window & { __poIssueConfirm?: (sendEmail: boolean) => void }).__poIssueConfirm = (sendEmail: boolean) => {
+      fetch(`/api/purchase-orders/${issueId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...basicForm, orderStatus: "issued", items: specItems }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.ok) {
+            loadBasicInfoList();
+            if (sendEmail) {
+              fetch(`/api/purchase-orders/${issueId}/send-email`, { method: "POST" })
+                .then((r) => r.json())
+                .then((emailResult) => {
+                  if (!emailResult.ok) {
+                    window.alert(`발주서는 발행되었으나 이메일 발송에 실패했습니다.\n사유: ${emailResult.message ?? ""}`);
+                  }
+                })
+                .catch(() => {
+                  window.alert("발주서는 발행되었으나 이메일 발송 중 오류가 발생했습니다.");
+                });
+            }
+          }
+        })
+        .catch(() => {});
     };
 
     const labelOf = (options: SelectOption[], val: string) =>
@@ -610,16 +839,28 @@ export default function CreatePurchaseOrderPage() {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: "Malgun Gothic","맑은 고딕",sans-serif; font-size: 10px; color:#000; padding:8mm 10mm; }
   table { border-collapse: collapse; width: 100%; }
-  .btn-bar { text-align:right; margin-bottom:6px; display:flex; gap:6px; justify-content:flex-end; }
+  .btn-bar { text-align:right; margin-bottom:6px; display:flex; gap:8px; justify-content:flex-end; align-items:center; }
   .btn-bar button { padding:4px 16px; font-size:11px; cursor:pointer; }
   .btn-confirm { background:#1d4ed8; color:#fff; border:none; border-radius:3px; }
   .btn-print  { background:#fff; border:1px solid #999; border-radius:3px; }
+  .email-label { display:flex; align-items:center; gap:5px; font-size:11px; color:#374151; cursor:pointer; margin-right:4px; }
+  .email-label input[type=checkbox] { width:14px; height:14px; cursor:pointer; accent-color:#1d4ed8; }
   @media print { .btn-bar { display:none; } }
 </style>
 </head><body>
 
 <div class="btn-bar">
-  <button class="btn-confirm" onclick="window.opener && window.opener.__poIssueConfirm && window.opener.__poIssueConfirm(); this.textContent='발행 완료'; this.disabled=true;">발행 확정</button>
+  <label class="email-label">
+    <input type="checkbox" id="sendEmailCheck" checked>
+    이메일 발송
+  </label>
+  <button class="btn-confirm" onclick="
+    var sendEmail = document.getElementById('sendEmailCheck').checked;
+    window.opener && window.opener.__poIssueConfirm && window.opener.__poIssueConfirm(sendEmail);
+    this.textContent = sendEmail ? '발행 완료 (메일 발송 중)' : '발행 완료';
+    this.disabled = true;
+    document.getElementById('sendEmailCheck').disabled = true;
+  ">발행 확정</button>
   <button class="btn-print" onclick="window.print()">인 쇄</button>
 </div>
 
@@ -811,7 +1052,42 @@ export default function CreatePurchaseOrderPage() {
 
 
   const fieldLabelClass = "bg-muted/60 px-2 py-1.5 text-xs font-medium text-muted-foreground";
-  const reqInputClass = "h-8 text-xs bg-blue-50 border-blue-200";
+  const reqInputClass = "h-8 text-xs bg-blue-50 border-blue-200 dark:bg-primary/15 dark:border-primary/40 dark:text-foreground";
+
+  const clearError = (key: keyof POBasicFormData) => {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const blockIfEmpty = (e: React.KeyboardEvent, key: keyof POBasicFormData, value: string) => {
+    if ((e.key === "Tab" || e.key === "Enter") && !String(value ?? "").trim()) {
+      e.preventDefault();
+      e.stopPropagation();
+      setErrors((prev) => ({ ...prev, [key]: "필수 입력 항목입니다." }));
+      return true;
+    }
+    return false;
+  };
+
+  const handleEnterNav = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Enter") return;
+    // select 요소는 Enter로 드롭다운을 제어하므로 통과시킴
+    if ((document.activeElement as HTMLElement)?.tagName === "SELECT") return;
+    const focusables = Array.from(
+      e.currentTarget.querySelectorAll<HTMLElement>(
+        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled])'
+      )
+    );
+    const idx = focusables.indexOf(document.activeElement as HTMLElement);
+    if (idx >= 0 && idx < focusables.length - 1) {
+      e.preventDefault();
+      focusables[idx + 1].focus();
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4" style={{ height: "calc(100vh - 7rem)" }}>
@@ -837,7 +1113,7 @@ export default function CreatePurchaseOrderPage() {
                 data={basicInfoList}
                 keyExtractor={(row) => row.id}
                 onRowClick={handleSelectBasicInfo}
-                getRowClassName={(row) => (selectedBasicId === row.id ? "bg-sky-50" : "")}
+                selectedRowId={selectedBasicId ?? undefined}
                 maxHeight="100%"
                 noHorizontalScroll
                 pageSize={listPageSize}
@@ -858,62 +1134,73 @@ export default function CreatePurchaseOrderPage() {
                   <TabsTrigger value="spec" className="text-sm px-4">명세작업</TabsTrigger>
                 </TabsList>
                 <div className="flex gap-2">
+                  {selectedBasicId && (
+                    <Button type="button" variant="outline" size="sm"
+                      onClick={() => setCopyModal({ open: true, orderDate: basicForm.orderDate })}
+                      className="text-sky-600 hover:bg-sky-600 hover:text-white hover:border-sky-600">
+                      <Copy className="mr-1.5 h-4 w-4 shrink-0" />PO 복사
+                    </Button>
+                  )}
                   {activeTab === "basic" && (
                     <>
                       <Button type="button" variant="outline" size="sm"
                         onClick={() => {
-                          setBasicForm((prev) => ({ ...defaultBasicForm, buyerCode: prev.buyerCode, buyerName: prev.buyerName }));
+                          setIsFormActive(true);
+                          setBasicForm((prev) => ({ ...defaultBasicForm, ...loginBuyerRef.current, businessPlace: prev.businessPlace }));
                           setSelectedBasicId(null);
                           setSpecItems([getDefaultSpecRow()]);
+                          setErrors({});
                         }}
                         className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary">
                         <Plus className="mr-1.5 h-4 w-4 shrink-0" />신규작성
                       </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={handleBasicFormReset}
-                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary">
+                      <Button type="button" variant="outline" size="sm" onClick={handleBasicFormReset} disabled={!isFormActive}
+                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
                         <RotateCcw className="mr-1.5 h-4 w-4 shrink-0" />초기화
                       </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={handleRegisterBasicInfo}
-                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary">
-                        <Save className="mr-1.5 h-4 w-4 shrink-0" />등록
+                      <Button type="button" variant="outline" size="sm" onClick={handleRegisterBasicInfo} disabled={!isFormActive}
+                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
+                        <Save className="mr-1.5 h-4 w-4 shrink-0" />{selectedBasicId ? "저장" : "등록"}
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={handleDeleteBasicInfo} disabled={!selectedBasicId}
+                        className="text-destructive hover:bg-destructive hover:text-destructive-foreground hover:border-destructive disabled:opacity-40 disabled:pointer-events-none">
+                        <Trash2 className="mr-1.5 h-4 w-4 shrink-0" />삭제
                       </Button>
                     </>
                   )}
                   {activeTab === "spec" && (
                     <>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setSpecItems([getDefaultSpecRow()])}
-                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setSpecItems([getDefaultSpecRow()])} disabled={!isFormActive}
+                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
                         <RotateCcw className="mr-1.5 h-4 w-4 shrink-0" />초기화
                       </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={handleSpecRegister}
-                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary">
+                      <Button type="button" variant="outline" size="sm" onClick={handleSpecRegister} disabled={!isFormActive}
+                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
                         <Save className="mr-1.5 h-4 w-4 shrink-0" />등록
                       </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={handleBulkOpen}
-                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary">
+                      <Button type="button" variant="outline" size="sm" onClick={handleBulkOpen} disabled={!isFormActive}
+                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
                         <FileDown className="mr-1.5 h-4 w-4 shrink-0" />일괄등록
                       </Button>
-
-                      <Button type="button" variant="outline" size="sm" onClick={handlePoIssue}
-                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary">
+                      <Button type="button" variant="outline" size="sm" onClick={handlePoIssue} disabled={!isFormActive}
+                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
                         <Send className="mr-1.5 h-4 w-4 shrink-0" />PO발행
                       </Button>
                     </>
                   )}
-                  <Link href="/purchase-orders">
-                    <Button type="button" variant="outline" size="sm"
-                      className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary">
-                      <X className="mr-1.5 h-4 w-4 shrink-0" />닫기
-                    </Button>
-                  </Link>
                 </div>
               </div>
             </CardHeader>
 
             {/* 기본정보 탭 */}
             <TabsContent value="basic" className="flex-1 min-h-0 overflow-auto m-0 data-[state=inactive]:hidden">
-              <CardContent className="p-4">
-              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+              {!isFormActive && (
+                <div className="flex h-full items-center justify-center py-20 text-sm text-muted-foreground select-none">
+                  신규작성 버튼을 누르거나 목록에서 오더를 선택하세요.
+                </div>
+              )}
+              <CardContent className={`p-4 ${!isFormActive ? "hidden" : ""}`}>
+              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2" onKeyDown={handleEnterNav}>
                 {/* 왼쪽 컬럼 */}
                 <div className="space-y-3">
                   <div className="grid grid-cols-[100px_1fr_80px] gap-1 items-center">
@@ -928,45 +1215,97 @@ export default function CreatePurchaseOrderPage() {
                       <POStatusBadge status={basicForm.orderStatus} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-[100px_minmax(0,0.5fr)_minmax(0,0.5fr)_40px] gap-1 items-center">
-                    <Label className={fieldLabelClass}>구매처번호</Label>
-                    <Input
-                      value={basicForm.supplierId}
-                      onChange={(e) => setBasic("supplierId", e.target.value)}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && /^\d+$/.test(v)) {
-                          setBasic("supplierId", v.padStart(5, "0"));
-                        }
-                      }}
-                      className={reqInputClass}
-                      placeholder="구매처 CODE 직접입력"
-                    />
-                    <Input
-                      value={basicForm.supplierName}
-                      onChange={(e) => setBasic("supplierName", e.target.value)}
-                      className="h-8 text-xs bg-blue-50 border-blue-200"
-                      placeholder="구매처명"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() => setIsPurchaserModalOpen(true)}
-                    >
-                      <Search className="h-4 w-4" />
-                    </Button>
+                  <div>
+                    <div className="grid grid-cols-[100px_minmax(0,0.4fr)_32px_minmax(0,0.6fr)] gap-1 items-center">
+                      <Label className={fieldLabelClass}>구매처번호</Label>
+                      <Input
+                        value={basicForm.supplierId}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          clearError("supplierId");
+                          setBasicForm((prev) => ({ ...prev, supplierId: v, supplierName: "" }));
+                          if (debounceRef.current) clearTimeout(debounceRef.current);
+                          debounceRef.current = setTimeout(async () => {
+                            if (!v.trim()) return;
+                            try {
+                              const res = await fetch("/api/purchasers");
+                              const data = await res.json();
+                              if (data?.ok && Array.isArray(data.items)) {
+                                const match = data.items.find(
+                                  (item: Record<string, string>) =>
+                                    (item.PurchaserNo ?? "").toLowerCase() === v.trim().toLowerCase()
+                                );
+                                if (match) {
+                                  setBasicForm((prev) => ({
+                                    ...prev,
+                                    supplierId: match.PurchaserNo,
+                                    supplierName: match.PurchaserName,
+                                  }));
+                                }
+                              }
+                            } catch {}
+                          }, 300);
+                        }}
+                        onKeyDown={(e) => {
+                          if (blockIfEmpty(e, "supplierId", basicForm.supplierId)) return;
+                          if (e.key === "Enter") {
+                            if (debounceRef.current) clearTimeout(debounceRef.current);
+                            const v = basicForm.supplierId.trim();
+                            if (!v) return;
+                            fetch("/api/purchasers")
+                              .then((r) => r.json())
+                              .then((data) => {
+                                if (data?.ok && Array.isArray(data.items)) {
+                                  const match = data.items.find(
+                                    (item: Record<string, string>) =>
+                                      (item.PurchaserNo ?? "").toLowerCase() === v.toLowerCase()
+                                  );
+                                  if (match) {
+                                    setBasicForm((prev) => ({
+                                      ...prev,
+                                      supplierId: match.PurchaserNo,
+                                      supplierName: match.PurchaserName,
+                                    }));
+                                  }
+                                }
+                              })
+                              .catch(() => {});
+                          }
+                        }}
+                        className={reqInputClass}
+                        placeholder="구매처 CODE"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => setIsPurchaserPopupOpen(true)}
+                      >
+                        <Search className="h-4 w-4" />
+                      </Button>
+                      <Input
+                        value={basicForm.supplierName}
+                        readOnly
+                        className="h-8 text-xs bg-muted text-muted-foreground"
+                        placeholder="구매처명"
+                      />
+                    </div>
+                    {errors.supplierId && <FieldError message={errors.supplierId} className="pl-[108px]" />}
                   </div>
-                  <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
-                    <Label className={fieldLabelClass}>통화코드</Label>
-                    <Select
-                      options={currencyOptions}
-                      value={basicForm.currencyCode}
-                      onChange={(v) => setBasic("currencyCode", v)}
-                      placeholder="선택"
-                      className={reqInputClass}
-                    />
+                  <div>
+                    <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
+                      <Label className={fieldLabelClass}>통화코드</Label>
+                      <Select
+                        options={currencyOptions}
+                        value={basicForm.currencyCode}
+                        onChange={(v) => { setBasic("currencyCode", v); clearError("currencyCode"); }}
+                        onKeyDown={(e) => blockIfEmpty(e, "currencyCode", basicForm.currencyCode)}
+                        placeholder="선택"
+                        className={reqInputClass}
+                      />
+                    </div>
+                    {errors.currencyCode && <FieldError message={errors.currencyCode} className="pl-[108px]" />}
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
                     <Label className={fieldLabelClass}>대금지급형태</Label>
@@ -975,7 +1314,7 @@ export default function CreatePurchaseOrderPage() {
                       value={basicForm.paymentType}
                       onChange={(v) => setBasic("paymentType", v)}
                       placeholder="선택"
-                      className={reqInputClass}
+                      className="h-8 text-xs"
                     />
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
@@ -985,34 +1324,86 @@ export default function CreatePurchaseOrderPage() {
                       value={basicForm.paymentTerms}
                       onChange={(v) => setBasic("paymentTerms", v)}
                       placeholder="선택"
-                      className={reqInputClass}
+                      className="h-8 text-xs"
                     />
                   </div>
-                  <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
-                    <Label className={fieldLabelClass}>구매 발주자</Label>
-                    <div className="flex gap-1">
+                  <div>
+                    <div className="grid grid-cols-[100px_minmax(0,0.4fr)_32px_minmax(0,0.6fr)] gap-1 items-center">
+                      <Label className={fieldLabelClass}>구매 발주자</Label>
                       <Input
                         value={basicForm.buyerCode}
-                        onChange={(e) => setBasic("buyerCode", e.target.value)}
-                        className={`${reqInputClass} flex-1`}
-                        placeholder="사용자코드"
-                      />
-                      <Input
-                        value={basicForm.buyerName}
-                        readOnly
-                        className="h-8 w-28 text-xs bg-blue-50 border-blue-200"
-                        placeholder="이름"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          clearError("buyerCode");
+                          setBasicForm((prev) => ({ ...prev, buyerCode: v, buyerName: "" }));
+                          if (buyerDebounceRef.current) clearTimeout(buyerDebounceRef.current);
+                          buyerDebounceRef.current = setTimeout(async () => {
+                            if (!v.trim()) return;
+                            try {
+                              const res = await fetch("/api/users");
+                              const data = await res.json();
+                              if (data?.ok && Array.isArray(data.items)) {
+                                const match = data.items.find(
+                                  (item: Record<string, string>) =>
+                                    (item.Username ?? "").toLowerCase() === v.trim().toLowerCase()
+                                );
+                                if (match) {
+                                  setBasicForm((prev) => ({
+                                    ...prev,
+                                    buyerCode: match.Username,
+                                    buyerName: match.UserId ?? match.Username,
+                                  }));
+                                }
+                              }
+                            } catch {}
+                          }, 300);
+                        }}
+                        onKeyDown={(e) => {
+                          if (blockIfEmpty(e, "buyerCode", basicForm.buyerCode)) return;
+                          if (e.key === "Enter") {
+                            if (buyerDebounceRef.current) clearTimeout(buyerDebounceRef.current);
+                            const v = basicForm.buyerCode.trim();
+                            if (!v) return;
+                            fetch("/api/users")
+                              .then((r) => r.json())
+                              .then((data) => {
+                                if (data?.ok && Array.isArray(data.items)) {
+                                  const match = data.items.find(
+                                    (item: Record<string, string>) =>
+                                      (item.Username ?? "").toLowerCase() === v.toLowerCase()
+                                  );
+                                  if (match) {
+                                    setBasicForm((prev) => ({
+                                      ...prev,
+                                      buyerCode: match.Username,
+                                      buyerName: match.UserId ?? match.Username,
+                                    }));
+                                  }
+                                }
+                              })
+                              .catch(() => {});
+                          }
+                        }}
+                        className={reqInputClass}
+                        placeholder="사용자 ID"
                       />
                       <Button
                         type="button"
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 shrink-0"
-                        onClick={() => setIsUserModalOpen(true)}
+                        onClick={() => setIsUserPopupOpen(true)}
                       >
                         <Search className="h-4 w-4" />
                       </Button>
+                      <Input
+                        value={basicForm.buyerName}
+                        readOnly
+                        className="h-8 text-xs bg-muted text-muted-foreground"
+                        placeholder="사용자명"
+                      />
                     </div>
+                    {errors.buyerCode && <FieldError message={errors.buyerCode} className="pl-[108px]" />}
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
                     <Label className={fieldLabelClass}>구매처견적번호</Label>
@@ -1042,33 +1433,46 @@ export default function CreatePurchaseOrderPage() {
 
                 {/* 오른쪽 컬럼 */}
                 <div className="space-y-3">
-                  <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
-                    <Label className={fieldLabelClass}>사업장</Label>
-                    <Select
-                      options={businessPlaceOptions.map((o) => ({ value: o.value, label: o.label }))}
-                      value={basicForm.businessPlace}
-                      onChange={(v) => setBasic("businessPlace", v)}
-                      className={reqInputClass}
-                    />
+                  <div>
+                    <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
+                      <Label className={fieldLabelClass}>사업장</Label>
+                      <Select
+                        options={factoryOptions}
+                        value={basicForm.businessPlace}
+                        onChange={(v) => { setBasic("businessPlace", v); clearError("businessPlace"); }}
+                        onKeyDown={(e) => blockIfEmpty(e, "businessPlace", basicForm.businessPlace)}
+                        placeholder="선택"
+                        className={reqInputClass}
+                      />
+                    </div>
+                    {errors.businessPlace && <FieldError message={errors.businessPlace} className="pl-[108px]" />}
                   </div>
-                  <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
-                    <Label className={fieldLabelClass}>발주일자</Label>
-                    <Input
-                      type="date"
-                      value={basicForm.orderDate}
-                      onChange={(e) => setBasic("orderDate", e.target.value)}
-                      className={reqInputClass}
-                    />
+                  <div>
+                    <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
+                      <Label className={fieldLabelClass}>발주일자</Label>
+                      <Input
+                        type="date"
+                        value={basicForm.orderDate}
+                        onChange={(e) => { setBasic("orderDate", e.target.value); clearError("orderDate"); }}
+                        onKeyDown={(e) => blockIfEmpty(e, "orderDate", basicForm.orderDate)}
+                        className={reqInputClass}
+                      />
+                    </div>
+                    {errors.orderDate && <FieldError message={errors.orderDate} className="pl-[108px]" />}
                   </div>
-                  <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
-                    <Label className={fieldLabelClass}>부가세율</Label>
-                    <Select
-                      options={vatRateOptions}
-                      value={basicForm.vatRate}
-                      onChange={(v) => setBasic("vatRate", v)}
-                      placeholder="선택"
-                      className={reqInputClass}
-                    />
+                  <div>
+                    <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
+                      <Label className={fieldLabelClass}>부가세율</Label>
+                      <Select
+                        options={vatRateOptions}
+                        value={basicForm.vatRate}
+                        onChange={(v) => { setBasic("vatRate", v); clearError("vatRate"); }}
+                        onKeyDown={(e) => blockIfEmpty(e, "vatRate", basicForm.vatRate)}
+                        placeholder="선택"
+                        className={reqInputClass}
+                      />
+                    </div>
+                    {errors.vatRate && <FieldError message={errors.vatRate} className="pl-[108px]" />}
                   </div>
                   <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
                     <Label className={fieldLabelClass}>수입구분</Label>
@@ -1126,8 +1530,13 @@ export default function CreatePurchaseOrderPage() {
 
             {/* 명세작업 탭 */}
             <TabsContent value="spec" className="flex-1 min-h-0 overflow-auto m-0 data-[state=inactive]:hidden">
+              {!isFormActive && (
+                <div className="flex h-full items-center justify-center py-20 text-sm text-muted-foreground select-none">
+                  신규작성 버튼을 누르거나 목록에서 오더를 선택하세요.
+                </div>
+              )}
               {/* 요약 정보 바 */}
-              <div className="flex flex-wrap gap-x-6 gap-y-1 border-b bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+              <div className={`flex flex-wrap gap-x-6 gap-y-1 border-b bg-muted/20 px-4 py-2 text-xs text-muted-foreground ${!isFormActive ? "hidden" : ""}`}>
                 <span>구매처 <strong className="text-foreground">{basicForm.supplierId || "-"} {basicForm.supplierName}</strong></span>
                 <span>발주일 <strong className="text-foreground">{basicForm.orderDate}</strong></span>
                 <span>통화 <strong className="text-foreground">{basicForm.currencyCode}</strong></span>
@@ -1138,18 +1547,18 @@ export default function CreatePurchaseOrderPage() {
               </div>
               <CardContent className="p-4 space-y-4">
               {/* 품목 행 편집 테이블 */}
-              <div className="flex items-center gap-2 mb-1">
+              <div className={`flex items-center gap-2 mb-1 ${!isFormActive ? "hidden" : ""}`}>
                 <Button type="button" variant="outline" size="sm" onClick={() => { addSpecItem(); setIsItemModalOpen(true); }} className="text-xs h-7">
                   <Plus className="mr-1.5 h-3 w-3" />
                   품목 추가
                 </Button>
               </div>
-              <div className="rounded-md border">
+              <div className={`rounded-md border ${!isFormActive ? "hidden" : ""}`} onKeyDown={handleEnterNav}>
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="px-2 py-1.5 w-12 whitespace-nowrap text-center">명세번호</th>
-                      <th className="px-2 py-1.5 w-24 text-center">품목번호</th>
+                      <th className="px-2 py-1.5 w-32 text-center">품목번호</th>
                       <th className="px-2 py-1.5 w-40 text-center">품목명</th>
                       <th className="px-2 py-1.5 w-20 text-center">규격</th>
                       <th className="px-2 py-1.5 w-12 text-center">창고선택</th>
@@ -1164,12 +1573,37 @@ export default function CreatePurchaseOrderPage() {
                     {specItems.map((row, index) => (
                       <tr key={index} className="border-b last:border-0">
                         <td className="px-2 py-1 text-center">{index + 1}</td>
-                        <td className="px-1 py-1 w-24">
-                          <Input
-                            value={row.itemCode}
-                            onChange={(e) => updateSpecItem(index, "itemCode", e.target.value)}
-                            className="h-6 w-full text-xs px-1"
-                          />
+                        <td className="px-1 py-1 w-32">
+                          <div className="flex gap-0.5 items-center">
+                            <Input
+                              ref={(el) => { itemCodeInputRefs.current[index] = el; }}
+                              value={row.itemCode}
+                              onChange={(e) => updateSpecItem(index, "itemCode", e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setActiveSpecRowIndex(index);
+                                  setItemSearch(row.itemCode);
+                                  setIsItemModalOpen(true);
+                                }
+                              }}
+                              className="h-6 w-full text-xs px-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => {
+                                setActiveSpecRowIndex(index);
+                                setItemSearch(row.itemCode);
+                                setIsItemModalOpen(true);
+                              }}
+                            >
+                              <Search className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </td>
                         <td className="px-1 py-1 w-40">
                           <Input
@@ -1185,24 +1619,39 @@ export default function CreatePurchaseOrderPage() {
                             className="h-6 text-xs px-1"
                           />
                         </td>
-                        <td className="px-1 py-1 bg-amber-50 border-l border-amber-200">
+                        <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10 border-l border-amber-200 dark:border-amber-600/30">
                           <Select
+                            ref={(el) => { warehouseSelectRefs.current[index] = el; }}
                             options={warehouseOptions}
                             value={row.warehouse ?? ""}
-                            onChange={(v) => updateSpecItem(index, "warehouse", v)}
+                            onChange={(v) => {
+                              updateSpecItem(index, "warehouse", v);
+                              setTimeout(() => quantityInputRefs.current[index]?.focus(), 0);
+                            }}
                             placeholder=""
-                            className="h-6 text-xs w-12"
+                            className={`h-6 text-xs w-12 ${row.itemCode && !row.warehouse ? "ring-1 ring-red-400 border-red-400" : ""}`}
                           />
                         </td>
-                        <td className="px-1 py-1 bg-amber-50 border-l border-r border-amber-200">
+                        <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10 border-l border-r border-amber-200 dark:border-amber-600/30">
                           <Input
+                            ref={(el) => { quantityInputRefs.current[index] = el; }}
                             inputMode="numeric"
                             value={row.quantity ? row.quantity.toLocaleString("ko-KR") : ""}
                             onChange={(e) => {
                               const val = e.target.value.replace(/[^0-9]/g, "");
                               updateSpecItem(index, "quantity", Number(val) || 0);
                             }}
-                            className="h-6 w-14 text-xs text-right px-1"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                // 필수값 미입력 시(빨간 테두리) 행 추가 불가
+                                if (row.itemCode && (!row.warehouse || !row.quantity)) return;
+                                addSpecItem();
+                                setTimeout(() => itemCodeInputRefs.current[index + 1]?.focus(), 0);
+                              }
+                            }}
+                            className={`h-6 w-14 text-xs text-right px-1 ${row.itemCode && !row.quantity ? "ring-1 ring-red-400 border-red-400" : ""}`}
                           />
                         </td>
                         <td className="px-1 py-1">
@@ -1219,13 +1668,13 @@ export default function CreatePurchaseOrderPage() {
                         <td className="px-2 py-1 text-right">
                           {formatCurrency(row.amount ?? 0)}
                         </td>
-                        <td className="px-1 py-1 bg-amber-50 border-l border-r border-amber-200">
+                        <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10 border-l border-r border-amber-200 dark:border-amber-600/30">
                           <div className="flex justify-center">
                             <input
                               type="checkbox"
                               checked={row.isProvisionalPrice ?? false}
                               onChange={(e) => updateSpecItem(index, "isProvisionalPrice", e.target.checked)}
-                              className="rounded"
+                              className="rounded accent-primary"
                             />
                           </div>
                         </td>
@@ -1246,231 +1695,491 @@ export default function CreatePurchaseOrderPage() {
                   </tbody>
                 </table>
               </div>
+              <div className="mt-1.5 text-[11px] text-muted-foreground">
+                총 <span className="font-semibold">{specItems.filter((r) => r.itemCode).length.toLocaleString("ko-KR")}</span>건
+              </div>
             </CardContent>
             </TabsContent>
           </Tabs>
         </Card>
       </div>
 
-      {isPurchaserModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-3xl rounded-lg bg-background p-4 shadow-lg">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">구매처 선택</h2>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsPurchaserModalOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="mb-3 flex gap-2">
-              <Input
-                value={purchaserSearch}
-                onChange={(e) => setPurchaserSearch(e.target.value)}
-                placeholder="구매처번호 또는 구매처명 검색"
-                className="h-8 text-xs"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setPurchaserSearch("")}
-              >
-                초기화
-              </Button>
-            </div>
-            <div className="max-h-[420px] overflow-auto rounded-md border">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/60 text-xs">
-                  <tr>
-                    <th className="px-3 py-2 text-left">구매처번호</th>
-                    <th className="px-3 py-2 text-left">구매처명</th>
-                    <th className="px-3 py-2 text-left">대표자</th>
-                    <th className="px-3 py-2 text-left">거래유형</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPurchasers.map((p) => (
-                    <tr
-                      key={p.id}
-                      className="cursor-pointer border-t hover:bg-slate-50"
-                      onClick={() => {
-                        setBasic("supplierId", p.purchaserNo);
-                        setIsPurchaserModalOpen(false);
-                      }}
-                    >
-                      <td className="px-3 py-1.5">{p.purchaserNo}</td>
-                      <td className="px-3 py-1.5">{p.purchaserName}</td>
-                      <td className="px-3 py-1.5">{p.representativeName}</td>
-                      <td className="px-3 py-1.5">{p.transactionType}</td>
-                    </tr>
-                  ))}
-                  {filteredPurchasers.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-3 py-4 text-center text-xs text-muted-foreground"
-                      >
-                        조건에 맞는 구매처가 없습니다.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+      <SearchPopup<{ Id: string; PurchaserNo: string; PurchaserName: string; [key: string]: unknown }>
+        open={isPurchaserPopupOpen}
+        onOpenChange={setIsPurchaserPopupOpen}
+        title="구매처"
+        apiUrl="/api/purchasers"
+        columns={[
+          { key: "PurchaserNo", header: "구매처번호", width: 120 },
+          { key: "PurchaserName", header: "구매처명" },
+        ]}
+        searchKeys={["PurchaserNo", "PurchaserName"]}
+        keyExtractor={(item) => String(item.Id)}
+        initialSearchCode={basicForm.supplierId}
+        onSelect={(item) => {
+          setBasicForm((prev) => ({
+            ...prev,
+            supplierId: String(item.PurchaserNo),
+            supplierName: String(item.PurchaserName),
+          }));
+        }}
+      />
 
-      {isUserModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md rounded-lg bg-background p-4 shadow-lg">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold">발주자 선택</h2>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => { setIsUserModalOpen(false); setUserSearch(""); }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="mb-3 flex gap-2">
-              <Input
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="사용자코드 또는 이름 검색"
-                className="h-8 text-xs"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setUserSearch("")}
-              >
-                초기화
-              </Button>
-            </div>
-            <div className="max-h-[320px] overflow-auto rounded-md border">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/60 text-xs">
-                  <tr>
-                    <th className="px-3 py-2 text-left">사용자코드</th>
-                    <th className="px-3 py-2 text-left">이름</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((b) => (
-                    <tr
-                      key={b.code}
-                      className="cursor-pointer border-t hover:bg-slate-50"
-                      onClick={() => {
-                        setBasic("buyerCode", b.code);
-                        setIsUserModalOpen(false);
-                        setUserSearch("");
-                      }}
-                    >
-                      <td className="px-3 py-1.5">{b.code}</td>
-                      <td className="px-3 py-1.5">{b.name}</td>
-                    </tr>
-                  ))}
-                  {filteredUsers.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={2}
-                        className="px-3 py-4 text-center text-xs text-muted-foreground"
-                      >
-                        조건에 맞는 사용자가 없습니다.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+      <SearchPopup<{ Id: string; Username: string; UserId: string | null; FactoryCode: string; FactoryName: string; [key: string]: unknown }>
+        open={isUserPopupOpen}
+        onOpenChange={setIsUserPopupOpen}
+        title="발주자"
+        apiUrl="/api/users"
+        columns={[
+          { key: "Username", header: "사용자 ID", width: 130 },
+          { key: "UserId", header: "사용자명", width: 110 },
+          { key: "FactoryCode", header: "사업장코드", width: 90 },
+          { key: "FactoryName", header: "사업장명" },
+        ]}
+        searchKeys={["Username", "UserId", "FactoryCode", "FactoryName"]}
+        keyExtractor={(item) => String(item.Id)}
+        initialSearchCode={basicForm.buyerCode}
+        onSelect={(item) => {
+          setBasicForm((prev) => ({
+            ...prev,
+            buyerCode: String(item.Username),
+            buyerName: String(item.UserId ?? item.Username),
+          }));
+        }}
+      />
 
       {isItemModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-3xl rounded-lg bg-background p-4 shadow-lg">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+          onKeyDown={(e) => { if (e.key === "Escape") { setIsItemModalOpen(false); setItemSearch(""); setItemFilterModel(""); setItemFilterSupplierId(""); setItemFilterSupplierName(""); } }}>
+          <div className="relative w-full max-w-3xl rounded-lg bg-background p-4 shadow-lg">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold">품목 선택</h2>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsItemModalOpen(false)}
+                onClick={() => { setIsItemModalOpen(false); setItemSearch(""); setItemFilterModel(""); setItemFilterSupplierId(""); setItemFilterSupplierName(""); }}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="mb-3 flex gap-2">
+            {/* 검색 조건 */}
+            <div className="mb-2 flex flex-wrap gap-2 items-center" onKeyDown={handleEnterNav}>
               <Input
+                ref={itemSearchInputRef}
                 value={itemSearch}
-                onChange={(e) => setItemSearch(e.target.value)}
-                placeholder="품목번호 또는 품목명 검색"
-                className="h-8 text-xs"
+                onChange={(e) => { setItemSearch(e.target.value); setItemHighlightIdx(-1); }}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault(); e.stopPropagation();
+                    setItemHighlightIdx((p) => Math.min(p + 1, filteredItems.length - 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault(); e.stopPropagation();
+                    setItemHighlightIdx((p) => Math.max(p - 1, -1));
+                  } else if (e.key === "Enter") {
+                    e.preventDefault(); e.stopPropagation();
+                    const target = itemHighlightIdx >= 0
+                      ? filteredItems[itemHighlightIdx]
+                      : filteredItems.length === 1 ? filteredItems[0] : null;
+                    if (target) {
+                      selectItemFromModal(target, activeSpecRowIndex);
+                    } else {
+                      itemSupplierInputRef.current?.focus();
+                    }
+                  }
+                }}
+                placeholder="품목번호 또는 품목명"
+                className="h-8 text-xs w-44"
               />
+              {/* 거래처 검색 */}
+              <div className="flex gap-1 items-center">
+                <Input
+                  ref={itemSupplierInputRef}
+                  value={itemFilterSupplierId}
+                  placeholder="거래처코드"
+                  className="h-8 text-xs w-24"
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault(); e.stopPropagation();
+                      setItemHighlightIdx((p) => Math.min(p + 1, filteredItems.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault(); e.stopPropagation();
+                      setItemHighlightIdx((p) => Math.max(p - 1, -1));
+                    } else if (e.key === "Enter") {
+                      e.preventDefault(); e.stopPropagation();
+                      if (itemHighlightIdx >= 0) {
+                        const target = filteredItems[itemHighlightIdx];
+                        if (target) selectItemFromModal(target, activeSpecRowIndex);
+                      } else if (itemFilterSupplierName) {
+                        // 거래처가 이미 선택된 상태 → 다음 필드(모델)로 이동
+                        itemModelInputRef.current?.focus();
+                      } else {
+                        setSupplierSubSearch(itemFilterSupplierId);
+                        setIsItemSupplierPopupOpen(true);
+                      }
+                    }
+                  }}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setItemFilterSupplierId(v);
+                    setItemFilterSupplierName("");
+                    if (itemSupplierDebounceRef.current) clearTimeout(itemSupplierDebounceRef.current);
+                    itemSupplierDebounceRef.current = setTimeout(() => {
+                      const match = purchasers.find(
+                        (p) => p.purchaserNo.toLowerCase() === v.trim().toLowerCase()
+                      );
+                      if (match) setItemFilterSupplierName(match.purchaserName);
+                    }, 300);
+                  }}
+                />
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                  onClick={() => { setSupplierSubSearch(itemFilterSupplierId); setIsItemSupplierPopupOpen(true); }}>
+                  <Search className="h-4 w-4" />
+                </Button>
+                <Input
+                  value={itemFilterSupplierName}
+                  readOnly
+                  placeholder="거래처명"
+                  className="h-8 text-xs w-28 bg-muted text-muted-foreground"
+                />
+              </div>
+              {/* 모델 검색 */}
+              <div className="flex gap-1 items-center">
+                <Input
+                  ref={itemModelInputRef}
+                  value={itemFilterModel}
+                  placeholder="모델"
+                  className="h-8 text-xs w-28"
+                  onChange={(e) => setItemFilterModel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault(); e.stopPropagation();
+                      setItemHighlightIdx((p) => Math.min(p + 1, filteredItems.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault(); e.stopPropagation();
+                      setItemHighlightIdx((p) => Math.max(p - 1, -1));
+                    } else if (e.key === "Enter") {
+                      e.preventDefault(); e.stopPropagation();
+                      if (itemHighlightIdx >= 0) {
+                        const target = filteredItems[itemHighlightIdx];
+                        if (target) selectItemFromModal(target, activeSpecRowIndex);
+                      } else {
+                        setModelSubSearch(itemFilterModel);
+                        setIsModelPopupOpen(true);
+                      }
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                  onClick={() => { setModelSubSearch(itemFilterModel); setIsModelPopupOpen(true); }}>
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setItemSearch("")}
+                onClick={() => {
+                  setItemSearch(""); setItemFilterModel("");
+                  setItemFilterSupplierId(""); setItemFilterSupplierName("");
+                }}
               >
                 초기화
               </Button>
             </div>
-            <div className="max-h-[420px] overflow-auto rounded-md border">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/60 text-xs">
+            {/* 단가 필터 라디오 */}
+            <div className="mb-3 flex items-center gap-4 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="priceFilter"
+                  checked={!onlyWithPrice}
+                  onChange={() => setOnlyWithPrice(false)}
+                  className="accent-primary"
+                />
+                전체
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="priceFilter"
+                  checked={onlyWithPrice}
+                  onChange={() => setOnlyWithPrice(true)}
+                  className="accent-primary"
+                />
+                구매처 단가 등록 품목만
+              </label>
+            </div>
+            <div ref={itemListScrollRef} className="h-[380px] rounded-md border overflow-y-auto">
+              <table className="w-full text-xs" style={{ tableLayout: "fixed" }}>
+                <colgroup>
+                  <col style={{ width: "8rem" }} />
+                  <col />
+                  <col style={{ width: "7rem" }} />
+                  <col style={{ width: "6rem" }} />
+                </colgroup>
+                <thead className="bg-muted/60 sticky top-0 z-10">
                   <tr>
-                    <th className="px-3 py-2 text-left">품목번호</th>
+                    <th className="px-3 py-2 text-left whitespace-nowrap">품목번호</th>
                     <th className="px-3 py-2 text-left">품목명</th>
-                    <th className="px-3 py-2 text-left">재질</th>
-                    <th className="px-3 py-2 text-left">규격</th>
-                    <th className="px-3 py-2 text-right">기준단가</th>
+                    <th className="px-3 py-2 text-left whitespace-nowrap">모델</th>
+                    <th className="px-3 py-2 text-right whitespace-nowrap">기준단가</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((i) => (
-                    <tr
-                      key={i.itemCode}
-                      className="cursor-pointer border-t hover:bg-slate-50"
-                      onClick={() => {
-                        updateSpecItem(activeSpecRowIndex, "itemCode", i.itemCode);
-                        updateSpecItem(activeSpecRowIndex, "itemName", i.itemName);
-                        updateSpecItem(activeSpecRowIndex, "material", i.material ?? "");
-                        updateSpecItem(activeSpecRowIndex, "specification", i.spec ?? "");
-                        updateSpecItem(activeSpecRowIndex, "unitPrice", i.unitPrice);
-                        setIsItemModalOpen(false);
-                      }}
-                    >
-                      <td className="px-3 py-1.5">{i.itemCode}</td>
-                      <td className="px-3 py-1.5">{i.itemName}</td>
-                      <td className="px-3 py-1.5">{i.material ?? "-"}</td>
-                      <td className="px-3 py-1.5">{i.spec ?? "-"}</td>
-                      <td className="px-3 py-1.5 text-right">
-                        {formatCurrency(i.unitPrice)}
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredItems.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-3 py-4 text-center text-xs text-muted-foreground"
-                      >
-                        조건에 맞는 품목이 없습니다.
-                      </td>
-                    </tr>
-                  )}
+                  {filteredItems.length === 0 ? (
+                    <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">조건에 맞는 품목이 없습니다.</td></tr>
+                  ) : (() => {
+                    const vitems = itemVirtualizer.getVirtualItems();
+                    const totalSize = itemVirtualizer.getTotalSize();
+                    const paddingTop = vitems.length > 0 ? vitems[0].start : 0;
+                    const paddingBottom = vitems.length > 0 ? totalSize - vitems[vitems.length - 1].end : 0;
+                    return (
+                      <>
+                        {paddingTop > 0 && <tr style={{ height: paddingTop }}><td colSpan={4} /></tr>}
+                        {vitems.map((vRow) => {
+                          const i = filteredItems[vRow.index];
+                          return (
+                            <tr
+                              key={i.itemCode}
+                              className={`cursor-pointer border-t ${vRow.index === itemHighlightIdx ? "bg-sky-100 ring-1 ring-inset ring-sky-300 dark:bg-sky-500/20 dark:ring-sky-500/40 dark:text-foreground" : "hover:bg-muted"}`}
+                              onClick={() => selectItemFromModal(i, activeSpecRowIndex)}
+                            >
+                              <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">{i.itemCode}</td>
+                              <td className="px-3 py-1.5 overflow-hidden text-ellipsis">{i.itemName}</td>
+                              <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">{i.model || "-"}</td>
+                              <td className="px-3 py-1.5 text-right whitespace-nowrap">{formatCurrency(i.unitPrice)}</td>
+                            </tr>
+                          );
+                        })}
+                        {paddingBottom > 0 && <tr style={{ height: paddingBottom }}><td colSpan={4} /></tr>}
+                      </>
+                    );
+                  })()}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-2 text-[11px] text-muted-foreground">
+              총 <span className="font-semibold">{filteredItems.length.toLocaleString("ko-KR")}</span>건
+            </div>
+          </div>
+
+          {/* 거래처 서브팝업 */}
+          {isItemSupplierPopupOpen && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 rounded-lg"
+              onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setIsItemSupplierPopupOpen(false); } }}>
+              <div className="w-80 rounded-lg bg-background p-4 shadow-xl border">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">거래처 선택</h3>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    onClick={() => setIsItemSupplierPopupOpen(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Input
+                  value={supplierSubSearch}
+                  onChange={(e) => { setSupplierSubSearch(e.target.value); setSupplierHighlightIdx(-1); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSupplierHighlightIdx((p) => Math.min(p + 1, filteredPurchasersForPopup.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setSupplierHighlightIdx((p) => Math.max(p - 1, -1));
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      const target = supplierHighlightIdx >= 0
+                        ? filteredPurchasersForPopup[supplierHighlightIdx]
+                        : filteredPurchasersForPopup.length === 1 ? filteredPurchasersForPopup[0] : null;
+                      if (target) {
+                        setItemFilterSupplierId(target.purchaserNo);
+                        setItemFilterSupplierName(target.purchaserName);
+                        setIsItemSupplierPopupOpen(false);
+                        setSupplierHighlightIdx(-1);
+                        setTimeout(() => itemSupplierInputRef.current?.focus(), 0);
+                      }
+                    }
+                  }}
+                  placeholder="거래처번호 또는 거래처명"
+                  className="h-8 text-xs mb-2"
+                  autoFocus
+                />
+                <div className="h-[260px] rounded border overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/60 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-1.5 text-left whitespace-nowrap w-28">거래처번호</th>
+                        <th className="px-3 py-1.5 text-left">거래처명</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPurchasersForPopup.map((p, idx) => (
+                        <tr
+                          key={p.purchaserNo}
+                          ref={idx === supplierHighlightIdx ? supplierHighlightRef : null}
+                          className={`cursor-pointer border-t ${idx === supplierHighlightIdx ? "bg-sky-100 ring-1 ring-inset ring-sky-300 dark:bg-sky-500/20 dark:ring-sky-500/40 dark:text-foreground" : "hover:bg-muted"}`}
+                          onClick={() => {
+                            setItemFilterSupplierId(p.purchaserNo);
+                            setItemFilterSupplierName(p.purchaserName);
+                            setIsItemSupplierPopupOpen(false);
+                            setSupplierHighlightIdx(-1);
+                            setTimeout(() => itemSupplierInputRef.current?.focus(), 0);
+                          }}
+                        >
+                          <td className="px-3 py-1.5 whitespace-nowrap">{p.purchaserNo}</td>
+                          <td className="px-3 py-1.5">{p.purchaserName}</td>
+                        </tr>
+                      ))}
+                      {filteredPurchasersForPopup.length === 0 && (
+                        <tr><td colSpan={2} className="px-3 py-4 text-center text-muted-foreground">조건에 맞는 거래처가 없습니다.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 모델 서브팝업 */}
+          {isModelPopupOpen && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 rounded-lg"
+              onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setIsModelPopupOpen(false); } }}>
+              <div className="w-72 rounded-lg bg-background p-4 shadow-xl border">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">모델 선택</h3>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    onClick={() => setIsModelPopupOpen(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Input
+                  value={modelSubSearch}
+                  onChange={(e) => { setModelSubSearch(e.target.value); setModelHighlightIdx(-1); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setModelHighlightIdx((p) => Math.min(p + 1, filteredModelsForPopup.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setModelHighlightIdx((p) => Math.max(p - 1, -1));
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      const target = modelHighlightIdx >= 0
+                        ? filteredModelsForPopup[modelHighlightIdx]
+                        : filteredModelsForPopup.length === 1 ? filteredModelsForPopup[0] : null;
+                      if (target) {
+                        setItemFilterModel(target);
+                        setIsModelPopupOpen(false);
+                        setModelHighlightIdx(-1);
+                      }
+                    }
+                  }}
+                  placeholder="모델명 검색"
+                  className="h-8 text-xs mb-2"
+                  autoFocus
+                />
+                <div className="h-[260px] rounded border overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/60 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-1.5 text-left">모델</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredModelsForPopup.map((m, idx) => (
+                        <tr
+                          key={m}
+                          ref={idx === modelHighlightIdx ? modelHighlightRef : null}
+                          className={`cursor-pointer border-t ${idx === modelHighlightIdx ? "bg-sky-100 ring-1 ring-inset ring-sky-300 dark:bg-sky-500/20 dark:ring-sky-500/40 dark:text-foreground" : "hover:bg-muted"}`}
+                          onClick={() => {
+                            setItemFilterModel(m);
+                            setIsModelPopupOpen(false);
+                            setModelHighlightIdx(-1);
+                          }}
+                        >
+                          <td className="px-3 py-1.5">{m}</td>
+                        </tr>
+                      ))}
+                      {filteredModelsForPopup.length === 0 && (
+                        <tr><td className="px-3 py-4 text-center text-muted-foreground">조건에 맞는 모델이 없습니다.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 알림 모달 */}
+      {copyModal?.open && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
+          <div className="w-[360px] rounded-lg border bg-background p-5 shadow-xl">
+            <h3 className="mb-3 text-sm font-semibold">PO 복사</h3>
+            <p className="mb-4 text-xs text-muted-foreground">
+              선택한 PO의 기본정보와 명세를 그대로 복사합니다.<br />
+              발주일자를 변경하거나 그대로 유지할 수 있습니다.
+            </p>
+            <div className="mb-4 space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">발주일자</label>
+              <input
+                type="date"
+                value={copyModal.orderDate}
+                onChange={(e) => setCopyModal((prev) => prev ? { ...prev, orderDate: e.target.value } : prev)}
+                className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setCopyModal(null)} disabled={copying}>
+                취소
+              </Button>
+              <Button size="sm" onClick={handleCopyConfirm} disabled={copying}>
+                {copying ? "복사 중..." : "복사"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmModal?.open && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
+          <div className="w-[360px] rounded-lg border bg-background shadow-xl overflow-hidden">
+            <div className="px-5 py-4 border-b">
+              <p className="text-sm font-semibold">확인</p>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-sm text-foreground whitespace-pre-line">{confirmModal.message}</p>
+            </div>
+            <div className="px-5 py-3 flex justify-end gap-2 border-t">
+              <Button size="sm" variant="outline" className="h-8 px-5 text-xs" onClick={() => setConfirmModal(null)}>
+                취소
+              </Button>
+              <Button size="sm" className="h-8 px-5 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground" onClick={() => confirmModal.onConfirm()}>
+                확인
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {notifyModal?.open && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
+          <div className="bg-background border border-border rounded-lg shadow-xl w-[360px] p-0 overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <p className="text-sm font-semibold">{notifyModal.title}</p>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-sm text-foreground whitespace-pre-line">{notifyModal.message}</p>
+            </div>
+            <div className="px-5 py-3 flex justify-end border-t border-border">
+              <Button
+                size="sm"
+                className="h-8 px-6 text-xs"
+                onClick={() => setNotifyModal(null)}
+              >
+                확인
+              </Button>
             </div>
           </div>
         </div>

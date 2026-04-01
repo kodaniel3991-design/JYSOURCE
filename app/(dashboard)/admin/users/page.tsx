@@ -12,11 +12,17 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { Plus, Pencil, Trash2, Users, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, KeyRound, Eye, EyeOff, Mail } from "lucide-react";
 
 interface UserRow {
   Id: number;
   Username: string;
+  UserId: string | null;
+  Email: string | null;
+  PhoneNo: string | null;
+  HireDate: string | null;
+  Position: string | null;
+  EmployeeNo: string | null;
   FactoryCode: string | null;
   FactoryName: string | null;
   IsActive: boolean;
@@ -33,6 +39,12 @@ interface UserDraft {
   Password: string;
   FactoryCode: string;
   IsActive: boolean;
+  UserId: string;
+  Email: string;
+  PhoneNo: string;
+  HireDate: string;
+  Position: string;
+  EmployeeNo: string;
 }
 
 interface PwDraft {
@@ -42,12 +54,22 @@ interface PwDraft {
   showConfirm: boolean;
 }
 
-const EMPTY_DRAFT: UserDraft = { Username: "", Password: "", FactoryCode: "", IsActive: true };
+interface MailPwDraft {
+  emailPassword: string;
+  show: boolean;
+}
+
+const EMPTY_DRAFT: UserDraft = {
+  Username: "", Password: "", FactoryCode: "", IsActive: true,
+  UserId: "", Email: "", PhoneNo: "", HireDate: "", Position: "", EmployeeNo: "",
+};
 const EMPTY_PW: PwDraft = { newPassword: "", confirm: "", showNew: false, showConfirm: false };
+const EMPTY_MAIL_PW: MailPwDraft = { emailPassword: "", show: false };
 
 export default function AdminUsersPage() {
   const [rows, setRows] = useState<UserRow[]>([]);
   const [factories, setFactories] = useState<FactoryOption[]>([]);
+  const [positionOptions, setPositionOptions] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 사용자 등록/수정 시트
@@ -65,6 +87,13 @@ export default function AdminUsersPage() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwError, setPwError] = useState<string | null>(null);
 
+  // 메일 비밀번호 시트
+  const [mailPwSheetOpen, setMailPwSheetOpen] = useState(false);
+  const [mailPwTarget, setMailPwTarget] = useState<UserRow | null>(null);
+  const [mailPwDraft, setMailPwDraft] = useState<MailPwDraft>({ ...EMPTY_MAIL_PW });
+  const [mailPwSaving, setMailPwSaving] = useState(false);
+  const [mailPwError, setMailPwError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -80,6 +109,17 @@ export default function AdminUsersPage() {
     }
   }, []);
 
+  useEffect(() => {
+    fetch("/api/common-codes?category=position")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok && Array.isArray(data.items)) {
+          setPositionOptions(data.items.map((c: { Code: string; Name: string }) => ({ value: c.Code, label: c.Name })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => { load(); }, [load]);
 
   // ── 사용자 등록/수정 ──
@@ -93,7 +133,18 @@ export default function AdminUsersPage() {
 
   const openEdit = (row: UserRow) => {
     setEditTarget(row);
-    setDraft({ Username: row.Username, Password: "", FactoryCode: row.FactoryCode ?? "", IsActive: row.IsActive });
+    setDraft({
+      Username:   row.Username,
+      Password:   "",
+      FactoryCode:row.FactoryCode ?? "",
+      IsActive:   row.IsActive,
+      UserId:     row.UserId ?? "",
+      Email:      row.Email ?? "",
+      PhoneNo:    row.PhoneNo ?? "",
+      HireDate:   row.HireDate ? row.HireDate.slice(0, 10) : "",
+      Position:   row.Position ?? "",
+      EmployeeNo: row.EmployeeNo ?? "",
+    });
     setError(null);
     setShowPw(false);
     setSheetOpen(true);
@@ -105,22 +156,27 @@ export default function AdminUsersPage() {
     setError(null);
     try {
       let res: Response;
+      const common = {
+        factoryCode: draft.FactoryCode || null,
+        isActive:    draft.IsActive,
+        userName:    draft.UserId || null,
+        email:       draft.Email || null,
+        phoneNo:     draft.PhoneNo || null,
+        hireDate:    draft.HireDate || null,
+        position:    draft.Position || null,
+        employeeNo:  draft.EmployeeNo || null,
+      };
       if (editTarget) {
         res = await fetch(`/api/admin/users/${editTarget.Id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ factoryCode: draft.FactoryCode || null, isActive: draft.IsActive }),
+          body: JSON.stringify(common),
         });
       } else {
         res = await fetch("/api/admin/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: draft.Username,
-            password: draft.Password,
-            factoryCode: draft.FactoryCode || null,
-            isActive: draft.IsActive,
-          }),
+          body: JSON.stringify({ username: draft.Username, password: draft.Password, ...common }),
         });
       }
       const data = await res.json();
@@ -170,6 +226,34 @@ export default function AdminUsersPage() {
     }
   };
 
+  // ── 메일 비밀번호 변경 ──
+  const openMailPwChange = (row: UserRow) => {
+    setMailPwTarget(row);
+    setMailPwDraft({ ...EMPTY_MAIL_PW });
+    setMailPwError(null);
+    setMailPwSheetOpen(true);
+  };
+
+  const handleMailPwSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMailPwSaving(true);
+    setMailPwError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${mailPwTarget!.Id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailPassword: mailPwDraft.emailPassword }),
+      });
+      const data = await res.json();
+      if (!data.ok) { setMailPwError(data.message); return; }
+      setMailPwSheetOpen(false);
+    } catch {
+      setMailPwError("저장 중 오류가 발생했습니다.");
+    } finally {
+      setMailPwSaving(false);
+    }
+  };
+
   // ── 삭제 ──
   const handleDelete = async (row: UserRow) => {
     if (!confirm(`"${row.Username}" 사용자를 삭제하시겠습니까?`)) return;
@@ -197,28 +281,33 @@ export default function AdminUsersPage() {
         </Button>
       </div>
 
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-lg border bg-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">아이디</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">소속 공장</th>
-              <th className="px-4 py-3 text-center font-medium text-muted-foreground w-20">상태</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground w-36">등록일시</th>
-              <th className="px-4 py-3 w-32 text-right pr-4 font-medium text-muted-foreground text-xs">관리</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">아이디</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">사용자명</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">사번</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">직책</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">전화번호</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">이메일</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">입사일자</th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">소속 공장</th>
+              <th className="px-4 py-3 text-center font-medium text-muted-foreground w-20 whitespace-nowrap">상태</th>
+              <th className="px-4 py-3 w-32 text-right pr-4 font-medium text-muted-foreground text-xs whitespace-nowrap">관리</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                <td colSpan={10} className="py-12 text-center text-muted-foreground">
                   불러오는 중...
                 </td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                <td colSpan={10} className="py-12 text-center text-muted-foreground">
                   <Users className="mx-auto mb-2 h-8 w-8 opacity-30" />
                   등록된 사용자가 없습니다.
                 </td>
@@ -226,8 +315,20 @@ export default function AdminUsersPage() {
             )}
             {rows.map((row) => (
               <tr key={row.Id} className="border-b last:border-0 hover:bg-muted/30">
-                <td className="px-4 py-3 font-medium">{row.Username}</td>
-                <td className="px-4 py-3 text-muted-foreground">
+                <td className="px-4 py-3 font-medium whitespace-nowrap">{row.Username}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{row.UserId ?? <span className="text-xs opacity-40">-</span>}</td>
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.EmployeeNo ?? <span className="text-xs opacity-40">-</span>}</td>
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                  {row.Position
+                    ? (positionOptions.find((o) => o.value === row.Position)?.label ?? row.Position)
+                    : <span className="text-xs opacity-40">-</span>}
+                </td>
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.PhoneNo ?? <span className="text-xs opacity-40">-</span>}</td>
+                <td className="px-4 py-3 text-muted-foreground">{row.Email ?? <span className="text-xs opacity-40">-</span>}</td>
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                  {row.HireDate ? new Date(row.HireDate).toLocaleDateString("ko-KR") : <span className="text-xs opacity-40">-</span>}
+                </td>
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                   {row.FactoryName
                     ? <span>{row.FactoryName} <span className="text-xs opacity-60">({row.FactoryCode})</span></span>
                     : <span className="text-xs opacity-50">미지정</span>}
@@ -238,9 +339,6 @@ export default function AdminUsersPage() {
                   }`}>
                     {row.IsActive ? "활성" : "비활성"}
                   </span>
-                </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">
-                  {new Date(row.CreatedAt).toLocaleDateString("ko-KR")}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
@@ -265,6 +363,15 @@ export default function AdminUsersPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      title="메일 비밀번호 설정"
+                      onClick={() => openMailPwChange(row)}
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-7 w-7 text-destructive hover:text-destructive"
                       title="삭제"
                       onClick={() => handleDelete(row)}
@@ -281,80 +388,168 @@ export default function AdminUsersPage() {
 
       {/* ── 사용자 등록/수정 시트 ── */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-full sm:max-w-md">
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{editTarget ? "사용자 수정" : "사용자 추가"}</SheetTitle>
             {editTarget && (
-              <SheetDescription>공장 배정 및 활성화 여부를 수정합니다.</SheetDescription>
+              <SheetDescription>사용자 정보를 수정합니다.</SheetDescription>
             )}
           </SheetHeader>
-          <form onSubmit={handleSave} className="mt-6 space-y-5">
-            <div className="space-y-1.5">
-              <Label>아이디</Label>
-              <Input
-                value={draft.Username}
-                onChange={(e) => setDraft((d) => ({ ...d, Username: e.target.value }))}
-                placeholder="로그인 아이디"
-                disabled={!!editTarget || saving}
-                maxLength={50}
-                autoComplete="off"
-              />
+          <form onSubmit={handleSave} className="mt-6 space-y-4">
+
+            {/* 계정 정보 */}
+            <div className="rounded-md border bg-muted/20 px-4 py-3 space-y-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">계정 정보</p>
+
+              <div className="space-y-1.5">
+                <Label>아이디 <span className="text-destructive">*</span></Label>
+                <Input
+                  value={draft.Username}
+                  onChange={(e) => setDraft((d) => ({ ...d, Username: e.target.value }))}
+                  placeholder="로그인 아이디"
+                  disabled={!!editTarget || saving}
+                  maxLength={50}
+                  autoComplete="off"
+                />
+              </div>
+
+              {!editTarget && (
+                <div className="space-y-1.5">
+                  <Label>비밀번호 <span className="text-destructive">*</span></Label>
+                  <div className="relative">
+                    <Input
+                      type={showPw ? "text" : "password"}
+                      value={draft.Password}
+                      onChange={(e) => setDraft((d) => ({ ...d, Password: e.target.value }))}
+                      placeholder="초기 비밀번호"
+                      disabled={saving}
+                      maxLength={200}
+                      autoComplete="new-password"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowPw((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label>소속 공장</Label>
+                <select
+                  value={draft.FactoryCode}
+                  onChange={(e) => setDraft((d) => ({ ...d, FactoryCode: e.target.value }))}
+                  disabled={saving}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                >
+                  <option value="">미지정</option>
+                  {factories.map((f) => (
+                    <option key={f.FactoryCode} value={f.FactoryCode}>
+                      {f.FactoryName} ({f.FactoryCode})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="userIsActive"
+                  checked={draft.IsActive}
+                  onChange={(e) => setDraft((d) => ({ ...d, IsActive: e.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer"
+                  disabled={saving}
+                />
+                <Label htmlFor="userIsActive" className="cursor-pointer">활성화</Label>
+              </div>
             </div>
 
-            {/* 신규 등록 시에만 비밀번호 입력 */}
-            {!editTarget && (
+            {/* 개인 정보 */}
+            <div className="rounded-md border bg-muted/20 px-4 py-3 space-y-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">개인 정보</p>
+
               <div className="space-y-1.5">
-                <Label>비밀번호</Label>
-                <div className="relative">
+                <Label>사용자명</Label>
+                <Input
+                  value={draft.UserId}
+                  onChange={(e) => setDraft((d) => ({ ...d, UserId: e.target.value }))}
+                  placeholder="실명"
+                  disabled={saving}
+                  maxLength={50}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>사번</Label>
                   <Input
-                    type={showPw ? "text" : "password"}
-                    value={draft.Password}
-                    onChange={(e) => setDraft((d) => ({ ...d, Password: e.target.value }))}
-                    placeholder="초기 비밀번호"
+                    value={draft.EmployeeNo}
+                    onChange={(e) => setDraft((d) => ({ ...d, EmployeeNo: e.target.value }))}
+                    placeholder="사번"
                     disabled={saving}
-                    maxLength={200}
-                    autoComplete="new-password"
-                    className="pr-10"
+                    maxLength={20}
                   />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPw((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                </div>
+                <div className="space-y-1.5">
+                  <Label>직책</Label>
+                  <select
+                    value={draft.Position}
+                    onChange={(e) => setDraft((d) => ({ ...d, Position: e.target.value }))}
+                    disabled={saving}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                   >
-                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                    <option value="">선택</option>
+                    {positionOptions.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            )}
 
-            <div className="space-y-1.5">
-              <Label>소속 공장</Label>
-              <select
-                value={draft.FactoryCode}
-                onChange={(e) => setDraft((d) => ({ ...d, FactoryCode: e.target.value }))}
-                disabled={saving}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-              >
-                <option value="">미지정</option>
-                {factories.map((f) => (
-                  <option key={f.FactoryCode} value={f.FactoryCode}>
-                    {f.FactoryName} ({f.FactoryCode})
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="space-y-1.5">
+                <Label>전화번호</Label>
+                <Input
+                  value={draft.PhoneNo}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    const formatted =
+                      digits.length <= 3 ? digits :
+                      digits.length <= 7 ? `${digits.slice(0, 3)}-${digits.slice(3)}` :
+                      `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+                    setDraft((d) => ({ ...d, PhoneNo: formatted }));
+                  }}
+                  placeholder="010-0000-0000"
+                  disabled={saving}
+                  maxLength={13}
+                />
+              </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="userIsActive"
-                checked={draft.IsActive}
-                onChange={(e) => setDraft((d) => ({ ...d, IsActive: e.target.checked }))}
-                className="h-4 w-4 rounded border-slate-300 accent-primary cursor-pointer"
-                disabled={saving}
-              />
-              <Label htmlFor="userIsActive" className="cursor-pointer">활성화</Label>
+              <div className="space-y-1.5">
+                <Label>이메일</Label>
+                <Input
+                  type="email"
+                  value={draft.Email}
+                  onChange={(e) => setDraft((d) => ({ ...d, Email: e.target.value }))}
+                  placeholder="user@example.com"
+                  disabled={saving}
+                  maxLength={100}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>입사일자</Label>
+                <Input
+                  type="date"
+                  value={draft.HireDate}
+                  onChange={(e) => setDraft((d) => ({ ...d, HireDate: e.target.value }))}
+                  disabled={saving}
+                />
+              </div>
             </div>
 
             {error && (
@@ -373,6 +568,72 @@ export default function AdminUsersPage() {
                 disabled={saving || (!editTarget && (!draft.Username.trim() || !draft.Password))}
               >
                 {saving ? "저장 중..." : "저장"}
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── 메일 비밀번호 시트 ── */}
+      <Sheet open={mailPwSheetOpen} onOpenChange={setMailPwSheetOpen}>
+        <SheetContent className="w-full sm:max-w-sm">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-blue-600" />
+              메일 비밀번호 설정
+            </SheetTitle>
+            {mailPwTarget && (
+              <SheetDescription>
+                <span className="font-medium text-foreground">{mailPwTarget.Username}</span> 계정의 SMTP 메일 비밀번호를 설정합니다.
+              </SheetDescription>
+            )}
+          </SheetHeader>
+          <form onSubmit={handleMailPwSave} className="mt-6 space-y-5">
+            <div className="rounded-md border border-blue-100 bg-blue-50/50 px-3 py-2.5 text-xs text-blue-700">
+              발주서 이메일 발송 시 사용되는 이메일 계정의 비밀번호입니다.<br />
+              비밀번호를 비워두면 이메일 발송이 비활성화됩니다.
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>메일 비밀번호</Label>
+              <div className="relative">
+                <Input
+                  type={mailPwDraft.show ? "text" : "password"}
+                  value={mailPwDraft.emailPassword}
+                  onChange={(e) => setMailPwDraft((d) => ({ ...d, emailPassword: e.target.value }))}
+                  placeholder="이메일 계정 비밀번호"
+                  disabled={mailPwSaving}
+                  maxLength={200}
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setMailPwDraft((d) => ({ ...d, show: !d.show }))}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {mailPwDraft.show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {mailPwError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
+                {mailPwError}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outline" className="flex-1" disabled={mailPwSaving} onClick={() => setMailPwSheetOpen(false)}>
+                취소
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                disabled={mailPwSaving}
+              >
+                {mailPwSaving ? "저장 중..." : "저장"}
               </Button>
             </div>
           </form>

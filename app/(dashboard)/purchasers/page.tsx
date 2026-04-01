@@ -30,6 +30,7 @@ import {
 } from "@/components/common/action-buttons";
 
 interface PurchaserFilterState {
+  purchaserNo: string;
   purchaserName: string;
   transactionType: string;
   businessNo: string;
@@ -118,6 +119,7 @@ export default function PurchasersPage() {
   }, []);
 
   const [filters, setFilters] = useCachedState<PurchaserFilterState>("purchasers/filters", {
+    purchaserNo: "",
     purchaserName: "",
     transactionType: "",
     businessNo: "",
@@ -150,6 +152,7 @@ export default function PurchasersPage() {
 
   const resetFilters = () => {
     setFilters({
+      purchaserNo: "",
       purchaserName: "",
       transactionType: "",
       businessNo: "",
@@ -163,6 +166,13 @@ export default function PurchasersPage() {
     return rows.filter((row) => {
       const isActive = row.suspensionReason === "거래중" && !row.suspensionDate;
 
+      if (
+        filters.purchaserNo &&
+        !row.purchaserNo
+          .toLowerCase()
+          .includes(filters.purchaserNo.toLowerCase())
+      )
+        return false;
       if (
         filters.purchaserName &&
         !row.purchaserName
@@ -703,7 +713,12 @@ export default function PurchasersPage() {
         loading={loading}
         totalCountLabel={`총 ${filteredList.length.toLocaleString("ko-KR")}건이 조회되었습니다.`}
       >
-        <div ref={searchRef} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div ref={searchRef} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Field
+            label="구매처번호"
+            value={filters.purchaserNo}
+            onChange={(v) => handleFilterChange("purchaserNo", v)}
+          />
           <Field
             label="구매처명"
             value={filters.purchaserName}

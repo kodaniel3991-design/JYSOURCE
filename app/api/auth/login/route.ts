@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { signToken, SESSION_COOKIE } from "@/lib/auth/session";
 import { getDbPool } from "@/lib/db";
+import { verifyPassword } from "@/lib/auth/password";
 
 const ADMIN_USERNAME = process.env.AUTH_USERNAME ?? "admin";
 const ADMIN_PASSWORD = process.env.AUTH_PASSWORD ?? "admin1234";
@@ -53,7 +54,8 @@ export async function POST(request: Request) {
 
     const user = userResult.recordset[0];
 
-    if (!user || user.Password !== password) {
+    const passwordMatch = user ? await verifyPassword(password, user.Password) : false;
+    if (!passwordMatch) {
       return NextResponse.json(
         { ok: false, message: "아이디 또는 비밀번호가 올바르지 않습니다." },
         { status: 401 }

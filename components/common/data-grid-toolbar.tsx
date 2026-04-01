@@ -28,7 +28,7 @@ export function DataGridToolbar({
   className,
 }: DataGridToolbarProps) {
   const baseClass =
-    "border border-slate-300 dark:border-slate-600 rounded-md text-slate-800";
+    "border border-input rounded-md text-primary";
   const activeClass =
     "bg-primary text-primary-foreground border-primary hover:bg-primary hover:text-primary-foreground";
   const hoverClass =

@@ -6,9 +6,12 @@ export interface SelectOption {
 }
 
 export const itemStatusOptions: SelectOption[] = [
-  { value: "ACTIVE", label: "활성" },
-  { value: "INACTIVE", label: "비활성" },
-  { value: "BLOCKED", label: "차단" },
+  { value: "사용(양산)", label: "사용(양산)" },
+  { value: "사양화", label: "사양화" },
+  { value: "설계변경", label: "설계변경" },
+  { value: "사용안함", label: "사용안함" },
+  { value: "삭제", label: "삭제" },
+  { value: "개발", label: "개발" },
 ];
 
 export const itemFormOptions: SelectOption[] = [

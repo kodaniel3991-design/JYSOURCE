@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Table,
   TableBody,
@@ -24,6 +25,8 @@ export interface MasterListGridColumn<T> {
   cellClassName?: string;
   /** 헤더 정렬 (기본 왼쪽) */
   align?: "left" | "right" | "center";
+  /** rowspan 개수 반환. 1 이하이면 병합 없음 */
+  rowSpan?: (row: T, index: number, allRows: T[]) => number;
 }
 
 export type MasterListGridVariant = "default" | "striped";
@@ -33,6 +36,7 @@ export interface MasterListGridProps<T> {
   data: T[];
   keyExtractor: (row: T) => string;
   onRowClick?: (row: T) => void;
+  onRowDoubleClick?: (row: T) => void;
   /** 선택된 행 ID (keyExtractor 결과). 지정 시 공용 선택 하이라이트 적용 */
   selectedRowId?: string | null;
   /** 선택된 행에 적용할 클래스 (미지정 시 기본 밝은 강조) */
@@ -56,19 +60,20 @@ export interface MasterListGridProps<T> {
   variant?: MasterListGridVariant;
   /** 자동 페이지네이션 시 페이지 크기 (기본 10) */
   pageSize?: number;
+  /** 가상 스크롤 활성화 (대량 데이터 렉 방지) */
+  virtual?: boolean;
+  /** 가상 스크롤 행 높이 추정값 (기본 32px) */
+  estimatedRowHeight?: number;
 }
 
 const defaultEmptyMessage = "조회된 데이터가 없습니다.";
 
-/**
- * 품목 마스터 목록 등에 사용하는 공통 그리드.
- * - 최대 높이 제한 + 스크롤, 고정 헤더, 컴팩트 행(h-8, text-xs)을 시스템 전체 동일 적용.
- */
 export function MasterListGrid<T>({
   columns,
   data,
   keyExtractor,
   onRowClick,
+  onRowDoubleClick,
   selectedRowId,
   selectedRowClassName,
   getRowClassName,
@@ -79,10 +84,15 @@ export function MasterListGrid<T>({
   className,
   variant = "default",
   pageSize: pageSizeProp,
+  virtual = false,
+  estimatedRowHeight = 32,
 }: MasterListGridProps<T>) {
   const colCount = columns.length;
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  // 가상 스크롤이 활성화된 경우 자동 페이지네이션 비활성화
   const autoPageSize = pageSizeProp ?? 10;
-  const shouldAutoPaginate = !pagination && data.length > autoPageSize;
+  const shouldAutoPaginate = !virtual && !pagination && data.length > autoPageSize;
   const [internalPage, setInternalPage] = React.useState(1);
 
   React.useEffect(() => {
@@ -124,8 +134,91 @@ export function MasterListGrid<T>({
 
   const selectedClass =
     selectedRowClassName ??
-    // 라이트 모드에서는 약간 더 진하게, 다크 모드는 매우 옅게
     "bg-sky-100/80 ring-1 ring-sky-200 hover:bg-sky-100 dark:bg-sky-500/15 dark:ring-sky-600 dark:hover:bg-sky-500/25";
+
+  // 가상 스크롤 virtualizer
+  const virtualizer = useVirtualizer({
+    count: virtual ? rowsToRender.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => estimatedRowHeight,
+    overscan: 15,
+  });
+
+  const virtualItems = virtual ? virtualizer.getVirtualItems() : [];
+  const totalVirtualSize = virtual ? virtualizer.getTotalSize() : 0;
+  const paddingTop = virtual && virtualItems.length > 0 ? virtualItems[0].start : 0;
+  const paddingBottom =
+    virtual && virtualItems.length > 0
+      ? totalVirtualSize - virtualItems[virtualItems.length - 1].end
+      : 0;
+
+  // rowSpan 커버리지 사전 계산: coverageMap[rowIdx] = Set<colKey> (해당 셀 렌더 스킵)
+  const coverageMap = React.useMemo(() => {
+    const map = new Map<number, Set<string>>();
+    if (!columns.some((c) => c.rowSpan)) return map;
+    rowsToRender.forEach((row, rowIdx) => {
+      columns.forEach((col) => {
+        if (!col.rowSpan) return;
+        if (map.get(rowIdx)?.has(col.key)) return; // 이미 커버된 셀은 스킵
+        const span = col.rowSpan(row, rowIdx, rowsToRender);
+        if (span > 1) {
+          for (let i = 1; i < span; i++) {
+            if (!map.has(rowIdx + i)) map.set(rowIdx + i, new Set());
+            map.get(rowIdx + i)!.add(col.key);
+          }
+        }
+      });
+    });
+    return map;
+  }, [columns, rowsToRender]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const renderRow = (row: T, index: number) => (
+    <TableRow
+      key={keyExtractor(row)}
+      className={cn(
+        "h-8 whitespace-nowrap",
+        onRowClick && "cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/40",
+        variant === "striped" &&
+          index % 2 === 1 &&
+          "bg-slate-100 dark:bg-slate-700/20",
+        selectedRowId && keyExtractor(row) === selectedRowId && selectedClass,
+        getRowClassName?.(row, index)
+      )}
+      onClick={() => onRowClick?.(row)}
+      onDoubleClick={() => onRowDoubleClick?.(row)}
+    >
+      {columns.map((col) => {
+        // rowSpan 커버된 셀은 렌더하지 않음
+        if (coverageMap.get(index)?.has(col.key)) return null;
+
+        const content = col.cell
+          ? col.cell(row, index)
+          : (row as Record<string, unknown>)[col.key] as React.ReactNode;
+        const maxWidth =
+          col.maxWidth == null
+            ? undefined
+            : typeof col.maxWidth === "number"
+              ? `${col.maxWidth}px`
+              : col.maxWidth;
+        const span = col.rowSpan?.(row, index, rowsToRender) ?? 1;
+        return (
+          <TableCell
+            key={col.key}
+            rowSpan={span > 1 ? span : undefined}
+            className={cn(
+              "px-3 py-1.5 text-xs",
+              maxWidth && "truncate",
+              col.cellClassName,
+              span > 1 && "align-middle"
+            )}
+            style={maxWidth ? { maxWidth } : undefined}
+          >
+            {content}
+          </TableCell>
+        );
+      })}
+    </TableRow>
+  );
 
   return (
     <div
@@ -133,6 +226,7 @@ export function MasterListGrid<T>({
       style={maxHeight === "100%" ? { height: "100%" } : undefined}
     >
       <div
+        ref={scrollRef}
         className={cn(
           "flex-1 rounded-lg border",
           noHorizontalScroll ? "overflow-x-hidden overflow-y-auto" : "overflow-auto"
@@ -174,57 +268,47 @@ export function MasterListGrid<T>({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rowsToRender.map((row, index) => (
-              <TableRow
-                key={keyExtractor(row)}
-                className={cn(
-                  "h-8 whitespace-nowrap",
-                  onRowClick &&
-                    "cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/40",
-                  variant === "striped" &&
-                    index % 2 === 1 &&
-                    // 라이트 모드: 살짝 더 진한 회색, 다크 모드: 옅은 회색
-                    "bg-slate-100 dark:bg-slate-700/20",
-                  selectedRowId && keyExtractor(row) === selectedRowId && selectedClass,
-                  getRowClassName?.(row, index)
+            {virtual ? (
+              <>
+                {paddingTop > 0 && (
+                  <tr>
+                    <td style={{ height: paddingTop }} />
+                  </tr>
                 )}
-                onClick={() => onRowClick?.(row)}
-              >
-                {columns.map((col) => {
-                  const content = col.cell
-                    ? col.cell(row, index)
-                    : (row as Record<string, unknown>)[col.key] as React.ReactNode;
-                  const maxWidth =
-                    col.maxWidth == null
-                      ? undefined
-                      : typeof col.maxWidth === "number"
-                        ? `${col.maxWidth}px`
-                        : col.maxWidth;
-                  return (
+                {rowsToRender.length === 0 ? (
+                  <TableRow>
                     <TableCell
-                      key={col.key}
-                      className={cn(
-                        "px-3 py-1.5 text-xs",
-                        maxWidth && "truncate",
-                        col.cellClassName
-                      )}
-                      style={maxWidth ? { maxWidth } : undefined}
+                      colSpan={colCount}
+                      className="py-10 text-center text-xs text-muted-foreground"
                     >
-                      {content}
+                      {emptyMessage}
                     </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
-            {rowsToRender.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={colCount}
-                  className="py-10 text-center text-xs text-muted-foreground"
-                >
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
+                  </TableRow>
+                ) : (
+                  virtualItems.map((virtualRow) =>
+                    renderRow(rowsToRender[virtualRow.index], virtualRow.index)
+                  )
+                )}
+                {paddingBottom > 0 && (
+                  <tr>
+                    <td style={{ height: paddingBottom }} />
+                  </tr>
+                )}
+              </>
+            ) : (
+              <>
+                {rowsToRender.map((row, index) => renderRow(row, index))}
+                {rowsToRender.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={colCount}
+                      className="py-10 text-center text-xs text-muted-foreground"
+                    >
+                      {emptyMessage}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </>
             )}
           </TableBody>
         </Table>

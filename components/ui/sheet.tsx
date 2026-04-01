@@ -35,6 +35,15 @@ export function Sheet({
   draggable = position === "center",
   modal = true,
 }: SheetProps) {
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, onOpenChange]);
+
   if (!open) return null;
 
   // Non-modal panel: don't cover the whole screen (so it can never block clicks).

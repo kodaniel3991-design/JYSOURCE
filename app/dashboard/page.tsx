@@ -44,9 +44,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    import("@/lib/mock/dashboard")
-      .then((m) => {
-        if (!cancelled && m.dashboardData) setDashboardData(m.dashboardData as typeof defaultDashboardData);
+    fetch("/api/dashboard")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.ok) setDashboardData(data as typeof defaultDashboardData);
       })
       .catch(() => {});
     return () => { cancelled = true; };

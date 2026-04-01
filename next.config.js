@@ -8,7 +8,7 @@ const nextConfig = {
   },
   experimental: {
     // mssql/tedious는 네이티브 모듈 → 번들링 제외 (Next.js 14 옵션명)
-    serverComponentsExternalPackages: ["mssql", "tedious"],
+    serverComponentsExternalPackages: ["mssql", "tedious", "pdfkit", "puppeteer-core"],
     // Windows 파일 시스템 오류(errno -4094) 방지: 워커 스레드 비활성화
     workerThreads: false,
     cpus: 1,

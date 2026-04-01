@@ -6,9 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import type { ItemRegisterProcurement } from "@/types/item-register";
 import {
-  currencyOptions,
   orderPolicyOptions,
-  businessUnitOptions,
   managerOptions,
 } from "@/lib/item-register-options";
 import type { SelectOption } from "@/lib/item-register-options";
@@ -36,15 +34,6 @@ export function ItemProcurementForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>거래처</Label>
-              <Select
-                options={supplierOptions}
-                value={data.supplierId}
-                onChange={(v) => update("supplierId", v)}
-                placeholder="거래처 선택"
-              />
-            </div>
             <div className="space-y-2">
               <Label>거래처품목번호</Label>
               <Input
@@ -99,23 +88,6 @@ export function ItemProcurementForm({
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
-              <Label>통화코드</Label>
-              <Select
-                options={currencyOptions}
-                value={data.currencyCode}
-                onChange={(v) => update("currencyCode", v)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>구매단가</Label>
-              <Input
-                type="number"
-                value={data.purchaseUnitPrice}
-                onChange={(e) => update("purchaseUnitPrice", e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-2">
               <Label>판매단가</Label>
               <Input
                 type="number"
@@ -159,15 +131,6 @@ export function ItemProcurementForm({
                 options={orderPolicyOptions}
                 value={data.orderPolicy}
                 onChange={(v) => update("orderPolicy", v)}
-                placeholder="선택"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>사업장</Label>
-              <Select
-                options={businessUnitOptions}
-                value={data.businessUnit}
-                onChange={(v) => update("businessUnit", v)}
                 placeholder="선택"
               />
             </div>

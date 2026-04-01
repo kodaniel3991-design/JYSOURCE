@@ -11,7 +11,13 @@ export type PageTab = {
 /** pathname → 표시 라벨 매핑 (사이드바 메뉴 기준) */
 const ROUTE_LABELS: { pattern: RegExp | string; label: string }[] = [
   { pattern: "/dashboard",                                 label: "대시보드" },
-  { pattern: "/purchase-orders/create",                    label: "신규 구매오더" },
+  { pattern: "/purchase-orders/create",                    label: "구매오더 관리" },
+  { pattern: "/purchase-orders/price-verification",        label: "단가변경 교차검증" },
+  { pattern: "/purchase-receipts/returns",                   label: "반품처리" },
+  { pattern: "/purchase-receipts/status",                   label: "입고현황 조회/출력" },
+  { pattern: "/purchase-receipts/period",                   label: "기간별 구매입고현황" },
+  { pattern: "/purchase-receipts",                          label: "구매입고처리" },
+  { pattern: "/purchase-orders/performance/purchase-input", label: "매입 실적 관리" },
   { pattern: "/purchase-orders/performance/receipts",      label: "발주대비 입고현황" },
   { pattern: "/purchase-orders/performance/closing",       label: "마감현황" },
   { pattern: "/purchase-orders/performance",               label: "구매실적관리" },

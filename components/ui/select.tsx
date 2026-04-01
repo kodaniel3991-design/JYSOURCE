@@ -28,7 +28,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         : placeholder ?? "";
 
       return (
-        <div className="relative">
+        <div className="relative rounded-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
           {/* 선택값 표시 레이어 */}
           <div
             className={cn(
@@ -42,7 +42,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           {/* 투명 select — 클릭·드롭다운 담당 */}
           <select
             ref={ref}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-xs"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-xs [color-scheme:light] dark:[color-scheme:dark]"
             onChange={(e) => onChange?.(e.target.value)}
             {...props}
           >
@@ -60,11 +60,11 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     }
 
     return (
-      <div className="relative">
+      <div className="relative rounded-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
         <select
           ref={ref}
           className={cn(
-            "flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-xs ring-offset-background focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:light] dark:[color-scheme:dark]",
             className
           )}
           onChange={(e) => onChange?.(e.target.value)}

@@ -5,16 +5,31 @@ export interface ItemRegisterBasicInfo {
   itemNo: string;
   itemName: string;
   itemStatusCategory: string;
-  specification: string;
-  drawingNo: string;
+  itemForm: string;
+  itemFormName: string;
+  itemType: string;
+  itemTypeName: string;
+  productModel: string;
+  productModelName: string;
+  stockUnit: string;
+  salesUnit: string;
+  supplierId: string;
+  supplierName: string;
+  currencyCode: string;
+  purchaseUnitPrice: string;
+  warehouse: string;
+  warehouseName: string;
+  storageLocation: string;
+  storageLocationName: string;
+  plant: string;
+  plantName: string;
 }
 
 export interface ItemRegisterClassification {
-  itemForm: string;
-  itemType: string;
+  specification: string;
+  drawingNo: string;
   jitFlag: boolean;
   exportFlag: boolean;
-  productModel: string;
   itemUserCategoryCode: string;
   commerceProductId: string;
   valueCategory: string;
@@ -25,26 +40,20 @@ export interface ItemRegisterClassification {
 }
 
 export interface ItemRegisterProcurement {
-  supplierId: string;
   supplierItemNo: string;
   purchaseManager: string;
   salesManager: string;
   requirementManager: string;
-  purchaseUnitPrice: string;
   salesUnitPrice: string;
-  currencyCode: string;
   orderPolicy: string;
   lastReceiptUnitPrice: string;
   standardCost: string;
   internalPrice: string;
-  businessUnit: string;
   processor: string;
 }
 
 export interface ItemRegisterInventory {
   unitProductionQty: string;
-  warehouse: string;
-  storageLocation: string;
   orderInterval: string;
   minLot: string;
   standardLot: string;
@@ -107,16 +116,31 @@ export const defaultBasicInfo: ItemRegisterBasicInfo = {
   itemNo: "",
   itemName: "",
   itemStatusCategory: "ACTIVE",
-  specification: "",
-  drawingNo: "",
+  itemForm: "",
+  itemFormName: "",
+  itemType: "",
+  itemTypeName: "",
+  productModel: "",
+  productModelName: "",
+  stockUnit: "EA",
+  salesUnit: "EA",
+  supplierId: "",
+  supplierName: "",
+  currencyCode: "KRW",
+  purchaseUnitPrice: "",
+  warehouse: "",
+  warehouseName: "",
+  storageLocation: "",
+  storageLocationName: "",
+  plant: "",
+  plantName: "",
 };
 
 export const defaultClassification: ItemRegisterClassification = {
-  itemForm: "",
-  itemType: "",
+  specification: "",
+  drawingNo: "",
   jitFlag: false,
   exportFlag: false,
-  productModel: "",
   itemUserCategoryCode: "",
   commerceProductId: "",
   valueCategory: "",
@@ -127,26 +151,20 @@ export const defaultClassification: ItemRegisterClassification = {
 };
 
 export const defaultProcurement: ItemRegisterProcurement = {
-  supplierId: "",
   supplierItemNo: "",
   purchaseManager: "",
   salesManager: "",
   requirementManager: "",
-  purchaseUnitPrice: "",
   salesUnitPrice: "",
-  currencyCode: "KRW",
   orderPolicy: "",
   lastReceiptUnitPrice: "",
   standardCost: "",
   internalPrice: "",
-  businessUnit: "",
   processor: "",
 };
 
 export const defaultInventory: ItemRegisterInventory = {
   unitProductionQty: "",
-  warehouse: "",
-  storageLocation: "",
   orderInterval: "",
   minLot: "",
   standardLot: "",

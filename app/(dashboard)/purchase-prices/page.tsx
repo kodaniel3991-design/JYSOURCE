@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -34,11 +34,17 @@ interface PurchasePriceFilterState {
 
 interface PurchasePriceChangeLog {
   id: string;
+  purchasePriceId: number;
   itemCode: string;
   itemName: string;
   supplierName: string;
-  previousUnitPrice: number;
-  newUnitPrice: number;
+  previousUnitPrice: number | null;
+  newUnitPrice: number | null;
+  previousApplyDate: string | null;
+  newApplyDate: string | null;
+  previousExpireDate: string | null;
+  newExpireDate: string | null;
+  changeType: string;
   changedAt: string;
   reason?: string;
 }
@@ -95,7 +101,18 @@ export default function PurchasePricesPage() {
     "workOrderNo", "plant", "validDate", "validDateAdjust", "currencyCode",
   ]);
   const [changeLogs, setChangeLogs] = useState<PurchasePriceChangeLog[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    setHistoryLoading(true);
+    fetch("/api/purchase-prices/history")
+      .then((r) => r.json())
+      .then((data) => { if (data.ok) setChangeLogs(data.items ?? []); })
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
+  }, [historyOpen]);
   const [excelSheetOpen, setExcelSheetOpen] = useState(false);
   const [excelResultMessage, setExcelResultMessage] = useState<string | null>(null);
   const [excelSelectedFile, setExcelSelectedFile] = useState<File | null>(null);
@@ -150,9 +167,6 @@ export default function PurchasePricesPage() {
     return sorted;
   }, [filters, rows, sortKey, sortDir]);
 
-  const total = filteredList.length;
-  const start = (page - 1) * pageSize;
-  const paged = filteredList.slice(start, start + pageSize);
 
   const columns = useMemo<MasterListGridColumn<PurchasePriceRecord>[]>(
     () => [
@@ -263,8 +277,16 @@ export default function PurchasePricesPage() {
 
   const allColumns = columns;
   const visibleColumns = useMemo(
-    () => allColumns.filter((c) => visibleColumnKeys.includes(c.key as string)),
-    [allColumns, visibleColumnKeys]
+    () => allColumns.filter((c) => {
+      if (!visibleColumnKeys.includes(c.key as string)) return false;
+      if (c.key === "__no__") return true;
+      if (filteredList.length === 0) return true;
+      return filteredList.some((row) => {
+        const val = (row as Record<string, unknown>)[c.key];
+        return val !== null && val !== undefined && val !== "";
+      });
+    }),
+    [allColumns, visibleColumnKeys, filteredList]
   );
 
   const sortOptions = [
@@ -571,9 +593,15 @@ export default function PurchasePricesPage() {
                   `선택한 구매단가를 삭제하시겠습니까?\n\n품목번호: ${row.itemCode}\n품목명: ${row.itemName}\n구매처: ${row.supplierName ?? row.supplierCode}`
                 );
                 if (!ok) return;
-                setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
-                setSelectedRowId(null);
-                setPage(1);
+                fetch(`/api/purchase-prices/${selectedRowId}`, { method: "DELETE" })
+                  .then((r) => r.json())
+                  .then((data) => {
+                    if (!data.ok) { alert(data.message ?? "삭제 실패"); return; }
+                    setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
+                    setSelectedRowId(null);
+                    setPage(1);
+                  })
+                  .catch(() => alert("삭제 중 오류가 발생했습니다."));
               }}
               editDisabled={!selectedRowId}
               deleteDisabled={!selectedRowId}
@@ -654,22 +682,22 @@ export default function PurchasePricesPage() {
           <div className="min-h-0 flex-1">
             <MasterListGrid<PurchasePriceRecord>
               columns={visibleColumns}
-              data={paged}
+              data={filteredList}
               keyExtractor={(r) => r.id}
               onRowClick={(row) => setSelectedRowId(row.id)}
               selectedRowId={selectedRowId}
               variant={stripedRows ? "striped" : "default"}
-              pagination={{
-                page,
-                pageSize,
-                total,
-                onPageChange: setPage,
-              }}
+              pageSize={filteredList.length || 1}
               getRowClassName={() => compactView ? "" : "h-10"}
               maxHeight="100%"
               emptyMessage={loadError ? loadError : !hasSearched ? "검색 버튼을 클릭하면 조회됩니다." : loading ? "조회 중..." : "조건에 맞는 구매단가가 없습니다."}
             />
           </div>
+          {filteredList.length > 0 && (
+            <div className="shrink-0 border-t pt-3 pb-1 text-[11px] text-muted-foreground">
+              <span className="font-semibold">{filteredList.length.toLocaleString("ko-KR")}</span>건
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -677,11 +705,21 @@ export default function PurchasePricesPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         mode="create"
-        onSave={(draft) => {
-          const id = `pp-${Date.now()}`;
-          setRows((prev) => [{ id, ...draft }, ...prev]);
-          setSelectedRowId(null);
-          setPage(1);
+        onSave={async (draft) => {
+          try {
+            const res = await fetch("/api/purchase-prices", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(draft),
+            });
+            const data = await res.json();
+            if (!data.ok) { alert(data.message ?? "등록 실패"); return; }
+            setRows((prev) => [{ id: String(data.id), ...draft }, ...prev]);
+            setSelectedRowId(null);
+            setPage(1);
+          } catch {
+            alert("등록 중 오류가 발생했습니다.");
+          }
         }}
       />
 
@@ -699,41 +737,22 @@ export default function PurchasePricesPage() {
               })()
             : undefined
         }
-        onSave={(draft, options) => {
+        onSave={async (draft, options) => {
           if (!selectedRowId) return;
-
-          const existing = rows.find((r) => r.id === selectedRowId);
-          if (!existing) return;
-
-          // 단가가 변경된 경우 변경이력에 기록
-          if (existing.unitPrice !== draft.unitPrice) {
-            const now = new Date();
-            const changedAt = `${now.getFullYear()}-${String(
-              now.getMonth() + 1
-            ).padStart(2, "0")}-${String(now.getDate()).padStart(
-              2,
-              "0"
-            )} ${String(now.getHours()).padStart(2, "0")}:${String(
-              now.getMinutes()
-            ).padStart(2, "0")}`;
-
-            const log: PurchasePriceChangeLog = {
-              id: `pp-chg-${Date.now()}`,
-              itemCode: existing.itemCode,
-              itemName: existing.itemName,
-              supplierName: existing.supplierName ?? existing.supplierCode ?? "",
-              previousUnitPrice: existing.unitPrice,
-              newUnitPrice: draft.unitPrice,
-              changedAt,
-              reason: options?.editReason,
-            };
-
-            setChangeLogs((prev) => [log, ...prev]);
+          try {
+            const res = await fetch(`/api/purchase-prices/${selectedRowId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...draft, editReason: options?.editReason }),
+            });
+            const data = await res.json();
+            if (!data.ok) { alert(data.message ?? "수정 실패"); return; }
+            setRows((prev) =>
+              prev.map((r) => (r.id === selectedRowId ? { ...r, ...draft } : r))
+            );
+          } catch {
+            alert("수정 중 오류가 발생했습니다.");
           }
-
-          setRows((prev) =>
-            prev.map((r) => (r.id === selectedRowId ? { ...r, ...draft } : r))
-          );
         }}
       />
 
@@ -965,12 +984,15 @@ export default function PurchasePricesPage() {
           <SheetHeader>
             <SheetTitle>구매단가 변경이력</SheetTitle>
             <SheetDescription className="text-xs">
-              화면에서 수정한 구매단가의 변경 이력을 보여줍니다. (데모: 새로고침
-              시 이력은 초기화됩니다.)
+              구매단가 수정·삭제 시 자동으로 기록되는 변경이력을 조회합니다.
             </SheetDescription>
           </SheetHeader>
           <div className="mt-4 flex flex-1 min-h-0 flex-col text-xs">
-            {changeLogs.length === 0 ? (
+            {historyLoading ? (
+              <div className="flex flex-1 items-center justify-center text-[11px] text-muted-foreground">
+                조회 중...
+              </div>
+            ) : changeLogs.length === 0 ? (
               <div className="flex flex-1 items-center justify-center text-[11px] text-muted-foreground">
                 아직 기록된 변경이력이 없습니다.
               </div>
@@ -1008,7 +1030,7 @@ export default function PurchasePricesPage() {
                     align: "right",
                     cellClassName: "text-right text-muted-foreground",
                     cell: (r) =>
-                      r.previousUnitPrice.toLocaleString("ko-KR"),
+                      r.previousUnitPrice != null ? r.previousUnitPrice.toLocaleString("ko-KR") : "-",
                   },
                   {
                     key: "newUnitPrice",
@@ -1016,7 +1038,32 @@ export default function PurchasePricesPage() {
                     minWidth: 100,
                     align: "right",
                     cellClassName: "text-right font-semibold",
-                    cell: (r) => r.newUnitPrice.toLocaleString("ko-KR"),
+                    cell: (r) => r.newUnitPrice != null ? r.newUnitPrice.toLocaleString("ko-KR") : "-",
+                  },
+                  {
+                    key: "previousApplyDate",
+                    header: "이전 적용일자",
+                    minWidth: 110,
+                    cellClassName: "text-muted-foreground",
+                  },
+                  {
+                    key: "newApplyDate",
+                    header: "변경 적용일자",
+                    minWidth: 110,
+                    cellClassName: "font-semibold",
+                  },
+                  {
+                    key: "changeType",
+                    header: "구분",
+                    minWidth: 60,
+                    align: "center",
+                    cell: (r) => (
+                      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                        r.changeType === "삭제"
+                          ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
+                          : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
+                      }`}>{r.changeType}</span>
+                    ),
                   },
                   {
                     key: "changedAt",

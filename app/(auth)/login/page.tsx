@@ -173,7 +173,7 @@ export default function LoginPage() {
       </div>
 
       {/* 오른쪽 로그인 폼 */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center bg-[hsl(210_20%_98%)] px-6 py-12">
+      <div className="login-light-panel flex w-full lg:w-1/2 items-center justify-center bg-[hsl(210_20%_98%)] px-6 py-12">
         <div className="w-full max-w-sm space-y-8">
           {/* 모바일용 로고 */}
           <div className="flex items-center gap-2 lg:hidden">
@@ -207,7 +207,7 @@ export default function LoginPage() {
                     value={selectedFactory}
                     onChange={(e) => setSelectedFactory(e.target.value)}
                     disabled={loading || isAdmin}
-                    className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(222_47%_18%)] focus:border-transparent disabled:opacity-50"
+                    className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(222_47%_18%)] focus:border-transparent disabled:opacity-50"
                   >
                     {factoryOptions.map((f) => (
                       <option key={f.FactoryCode} value={f.FactoryCode}>
@@ -232,7 +232,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={loading}
-                className="h-10 bg-white border-slate-300 focus-visible:ring-[hsl(222_47%_18%)]"
+                className="h-10 border-slate-300 focus-visible:ring-[hsl(222_47%_18%)]"
               />
             </div>
 
@@ -250,7 +250,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
-                  className="h-10 bg-white border-slate-300 pr-10 focus-visible:ring-[hsl(222_47%_18%)]"
+                  className="h-10 border-slate-300 pr-10 focus-visible:ring-[hsl(222_47%_18%)]"
                 />
                 <button
                   type="button"

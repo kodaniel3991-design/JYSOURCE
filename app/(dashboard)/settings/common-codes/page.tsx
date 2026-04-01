@@ -1,278 +1,185 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { getCommonCodes, setCommonCodes, type CommonCodeItem } from "@/lib/common-code-store";
+import { Trash2 } from "lucide-react";
 
-type CommonCode = CommonCodeItem;
+interface Category {
+  Id: number;
+  CategoryKey: string;
+  Label: string;
+  Description: string;
+  SortOrder: number;
+  CodeCount: number;
+}
 
-// 분류명에서 분류코드 자동 생성 (간단 로마자/영문 슬러그 변환)
-function toCategoryKey(label: string): string {
-  const trimmed = label.trim();
-  if (!trimmed) return "";
-
-  // 자주 쓸 것으로 예상되는 한글 분류명 매핑
-  const predefined: Record<string, string> = {
-    "사업장 코드": "plant",
-    사업장: "plant",
-    "결제방법": "payment_type",
-    "결제 방법": "payment_type",
-    "결제수단": "payment_type",
-    "결제 조건": "payment_term",
-    "결제조건": "payment_term",
-    "수입구분": "import_type",
-    "수입 구분": "import_type",
-    "통화코드": "currency",
-    통화: "currency",
-    "창고코드": "warehouse",
-    창고: "warehouse",
-  };
-
-  if (predefined[trimmed]) return predefined[trimmed];
-
-  // 한글을 단순 영문으로 치환하기 위한 기본 매핑 (초성 위주, 데모용)
-  const korMap: Record<string, string> = {
-    사: "sa",
-    업: "up",
-    장: "jang",
-    결: "gyeol",
-    제: "je",
-    조: "jo",
-    건: "geon",
-    수: "su",
-    입: "ip",
-    구: "gu",
-    분: "bun",
-    통: "tong",
-    화: "hwa",
-    코: "ko",
-    드: "deu",
-  };
-
-  let result = "";
-  for (const ch of trimmed) {
-    if (/[a-zA-Z0-9]/.test(ch)) {
-      result += ch.toLowerCase();
-    } else if (ch === " " || ch === "-" || ch === "_") {
-      result += "_";
-    } else if (korMap[ch]) {
-      result += korMap[ch];
-    }
-    // 기타 문자는 제거
-  }
-
-  // 연속된 언더스코어 정리
-  result = result.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
-  return result || "category";
+interface CodeItem {
+  Id: number;
+  Category: string;
+  Code: string;
+  Name: string;
+  SortOrder: number;
 }
 
 export default function CommonCodesPage() {
-  const [categories, setCategories] = useState<
-    { key: string; label: string; description: string }[]
-  >([
-    {
-      key: "plant",
-      label: "사업장 코드",
-      description: "공장/사업장 구분 코드 (예: 김해공장, 울산공장).",
-    },
-    {
-      key: "paymentType",
-      label: "결제방법",
-      description: "계좌이체, L/C, 어음 등 결제 수단.",
-    },
-    {
-      key: "paymentTerm",
-      label: "지급조건",
-      description: "현금(30), B2B(15), 어음(45) 등 지급 조건.",
-    },
-    {
-      key: "importType",
-      label: "수입구분",
-      description: "내수 / 수입 등 구매 유형.",
-    },
-    {
-      key: "currency",
-      label: "통화코드",
-      description: "KRW, USD, EUR 등 결제 통화 코드.",
-    },
-    {
-      key: "vatRate",
-      label: "부가세율",
-      description: "0%, 10% 등 부가가치세 적용 세율.",
-    },
-    {
-      key: "paymentForm",
-      label: "지급형태",
-      description: "현금30, B2B30, 어음 등 지급 형태 코드.",
-    },
-    {
-      key: "warehouse",
-      label: "창고코드",
-      description: "원부자재창고, 제품재고 등 창고 구분 코드.",
-    },
-  ]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedKey, setSelectedKey] = useState<string>("");
+  const [codes, setCodes] = useState<CodeItem[]>([]);
+  const [loadingCat, setLoadingCat] = useState(false);
+  const [loadingCode, setLoadingCode] = useState(false);
 
-  const [selectedCategory, setSelectedCategory] = useState<string>("plant");
+  // 분류 입력
+  const [newCatKey, setNewCatKey] = useState("");
+  const [newCatLabel, setNewCatLabel] = useState("");
+  const [newCatDesc, setNewCatDesc] = useState("");
 
-  // 공통코드 스토어에서 초기값 로드
-  const [codesByCategory, setCodesByCategory] = useState<Record<string, CommonCode[]>>(
-    () => Object.fromEntries(
-      ["plant", "paymentType", "paymentTerm", "importType", "currency", "vatRate", "paymentForm", "warehouse"].map(
-        (key) => [key, getCommonCodes(key)]
-      )
-    )
-  );
-
+  // 코드 입력
   const [draftCode, setDraftCode] = useState("");
   const [draftName, setDraftName] = useState("");
 
-  const selectedMeta = useMemo(
-    () => categories.find((c) => c.key === selectedCategory) ?? categories[0],
-    [categories, selectedCategory]
-  );
-
-  const currentCodes = codesByCategory[selectedCategory];
-
-  const handleAdd = () => {
-    if (!draftCode.trim() || !draftName.trim()) return;
-    const newItem = { code: draftCode.trim(), name: draftName.trim() };
-    setCodesByCategory((prev) => {
-      const updated = { ...prev, [selectedCategory]: [...(prev[selectedCategory] ?? []), newItem] };
-      setCommonCodes(selectedCategory, updated[selectedCategory]);
-      return updated;
-    });
-    setDraftCode("");
-    setDraftName("");
-  };
-
-  const [newCategoryKey, setNewCategoryKey] = useState("");
-  const [newCategoryLabel, setNewCategoryLabel] = useState("");
-  const [newCategoryDesc, setNewCategoryDesc] = useState("");
-
-  // 분류명 입력 시 분류코드 자동 생성 (사용자가 직접 코드를 입력하면 그 값 우선)
-  useEffect(() => {
-    if (newCategoryLabel && !newCategoryKey) {
-      setNewCategoryKey(toCategoryKey(newCategoryLabel));
+  // ── 분류 목록 로드 ──
+  const loadCategories = async () => {
+    setLoadingCat(true);
+    try {
+      const r = await fetch("/api/common-codes/categories");
+      const data = await r.json();
+      if (data.ok) {
+        setCategories(data.categories);
+        if (!selectedKey && data.categories.length > 0)
+          setSelectedKey(data.categories[0].CategoryKey);
+      }
+    } finally {
+      setLoadingCat(false);
     }
-  }, [newCategoryLabel, newCategoryKey]);
-
-  const handleAddCategory = () => {
-    const key = newCategoryKey.trim();
-    const label = newCategoryLabel.trim();
-    const desc = newCategoryDesc.trim();
-    if (!key || !label) return;
-    // 이미 존재하는 키는 추가하지 않음
-    if (categories.some((c) => c.key === key)) return;
-
-    const nextCategories = [
-      ...categories,
-      {
-        key,
-        label,
-        description: desc || `${label} 관련 공통코드입니다.`,
-      },
-    ];
-    setCategories(nextCategories);
-    setCommonCodes(key, []);
-    setCodesByCategory((prev) => ({ ...prev, [key]: [] }));
-    setSelectedCategory(key);
-    setNewCategoryKey("");
-    setNewCategoryLabel("");
-    setNewCategoryDesc("");
   };
+
+  // ── 코드 목록 로드 ──
+  const loadCodes = async (category: string) => {
+    if (!category) return;
+    setLoadingCode(true);
+    try {
+      const r = await fetch(`/api/common-codes?category=${encodeURIComponent(category)}`);
+      const data = await r.json();
+      if (data.ok) setCodes(data.items);
+    } finally {
+      setLoadingCode(false);
+    }
+  };
+
+  useEffect(() => { loadCategories(); }, []);
+  useEffect(() => { if (selectedKey) loadCodes(selectedKey); }, [selectedKey]);
+
+  // ── 분류 추가 ──
+  const handleAddCategory = async () => {
+    const key = newCatKey.trim();
+    const label = newCatLabel.trim();
+    if (!key || !label) return;
+    const r = await fetch("/api/common-codes/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categoryKey: key, label, description: newCatDesc.trim(), sortOrder: categories.length }),
+    });
+    const data = await r.json();
+    if (!data.ok) { alert(data.message); return; }
+    setNewCatKey(""); setNewCatLabel(""); setNewCatDesc("");
+    await loadCategories();
+    setSelectedKey(key);
+  };
+
+  // ── 코드 추가 ──
+  const handleAddCode = async () => {
+    if (!draftCode.trim() || !draftName.trim() || !selectedKey) return;
+    const r = await fetch("/api/common-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: selectedKey, code: draftCode.trim(), name: draftName.trim(), sortOrder: codes.length }),
+    });
+    const data = await r.json();
+    if (!data.ok) { alert(data.message); return; }
+    setDraftCode(""); setDraftName("");
+    await loadCodes(selectedKey);
+    await loadCategories();
+  };
+
+  // ── 코드 삭제 ──
+  const handleDeleteCode = async (id: number) => {
+    if (!confirm("이 코드를 삭제하시겠습니까?")) return;
+    const r = await fetch(`/api/common-codes/${id}`, { method: "DELETE" });
+    const data = await r.json();
+    if (!data.ok) { alert(data.message); return; }
+    await loadCodes(selectedKey);
+    await loadCategories();
+  };
+
+  const selectedMeta = categories.find((c) => c.CategoryKey === selectedKey);
 
   return (
     <div className="flex flex-col gap-4" style={{ height: "calc(100vh - 7rem)" }}>
       <PageHeader
         title="공통코드 관리"
-        description="1차 분류(사업장, 결제방법 등)를 선택한 뒤, 해당 분류의 세부 코드를 등록·관리합니다. (데모)"
+        description="1차 분류를 선택한 뒤 해당 분류의 세부 코드를 등록·관리합니다."
       />
 
       <div className="grid gap-4 md:grid-cols-2 flex-1 min-h-0">
-        {/* 1 depth: 코드 분류 선택 */}
+        {/* 1 Depth: 분류 선택 */}
         <Card className="flex flex-col min-h-0 overflow-hidden">
           <CardHeader className="pb-2 shrink-0">
-            <span className="text-sm font-medium text-muted-foreground">
-              코드 분류 (1 Depth)
-            </span>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              공통코드를 묶는 상위 분류입니다. 예: 사업장 코드, 결제조건, 결제방법 등.
-            </p>
+            <span className="text-sm font-medium text-muted-foreground">코드 분류 (1 Depth)</span>
+            <p className="mt-1 text-[11px] text-muted-foreground">공통코드를 묶는 상위 분류입니다.</p>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pt-2 text-xs flex-1 min-h-0 overflow-hidden">
-            {/* 1Depth 분류 추가 - 2Depth 입력과 동일한 구조 */}
+            {/* 분류 추가 입력 */}
             <div className="flex flex-wrap items-end gap-2 rounded-md bg-muted/40 p-3">
-              <div className="flex flex-1 min-w-[140px] flex-col gap-1">
+              <div className="flex flex-1 min-w-[120px] flex-col gap-1">
                 <span className="text-[11px] text-slate-600">분류코드</span>
-                <Input
-                  placeholder="예: plant, paymentType"
-                  className="h-8 text-[11px]"
-                  value={newCategoryKey}
-                  onChange={(e) => setNewCategoryKey(e.target.value)}
-                />
+                <Input placeholder="예: plant, warehouse" className="h-8 text-[11px]"
+                  value={newCatKey} onChange={(e) => setNewCatKey(e.target.value)} />
               </div>
-              <div className="flex flex-1 min-w-[140px] flex-col gap-1">
+              <div className="flex flex-1 min-w-[120px] flex-col gap-1">
                 <span className="text-[11px] text-slate-600">분류명</span>
-                <Input
-                  placeholder="예: 사업장 코드, 결제조건"
-                  className="h-8 text-[11px]"
-                  value={newCategoryLabel}
-                  onChange={(e) => setNewCategoryLabel(e.target.value)}
-                />
+                <Input placeholder="예: 사업장 코드" className="h-8 text-[11px]"
+                  value={newCatLabel} onChange={(e) => setNewCatLabel(e.target.value)} />
               </div>
-              <Button
-                type="button"
-                size="sm"
-                className="mt-1"
-                onClick={handleAddCategory}
-              >
+              <Button type="button" size="sm" className="mt-1" onClick={handleAddCategory}>
                 분류 추가
               </Button>
             </div>
 
-            {/* 1Depth 목록 - 2Depth와 동일한 테이블 형태 */}
+            {/* 분류 목록 */}
             <div className="rounded-md border flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex border-b bg-muted px-3 py-1.5 text-[11px] font-semibold text-slate-700 shrink-0">
-                <div className="w-24">분류코드</div>
+                <div className="w-28">분류코드</div>
                 <div className="flex-1">분류명</div>
+                <div className="w-10 text-right">건수</div>
               </div>
-              {categories.length === 0 ? (
-                <div className="px-3 py-4 text-center text-[11px] text-muted-foreground">
-                  등록된 분류가 없습니다. 위 입력 영역에서 1 Depth 분류를 추가하세요.
-                </div>
+              {loadingCat ? (
+                <div className="px-3 py-4 text-center text-[11px] text-muted-foreground">조회 중...</div>
+              ) : categories.length === 0 ? (
+                <div className="px-3 py-4 text-center text-[11px] text-muted-foreground">등록된 분류가 없습니다.</div>
               ) : (
                 <div className="flex-1 overflow-auto">
                   {categories.map((cat) => {
-                    const isActive = cat.key === selectedCategory;
+                    const isActive = cat.CategoryKey === selectedKey;
                     return (
                       <button
-                        key={cat.key}
+                        key={cat.CategoryKey}
                         type="button"
-                        onClick={() => {
-                          setSelectedCategory(cat.key);
-                          setDraftCode("");
-                          setDraftName("");
-                        }}
+                        onClick={() => { setSelectedKey(cat.CategoryKey); setDraftCode(""); setDraftName(""); }}
                         className={`flex w-full border-t px-3 py-1.5 text-left text-[11px] transition-colors ${
-                          isActive
-                            ? "bg-primary/10 text-primary"
-                            : "hover:bg-muted"
+                          isActive ? "bg-primary/10 text-primary" : "hover:bg-muted"
                         }`}
                       >
-                        <div className="w-24 font-mono text-[11px] text-slate-700">
-                          {cat.key}
-                        </div>
+                        <div className="w-28 font-mono text-[11px] text-slate-700 truncate">{cat.CategoryKey}</div>
                         <div className="flex-1">
-                          <div className="text-xs font-semibold">
-                            {cat.label}
-                          </div>
-                          <div className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
-                            {cat.description}
-                          </div>
+                          <div className="text-xs font-semibold">{cat.Label}</div>
+                          {cat.Description && (
+                            <div className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">{cat.Description}</div>
+                          )}
                         </div>
+                        <div className="w-10 text-right text-[10px] text-muted-foreground">{cat.CodeCount}</div>
                       </button>
                     );
                   })}
@@ -282,71 +189,60 @@ export default function CommonCodesPage() {
           </CardContent>
         </Card>
 
-        {/* 2 depth: 선택된 분류의 코드 목록 + 입력 */}
+        {/* 2 Depth: 코드 목록 */}
         <Card className="flex flex-col min-h-0 overflow-hidden">
           <CardHeader className="pb-2 shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <span className="text-sm font-medium text-muted-foreground">
-                  {selectedMeta.label} 코드 (2 Depth)
-                </span>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  화면 전체에서 공통으로 사용하는 코드 값입니다. 이 화면의 변경은
-                  데모 상태에서만 로컬에 반영됩니다.
-                </p>
-              </div>
-            </div>
+            <span className="text-sm font-medium text-muted-foreground">
+              {selectedMeta ? `${selectedMeta.Label} 코드 (2 Depth)` : "코드 목록"}
+            </span>
+            <p className="mt-1 text-[11px] text-muted-foreground">화면 전체에서 공통으로 사용하는 코드 값입니다.</p>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pt-2 text-xs flex-1 min-h-0 overflow-hidden">
+            {/* 코드 추가 입력 */}
             <div className="flex flex-wrap items-end gap-2 rounded-md bg-muted/40 p-3">
               <div className="flex flex-1 min-w-[120px] flex-col gap-1">
                 <span className="text-[11px] text-slate-600">코드</span>
-                <Input
-                  value={draftCode}
-                  onChange={(e) => setDraftCode(e.target.value)}
-                  placeholder="예: gimhae, net30"
-                  className="h-8 text-xs"
-                />
+                <Input placeholder="예: gimhae, 10" className="h-8 text-xs"
+                  value={draftCode} onChange={(e) => setDraftCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddCode()} />
               </div>
               <div className="flex flex-1 min-w-[120px] flex-col gap-1">
                 <span className="text-[11px] text-slate-600">명칭</span>
-                <Input
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  placeholder="예: 김해공장, 매입 30일"
-                  className="h-8 text-xs"
-                />
+                <Input placeholder="예: 김해공장, 원부자재창고" className="h-8 text-xs"
+                  value={draftName} onChange={(e) => setDraftName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddCode()} />
               </div>
-              <Button
-                type="button"
-                size="sm"
-                className="mt-1"
-                onClick={handleAdd}
-              >
+              <Button type="button" size="sm" className="mt-1" onClick={handleAddCode} disabled={!selectedKey}>
                 코드 추가
               </Button>
             </div>
 
+            {/* 코드 목록 */}
             <div className="rounded-md border flex flex-col flex-1 min-h-0 overflow-hidden">
               <div className="flex border-b bg-muted px-3 py-1.5 text-[11px] font-semibold text-slate-700 shrink-0">
-                <div className="w-24">코드</div>
+                <div className="w-28">코드</div>
                 <div className="flex-1">명칭</div>
+                <div className="w-8" />
               </div>
-              {currentCodes.length === 0 ? (
+              {loadingCode ? (
+                <div className="px-3 py-4 text-center text-[11px] text-muted-foreground">조회 중...</div>
+              ) : codes.length === 0 ? (
                 <div className="px-3 py-6 text-center text-[11px] text-muted-foreground">
-                  등록된 코드가 없습니다. 상단 입력 영역에서 코드를 추가해 주세요.
+                  {selectedKey ? "등록된 코드가 없습니다." : "왼쪽에서 분류를 선택하세요."}
                 </div>
               ) : (
                 <div className="flex-1 overflow-auto text-xs">
-                  {currentCodes.map((c) => (
-                    <div
-                      key={c.code}
-                      className="flex border-t px-3 py-2 text-xs"
-                    >
-                      <div className="w-24 font-mono text-[11px] text-slate-700 shrink-0">
-                        {c.code}
-                      </div>
-                      <div className="flex-1 font-medium">{c.name}</div>
+                  {codes.map((c) => (
+                    <div key={c.Id} className="flex items-center border-t px-3 py-2 text-xs hover:bg-muted/40">
+                      <div className="w-28 font-mono text-[11px] text-slate-700 shrink-0">{c.Code}</div>
+                      <div className="flex-1 font-medium">{c.Name}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCode(c.Id)}
+                        className="w-8 flex items-center justify-center text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -357,7 +253,4 @@ export default function CommonCodesPage() {
       </div>
     </div>
   );
-
 }
-
-

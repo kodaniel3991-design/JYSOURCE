@@ -44,8 +44,22 @@ export function ItemRegisterSheet({
 
   useEffect(() => {
     if (!open) return;
-    setState(computedInitial);
-  }, [computedInitial, open]);
+    if (mode === "create") {
+      // 신규 등록: 로그인 사업장을 plant 기본값으로 세팅
+      fetch("/api/auth/me")
+        .then((r) => r.json())
+        .then((data) => {
+          const factory = data?.factory ?? "";
+          setState({
+            ...computedInitial,
+            basicInfo: { ...computedInitial.basicInfo, plant: factory },
+          });
+        })
+        .catch(() => setState(computedInitial));
+    } else {
+      setState(computedInitial);
+    }
+  }, [computedInitial, open, mode]);
 
   const handleReset = useCallback(() => {
     setState(computedInitial);
@@ -101,7 +115,31 @@ export function ItemRegisterSheet({
           onSaveAndAddAnother={mode === "create" ? handleSaveAndAddAnother : undefined}
           onClose={handleClose}
         />
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div
+          className="flex-1 overflow-y-auto px-6 py-4"
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            const target = e.target as HTMLElement;
+            const tag = target.tagName;
+            // textarea는 엔터로 줄바꿈 유지, button/submit은 제외
+            if (tag === "TEXTAREA" || (tag === "BUTTON" && (target as HTMLButtonElement).type !== "button")) return;
+            // input, select, 검색버튼 등 포커스 이동
+            const form = e.currentTarget;
+            const focusable = Array.from(
+              form.querySelectorAll<HTMLElement>(
+                'input:not([disabled]):not([readonly]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+              )
+            ).filter((el) => {
+              // 읽기전용 표시 input(bg-muted) 건너뜀
+              return !el.classList.contains("bg-muted") && el.offsetParent !== null;
+            });
+            const idx = focusable.indexOf(target);
+            if (idx >= 0 && idx < focusable.length - 1) {
+              e.preventDefault();
+              focusable[idx + 1].focus();
+            }
+          }}
+        >
           <div className="mx-auto max-w-4xl space-y-6">
             <ItemRegisterBasicInfoCard
               data={state.basicInfo}
@@ -109,6 +147,7 @@ export function ItemRegisterSheet({
                 setState((prev) => ({ ...prev, basicInfo: data }))
               }
               onCopyFromItemNo={handleCopyFromItemNo}
+              supplierOptions={supplierOptions}
             />
             <ItemRegisterTabs
               state={state}

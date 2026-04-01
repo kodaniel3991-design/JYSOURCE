@@ -1,4 +1,14 @@
 // Web Crypto API 기반 세션 유틸 — Edge(middleware) + Node.js(API route) 모두 호환
+// API route에서 현재 세션의 사업장 코드를 읽는 헬퍼
+export async function getSessionFactory(request: Request): Promise<string | null> {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const match = cookieHeader.match(/(?:^|;\s*)jys_session=([^;]+)/);
+  const token = match ? decodeURIComponent(match[1]) : "";
+  if (!token) return null;
+  const session = await verifyToken(token);
+  // admin(빈 문자열)은 null 반환 → 필터 없이 전체 조회
+  return session?.factory || null;
+}
 
 const SECRET = process.env.AUTH_SECRET ?? "jysource-procurement-hub-2026";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8시간

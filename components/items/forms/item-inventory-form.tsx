@@ -124,23 +124,6 @@ export function ItemInventoryForm({ data, onChange }: ItemInventoryFormProps) {
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>창고</Label>
-              <Select
-                options={warehouseOptions}
-                value={data.warehouse}
-                onChange={(v) => update("warehouse", v)}
-                placeholder="선택"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>저장위치</Label>
-              <Input
-                value={data.storageLocation}
-                onChange={(e) => update("storageLocation", e.target.value)}
-                placeholder="저장위치"
-              />
-            </div>
-            <div className="space-y-2">
               <Label>출고창고</Label>
               <Select
                 options={warehouseOptions}

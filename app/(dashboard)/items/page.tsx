@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import type { ItemRegisterBasicInfo } from "@/types/item-register";
 import { defaultItemRegisterState } from "@/types/item-register";
+import { storageLocations } from "@/lib/mock/storage-locations";
 
 const ItemRegisterSheet = dynamic(
   () =>
@@ -47,7 +48,7 @@ const ItemRegisterSheet = dynamic(
   { ssr: false }
 );
 
-type ItemStatusCategory = "ACTIVE" | "INACTIVE" | "BLOCKED";
+type ItemStatusCategory = "사용(양산)" | "사양화" | "설계변경" | "사용안함" | "삭제" | "개발" | "ACTIVE" | "INACTIVE" | "BLOCKED";
 
 interface ItemMasterRecord {
   id: string;
@@ -680,6 +681,12 @@ const statusBadgeVariant: Record<
   ItemStatusCategory,
   "success" | "secondary" | "destructive"
 > = {
+  "사용(양산)": "success",
+  "사양화": "secondary",
+  "설계변경": "secondary",
+  "사용안함": "secondary",
+  "삭제": "destructive",
+  "개발": "secondary",
   ACTIVE: "success",
   INACTIVE: "secondary",
   BLOCKED: "destructive",
@@ -689,6 +696,34 @@ export default function ItemsPage() {
   const [rows, setRows] = useCachedState<ItemMasterRecord[]>("items/rows", []);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useCachedState<boolean>("items/hasSearched", false);
+
+  // 코드→명칭 lookup 데이터
+  const [itemTypeCodeMap, setItemTypeCodeMap] = useState<Record<string, string>>({});
+  const [itemTypeMap, setItemTypeMap] = useState<Record<string, string>>({});
+  const [modelCodeMap, setModelCodeMap] = useState<Record<string, string>>({});
+  const [warehouseMap, setWarehouseMap] = useState<Record<string, string>>({});
+  const [plantMap, setPlantMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/item-type-codes").then((r) => r.json()),
+      fetch("/api/item-types").then((r) => r.json()),
+      fetch("/api/model-codes").then((r) => r.json()),
+      fetch("/api/common-codes?category=warehouse").then((r) => r.json()),
+      fetch("/api/common-codes?category=plant").then((r) => r.json()),
+    ]).then(([formData, typeData, modelData, whData, plantData]) => {
+      if (formData.ok)
+        setItemTypeCodeMap(Object.fromEntries((formData.items as { ItemTypeCode: string; ItemTypeName: string }[]).map((x) => [x.ItemTypeCode, x.ItemTypeName])));
+      if (typeData.ok)
+        setItemTypeMap(Object.fromEntries((typeData.items as { ItemTypeCode: string; ItemTypeName: string }[]).map((x) => [x.ItemTypeCode, x.ItemTypeName])));
+      if (modelData.ok)
+        setModelCodeMap(Object.fromEntries((modelData.items as { ModelCode: string; ModelName: string }[]).map((x) => [x.ModelCode, x.ModelName])));
+      if (whData.ok)
+        setWarehouseMap(Object.fromEntries((whData.items as { Code: string; Name: string }[]).map((x) => [x.Code, x.Name])));
+      if (plantData.ok)
+        setPlantMap(Object.fromEntries((plantData.items as { Code: string; Name: string }[]).map((x) => [x.Code, x.Name])));
+    }).catch(() => {});
+  }, []);
 
   const handleSearch = useCallback(async () => {
     setLoading(true);
@@ -792,8 +827,6 @@ export default function ItemsPage() {
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ItemMasterRecord | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [page, setPage] = useCachedState<number>("items/page", 1);
-  const pageSize = 20;
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<
     "export" | "sort" | "columns" | "view"
@@ -851,7 +884,6 @@ export default function ItemsPage() {
       itemUserCategoryCode: "",
       itemUsageClassificationCode: "",
     });
-    setPage(1);
   };
 
   const filteredItems = useMemo(() => {
@@ -906,9 +938,6 @@ export default function ItemsPage() {
     return copy;
   }, [filteredItems, sortDir, sortKey]);
 
-  const total = sortedItems.length;
-  const start = (page - 1) * pageSize;
-  const paged = sortedItems.slice(start, start + pageSize);
 
   /** 품목관리 Data Grid 컬럼 정의 (품목.xls 컬럼 순서·헤더 반영) */
   const allItemColumns = useMemo(
@@ -930,19 +959,12 @@ export default function ItemsPage() {
         cell: (it: ItemMasterRecord) => it.itemName,
         cellClassName: "text-slate-800 truncate",
       },
-      {
-        key: "specification",
-        header: "규격",
-        minWidth: 160,
-        cell: (it: ItemMasterRecord) => it.specification ?? "-",
-        cellClassName: "text-muted-foreground truncate",
-      },
-      { key: "form", header: "형태", minWidth: 80, cell: (it: ItemMasterRecord) => it.form ?? "-" },
-      { key: "type", header: "유형", minWidth: 90, cell: (it: ItemMasterRecord) => it.type ?? "-" },
+      { key: "form", header: "형태", minWidth: 110, cell: (it: ItemMasterRecord) => it.form ? `${it.form}-${itemTypeCodeMap[it.form] ?? ""}` : "-" },
+      { key: "type", header: "유형", minWidth: 110, cell: (it: ItemMasterRecord) => it.type ? `${it.type}-${itemTypeMap[it.type] ?? ""}` : "-" },
       { key: "unit", header: "단위", minWidth: 60, cell: (it: ItemMasterRecord) => it.unit ?? "-" },
-      { key: "supplierItemNo", header: "거래처품목번호", minWidth: 120, cell: (it: ItemMasterRecord) => it.supplierItemNo ?? "-" },
       { key: "drawingNo", header: "도면번호", minWidth: 100, cell: (it: ItemMasterRecord) => it.drawingNo ?? "-" },
       { key: "supplierCode", header: "거래처번호", minWidth: 110, cell: (it: ItemMasterRecord) => it.supplierCode ?? "-" },
+      { key: "supplierName", header: "거래처명", minWidth: 120, cell: (it: ItemMasterRecord) => it.supplierName ?? "-" },
       {
         key: "itemStatusCategory",
         header: "품목상태구분",
@@ -953,28 +975,19 @@ export default function ItemsPage() {
             className="text-[10px]"
           >
             {it.itemStatusCategory === "ACTIVE"
-              ? "활성"
+              ? "사용(양산)"
               : it.itemStatusCategory === "INACTIVE"
-                ? "비활성"
-                : "차단"}
+                ? "사용안함"
+                : it.itemStatusCategory === "BLOCKED"
+                  ? "삭제"
+                  : it.itemStatusCategory}
           </Badge>
         ),
       },
       { key: "purchaseUnitCode", header: "구매단위코드", minWidth: 100, cell: (it: ItemMasterRecord) => it.purchaseUnitCode ?? "-" },
       { key: "purchaseUnitConversion", header: "구매단위변환계수", minWidth: 120, cell: (it: ItemMasterRecord) => it.purchaseUnitConversion ?? "-" },
       { key: "salesUnitCode", header: "판매단위코드", minWidth: 100, cell: (it: ItemMasterRecord) => it.salesUnitCode ?? "-" },
-      { key: "unitConversion", header: "판매단위변환계수", minWidth: 120, cell: (it: ItemMasterRecord) => it.unitConversion ?? "-" },
-      {
-        key: "itemWeight",
-        header: "품목중량",
-        minWidth: 90,
-        align: "right" as const,
-        cellClassName: "text-right",
-        cell: (it: ItemMasterRecord) =>
-          it.itemWeight != null ? it.itemWeight.toLocaleString("ko-KR") : "-",
-      },
       { key: "drawingSize", header: "품목도면크기", minWidth: 100, cell: (it: ItemMasterRecord) => it.drawingSize ?? "-" },
-      { key: "material", header: "품목재질명", minWidth: 100, cell: (it: ItemMasterRecord) => it.material ?? "-" },
       { key: "manufacturerName", header: "품목제작사명", minWidth: 110, cell: (it: ItemMasterRecord) => it.manufacturerName ?? "-" },
       { key: "registeredAt", header: "품목목록등록일자", minWidth: 120, cell: (it: ItemMasterRecord) => it.registeredAt ?? "-" },
       { key: "revisionDate", header: "품목목록보수일자", minWidth: 120, cell: (it: ItemMasterRecord) => it.revisionDate ?? "-" },
@@ -1089,7 +1102,6 @@ export default function ItemsPage() {
       { key: "imageInfo", header: "이미지", minWidth: 80, cell: (it: ItemMasterRecord) => it.imageInfo ?? (it.hasImage ? "Y" : "-") },
       { key: "drawingInfo", header: "도면", minWidth: 80, cell: (it: ItemMasterRecord) => it.drawingInfo ?? (it.hasDrawing ? "Y" : "-") },
       { key: "vehicleModel", header: "모델", minWidth: 100, cell: (it: ItemMasterRecord) => it.vehicleModel ?? "-" },
-      { key: "itemUserCategoryCode", header: "품목사용자분류코드", minWidth: 130, cell: (it: ItemMasterRecord) => it.itemUserCategoryCode ?? "-" },
       { key: "itemUserTypeCode", header: "품목사용자구분코드", minWidth: 130, cell: (it: ItemMasterRecord) => it.itemUserTypeCode ?? "-" },
       { key: "receiptToShipImmediate", header: "입고즉시출고여부", minWidth: 120, cell: (it: ItemMasterRecord) => it.receiptToShipImmediate ?? "-" },
       { key: "shipWarehouse", header: "출고창고", minWidth: 90, cell: (it: ItemMasterRecord) => it.shipWarehouse ?? "-" },
@@ -1109,8 +1121,7 @@ export default function ItemsPage() {
       },
       { key: "hNoDiameter", header: "H-no(직경)", minWidth: 90, cell: (it: ItemMasterRecord) => (it.hNoDiameter != null ? String(it.hNoDiameter) : "-") },
       { key: "lNoSpecificGravity", header: "L-no(비중)", minWidth: 90, cell: (it: ItemMasterRecord) => (it.lNoSpecificGravity != null ? String(it.lNoSpecificGravity) : "-") },
-      { key: "supplierName", header: "거래처명", minWidth: 120, cell: (it: ItemMasterRecord) => it.supplierName ?? "-" },
-      { key: "businessUnit", header: "사업장", minWidth: 90, cell: (it: ItemMasterRecord) => it.businessUnit ?? "-" },
+      { key: "businessUnit", header: "사업장", minWidth: 110, cell: (it: ItemMasterRecord) => it.businessUnit ? `${it.businessUnit}-${plantMap[it.businessUnit] ?? ""}` : "-" },
       {
         key: "packQty",
         header: "포장수량",
@@ -1123,7 +1134,7 @@ export default function ItemsPage() {
       { key: "deliveryContainer", header: "납품용기", minWidth: 90, cell: (it: ItemMasterRecord) => it.deliveryContainer ?? "-" },
       { key: "receiptContainer", header: "납입용기", minWidth: 90, cell: (it: ItemMasterRecord) => it.receiptContainer ?? "-" },
     ] as const,
-    []
+    [itemTypeCodeMap, itemTypeMap, plantMap]
   );
 
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() =>
@@ -1132,7 +1143,14 @@ export default function ItemsPage() {
 
   const itemColumns = useMemo(() => {
     const set = new Set(visibleColumnKeys);
-    const cols = allItemColumns.filter((c) => set.has(c.key));
+    const cols = allItemColumns.filter((c) => {
+      if (!set.has(c.key)) return false;
+      if (sortedItems.length === 0) return true;
+      return sortedItems.some((row) => {
+        const val = (row as unknown as Record<string, unknown>)[c.key];
+        return val !== null && val !== undefined && val !== "";
+      });
+    });
     const filtered = cols.length > 0 ? cols : allItemColumns.slice(0, 1);
     const noCol: MasterListGridColumn<ItemMasterRecord> = {
       key: "__no__",
@@ -1141,10 +1159,10 @@ export default function ItemsPage() {
       maxWidth: 48,
       headerClassName: "text-center",
       cellClassName: "text-center text-muted-foreground",
-      cell: (_row, index) => (page - 1) * pageSize + index + 1,
+      cell: (_row, index) => index + 1,
     };
     return [noCol, ...filtered];
-  }, [allItemColumns, visibleColumnKeys, page, pageSize]);
+  }, [allItemColumns, visibleColumnKeys, sortedItems]);
 
   const sortOptions = useMemo(
     () =>
@@ -1517,7 +1535,7 @@ export default function ItemsPage() {
             );
           } else {
             setRows((prev) => [...newItems, ...prev]);
-            setPage(1);
+
             setExcelSelectedFile(null);
             if (excelFileInputRef.current) excelFileInputRef.current.value = "";
             setExcelResultMessage(
@@ -1541,7 +1559,7 @@ export default function ItemsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-[calc(100vh-7rem)] flex-col gap-6 overflow-hidden">
       <PageHeader
         title="품목관리"
         description="품목 마스터, 도면, 거래처 품목 정보를 검색·관리·유지합니다"
@@ -1570,7 +1588,7 @@ export default function ItemsPage() {
                 if (!data.ok) { alert("삭제 실패: " + data.message); return; }
                 setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
                 setSelectedRowId(null);
-                setPage(1);
+    
               }}
               editDisabled={!selectedRowId}
               deleteDisabled={!selectedRowId}
@@ -1899,7 +1917,7 @@ export default function ItemsPage() {
       </Sheet>
 
       {/* 테이블 */}
-      <Card className="overflow-hidden">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-end">
           <DataGridToolbar
             active={gridSettingsOpen ? gridSettingsTab : undefined}
@@ -1923,43 +1941,51 @@ export default function ItemsPage() {
             }}
           />
         </CardHeader>
-        <CardContent className="space-y-3">
-          <MasterListGrid<ItemMasterRecord>
-            columns={itemColumns}
-            data={paged}
-            keyExtractor={(it) => it.id}
-            onRowClick={(row) => setSelectedRowId(row.id)}
-            selectedRowId={selectedRowId}
-            variant={stripedRows ? "striped" : "default"}
-            getRowClassName={(_, index) => {
-              const density = compactView ? "" : "h-10";
-              return [density].filter(Boolean).join(" ");
-            }}
-            pagination={{
-              page,
-              pageSize,
-              total,
-              onPageChange: setPage,
-            }}
-            emptyMessage={
-              !hasSearched ? "검색 버튼을 클릭하면 조회됩니다." :
-              loading ? "조회 중..." :
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p className="font-medium text-slate-800">조회된 품목이 없습니다</p>
-                <p>필터를 조정하거나 새 품목을 등록해 보세요.</p>
-                <div className="mt-2 flex justify-center gap-2">
-                  <Button variant="outline" size="sm" onClick={resetFilters}>
-                    <RotateCcw className="mr-1.5 h-4 w-4" />
-                    필터 초기화
-                  </Button>
-                  <Button size="sm" onClick={() => setRegisterSheetOpen(true)}>
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    품목 등록
-                  </Button>
+        <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1">
+            <MasterListGrid<ItemMasterRecord>
+              columns={itemColumns}
+              data={sortedItems}
+              keyExtractor={(it) => it.id}
+              onRowClick={(row) => setSelectedRowId(row.id)}
+              onRowDoubleClick={(row) => {
+                setEditingItem(row);
+                setEditSheetOpen(true);
+                setSelectedRowId(null);
+              }}
+              selectedRowId={selectedRowId}
+              variant={stripedRows ? "striped" : "default"}
+              virtual
+              getRowClassName={() => {
+                const density = compactView ? "" : "h-10";
+                return [density].filter(Boolean).join(" ");
+              }}
+              maxHeight="100%"
+              emptyMessage={
+                !hasSearched ? "검색 버튼을 클릭하면 조회됩니다." :
+                loading ? "조회 중..." :
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <p className="font-medium text-slate-800">조회된 품목이 없습니다</p>
+                  <p>필터를 조정하거나 새 품목을 등록해 보세요.</p>
+                  <div className="mt-2 flex justify-center gap-2">
+                    <Button variant="outline" size="sm" onClick={resetFilters}>
+                      <RotateCcw className="mr-1.5 h-4 w-4" />
+                      필터 초기화
+                    </Button>
+                    <Button size="sm" onClick={() => setRegisterSheetOpen(true)}>
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      품목 등록
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            }
-          />
+              }
+            />
+          </div>
+          {sortedItems.length > 0 && (
+            <div className="shrink-0 border-t pt-3 pb-1 text-[11px] text-muted-foreground">
+              <span className="font-semibold">{sortedItems.length.toLocaleString("ko-KR")}</span>건
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -2121,14 +2147,19 @@ export default function ItemsPage() {
             // Basic
             itemNo: state.basicInfo.itemNo,
             itemName: state.basicInfo.itemName,
-            specification: state.basicInfo.specification || null,
-            drawingNo: state.basicInfo.drawingNo || null,
             itemStatusCategory: state.basicInfo.itemStatusCategory ?? "ACTIVE",
+            form: state.basicInfo.itemForm || null,
+            type: state.basicInfo.itemType || null,
+            vehicleModel: state.basicInfo.productModel || null,
+            supplierCode: state.basicInfo.supplierId || null,
+            currencyCode: state.basicInfo.currencyCode || null,
+            purchaseUnitPrice: toNum(state.basicInfo.purchaseUnitPrice),
+            warehouse: state.basicInfo.warehouse || null,
+            storageLocation: state.basicInfo.storageLocation || null,
             updatedBy: "사용자",
             // Classification
-            form: state.classification.itemForm || null,
-            type: state.classification.itemType || null,
-            vehicleModel: state.classification.productModel || null,
+            specification: state.classification.specification || null,
+            drawingNo: state.classification.drawingNo || null,
             itemUserCategoryCode: state.classification.itemUserCategoryCode || null,
             itemUsageClassificationCode: state.classification.itemUsageClassificationCode || null,
             material: state.classification.material || null,
@@ -2136,22 +2167,17 @@ export default function ItemsPage() {
             productId: state.classification.commerceProductId || null,
             valueCategoryCode: state.classification.valueCategory || null,
             // Procurement
-            supplierCode: state.procurement.supplierId || null,
             supplierItemNo: state.procurement.supplierItemNo || null,
             buyerCode: state.procurement.purchaseManager || null,
             salesRepCode: state.procurement.salesManager || null,
             requirementRepCode: state.procurement.requirementManager || null,
-            purchaseUnitPrice: toNum(state.procurement.purchaseUnitPrice),
             salesUnitPrice: toNum(state.procurement.salesUnitPrice),
-            currencyCode: state.procurement.currencyCode || null,
             materialOrderPolicyCode: state.procurement.orderPolicy || null,
             lastReceiptUnitPrice: toNum(state.procurement.lastReceiptUnitPrice),
             standardCost: toNum(state.procurement.standardCost),
             internalUnitPrice: toNum(state.procurement.internalPrice),
-            businessUnit: state.procurement.businessUnit || null,
+            businessUnit: state.basicInfo.plant || null,
             // Inventory
-            warehouse: state.inventory.warehouse || null,
-            storageLocation: state.inventory.storageLocation || null,
             unitProductionQty: toNum(state.inventory.unitProductionQty),
             minLotSize: toNum(state.inventory.minLot),
             standardLotSize: toNum(state.inventory.standardLot),
@@ -2186,8 +2212,8 @@ export default function ItemsPage() {
             itemNo: state.basicInfo.itemNo,
             itemName: state.basicInfo.itemName,
             specification: state.basicInfo.specification,
-            form: state.classification.itemForm,
-            type: state.classification.itemType,
+            form: state.basicInfo.itemForm,
+            type: state.basicInfo.itemType,
             unit: state.technical.salesUnit || "EA",
             supplierItemNo: state.procurement.supplierItemNo,
             drawingNo: state.basicInfo.drawingNo,
@@ -2204,14 +2230,13 @@ export default function ItemsPage() {
             material: state.classification.material,
             vehicleModel: state.classification.productModel,
             itemUsageClassificationCode: state.classification.itemUsageClassificationCode,
-            businessUnit: state.procurement.businessUnit,
+            businessUnit: state.basicInfo.plant,
             packQty: toNum(state.technical.packQty) ?? 0,
             hasImage: false, hasDrawing: Boolean(state.basicInfo.drawingNo),
             updatedAt: now.toLocaleString("ko-KR"),
             updatedBy: "사용자",
           };
           setRows((prev) => [created, ...prev]);
-          setPage(1);
         }}
       />
 
@@ -2232,8 +2257,27 @@ export default function ItemsPage() {
                   itemNo: editingItem.itemNo,
                   itemName: editingItem.itemName,
                   itemStatusCategory: editingItem.itemStatusCategory,
-                  specification: editingItem.specification,
-                  drawingNo: editingItem.drawingNo,
+                  itemForm: editingItem.form ?? "",
+                  itemFormName: itemTypeCodeMap[editingItem.form ?? ""] ?? "",
+                  itemType: editingItem.type ?? "",
+                  itemTypeName: itemTypeMap[editingItem.type ?? ""] ?? "",
+                  productModel: editingItem.vehicleModel ?? "",
+                  productModelName: modelCodeMap[editingItem.vehicleModel ?? ""] ?? "",
+                  supplierId: editingItem.supplierCode ?? "",
+                  supplierName: editingItem.supplierName ?? "",
+                  currencyCode: editingItem.currencyCode ?? "KRW",
+                  purchaseUnitPrice: editingItem.purchaseUnitPrice != null ? String(editingItem.purchaseUnitPrice) : "",
+                  warehouse: editingItem.warehouse ?? "",
+                  warehouseName: warehouseMap[editingItem.warehouse ?? ""] ?? "",
+                  storageLocation: editingItem.storageLocation ?? "",
+                  storageLocationName: storageLocations.find((s) => s.WarehouseCode === editingItem.warehouse && s.StorageLocationCode === editingItem.storageLocation)?.StorageLocationName ?? "",
+                  plant: editingItem.businessUnit ?? "",
+                  plantName: plantMap[editingItem.businessUnit ?? ""] ?? "",
+                },
+                classification: {
+                  ...defaultItemRegisterState.classification,
+                  specification: editingItem.specification ?? "",
+                  drawingNo: editingItem.drawingNo ?? "",
                 },
               }
             : undefined
@@ -2244,34 +2288,34 @@ export default function ItemsPage() {
           const payload = {
             itemNo: state.basicInfo.itemNo,
             itemName: state.basicInfo.itemName,
-            specification: state.basicInfo.specification || null,
-            drawingNo: state.basicInfo.drawingNo || null,
             itemStatusCategory: state.basicInfo.itemStatusCategory ?? "ACTIVE",
+            form: state.basicInfo.itemForm || null,
+            type: state.basicInfo.itemType || null,
+            vehicleModel: state.basicInfo.productModel || null,
+            supplierCode: state.basicInfo.supplierId || null,
+            currencyCode: state.basicInfo.currencyCode || null,
+            purchaseUnitPrice: toNum(state.basicInfo.purchaseUnitPrice),
+            warehouse: state.basicInfo.warehouse || null,
+            storageLocation: state.basicInfo.storageLocation || null,
             updatedBy: "사용자",
-            form: state.classification.itemForm || null,
-            type: state.classification.itemType || null,
-            vehicleModel: state.classification.productModel || null,
+            specification: state.classification.specification || null,
+            drawingNo: state.classification.drawingNo || null,
             itemUserCategoryCode: state.classification.itemUserCategoryCode || null,
             itemUsageClassificationCode: state.classification.itemUsageClassificationCode || null,
             material: state.classification.material || null,
             manufacturerName: state.classification.manufacturer || null,
             productId: state.classification.commerceProductId || null,
             valueCategoryCode: state.classification.valueCategory || null,
-            supplierCode: state.procurement.supplierId || null,
             supplierItemNo: state.procurement.supplierItemNo || null,
             buyerCode: state.procurement.purchaseManager || null,
             salesRepCode: state.procurement.salesManager || null,
             requirementRepCode: state.procurement.requirementManager || null,
-            purchaseUnitPrice: toNum(state.procurement.purchaseUnitPrice),
             salesUnitPrice: toNum(state.procurement.salesUnitPrice),
-            currencyCode: state.procurement.currencyCode || null,
             materialOrderPolicyCode: state.procurement.orderPolicy || null,
             lastReceiptUnitPrice: toNum(state.procurement.lastReceiptUnitPrice),
             standardCost: toNum(state.procurement.standardCost),
             internalUnitPrice: toNum(state.procurement.internalPrice),
-            businessUnit: state.procurement.businessUnit || null,
-            warehouse: state.inventory.warehouse || null,
-            storageLocation: state.inventory.storageLocation || null,
+            businessUnit: state.basicInfo.plant || null,
             unitProductionQty: toNum(state.inventory.unitProductionQty),
             minLotSize: toNum(state.inventory.minLot),
             standardLotSize: toNum(state.inventory.standardLot),
@@ -2332,7 +2376,6 @@ export default function ItemsPage() {
                   }
             )
           );
-          setPage(1);
         }}
       />
     </div>

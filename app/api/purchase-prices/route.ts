@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDbPool } from "@/lib/db";
+import { getDbPool, sql } from "@/lib/db";
 import type { PurchasePriceRecord } from "@/types/purchase-price";
 
 function rowToRecord(r: {
@@ -76,5 +76,50 @@ export async function GET() {
       { ok: false, message: "구매단가 조회 중 오류가 발생했습니다.", items: [] },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const {
+      itemCode, itemName, itemSpec, supplierName, plant,
+      applyDate, expireDate, unitPrice, devUnitPrice, discountRate,
+      currency, currencyCode, remarks,
+    } = body;
+
+    if (!itemCode?.trim() || !supplierName?.trim() || !applyDate) {
+      return NextResponse.json({ ok: false, message: "필수 항목을 입력해주세요." }, { status: 400 });
+    }
+
+    const pool = await getDbPool();
+    const result = await pool.request()
+      .input("ItemCode",     sql.NVarChar(50),  itemCode.trim())
+      .input("ItemName",     sql.NVarChar(200), itemName?.trim() ?? "")
+      .input("ItemSpec",     sql.NVarChar(200), itemSpec?.trim() || null)
+      .input("SupplierName", sql.NVarChar(200), supplierName.trim())
+      .input("Plant",        sql.NVarChar(100), plant?.trim() || null)
+      .input("ApplyDate",    sql.Date,          applyDate)
+      .input("ExpireDate",   sql.Date,          expireDate || null)
+      .input("UnitPrice",    sql.Decimal(18,4), Number(unitPrice))
+      .input("DevUnitPrice", sql.Decimal(18,4), devUnitPrice != null ? Number(devUnitPrice) : null)
+      .input("DiscountRate", sql.Decimal(5,2),  discountRate != null ? Number(discountRate) : null)
+      .input("Currency",     sql.NVarChar(10),  currencyCode ?? currency ?? "KRW")
+      .input("Remarks",      sql.NVarChar(500), remarks?.trim() || null)
+      .query(`
+        INSERT INTO dbo.PurchasePrice
+          (ItemCode, ItemName, ItemSpec, SupplierName, Plant, ApplyDate, ExpireDate,
+           UnitPrice, DevUnitPrice, DiscountRate, Currency, Remarks)
+        OUTPUT INSERTED.Id
+        VALUES
+          (@ItemCode, @ItemName, @ItemSpec, @SupplierName, @Plant, @ApplyDate, @ExpireDate,
+           @UnitPrice, @DevUnitPrice, @DiscountRate, @Currency, @Remarks)
+      `);
+
+    const newId = result.recordset[0]?.Id;
+    return NextResponse.json({ ok: true, id: String(newId) });
+  } catch (error) {
+    console.error("[purchase-prices][POST]", error);
+    return NextResponse.json({ ok: false, message: "등록 중 오류가 발생했습니다." }, { status: 500 });
   }
 }
