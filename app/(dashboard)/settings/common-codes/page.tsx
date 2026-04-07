@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 
 interface Category {
   Id: number;
@@ -44,7 +45,7 @@ export default function CommonCodesPage() {
   const loadCategories = async () => {
     setLoadingCat(true);
     try {
-      const r = await fetch("/api/common-codes/categories");
+      const r = await fetch(apiPath("/api/common-codes/categories"));
       const data = await r.json();
       if (data.ok) {
         setCategories(data.categories);
@@ -61,7 +62,7 @@ export default function CommonCodesPage() {
     if (!category) return;
     setLoadingCode(true);
     try {
-      const r = await fetch(`/api/common-codes?category=${encodeURIComponent(category)}`);
+      const r = await fetch(apiPath(`/api/common-codes?category=${encodeURIComponent(category)}`));
       const data = await r.json();
       if (data.ok) setCodes(data.items);
     } finally {
@@ -77,7 +78,7 @@ export default function CommonCodesPage() {
     const key = newCatKey.trim();
     const label = newCatLabel.trim();
     if (!key || !label) return;
-    const r = await fetch("/api/common-codes/categories", {
+    const r = await fetch(apiPath("/api/common-codes/categories"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ categoryKey: key, label, description: newCatDesc.trim(), sortOrder: categories.length }),
@@ -92,7 +93,7 @@ export default function CommonCodesPage() {
   // ── 코드 추가 ──
   const handleAddCode = async () => {
     if (!draftCode.trim() || !draftName.trim() || !selectedKey) return;
-    const r = await fetch("/api/common-codes", {
+    const r = await fetch(apiPath("/api/common-codes"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: selectedKey, code: draftCode.trim(), name: draftName.trim(), sortOrder: codes.length }),
@@ -107,7 +108,7 @@ export default function CommonCodesPage() {
   // ── 코드 삭제 ──
   const handleDeleteCode = async (id: number) => {
     if (!confirm("이 코드를 삭제하시겠습니까?")) return;
-    const r = await fetch(`/api/common-codes/${id}`, { method: "DELETE" });
+    const r = await fetch(apiPath(`/api/common-codes/${id}`), { method: "DELETE" });
     const data = await r.json();
     if (!data.ok) { alert(data.message); return; }
     await loadCodes(selectedKey);

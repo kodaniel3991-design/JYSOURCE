@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, Building2, ChevronDown, LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { apiPath } from "@/lib/api-path";
 import {
   type PageTab,
   getPageLabel,
@@ -74,7 +75,7 @@ export function AppHeader({ username, factory, isAdmin }: AppHeaderProps) {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch(apiPath("/api/auth/logout"), { method: "POST" });
     localStorage.removeItem(STORAGE_KEY);
     router.push("/login");
     router.refresh();
@@ -83,7 +84,7 @@ export function AppHeader({ username, factory, isAdmin }: AppHeaderProps) {
   // 마운트 시 공장 목록 미리 로드 (이름 표시 + 드롭다운 즉시 열기용)
   useEffect(() => {
     if (!factory || isAdmin) return;
-    fetch("/api/factories")
+    fetch(apiPath("/api/factories"))
       .then((r) => r.json())
       .then((data) => { if (data.ok) setFactories(data.factories ?? []); })
       .catch(() => {});
@@ -104,14 +105,14 @@ export function AppHeader({ username, factory, isAdmin }: AppHeaderProps) {
     setSwitching(true);
     setConfirmTarget(null);
     try {
-      const res = await fetch("/api/auth/switch-factory", {
+      const res = await fetch(apiPath("/api/auth/switch-factory"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ factory: confirmTarget.FactoryCode }),
       });
       if (res.ok) {
         localStorage.removeItem(STORAGE_KEY);
-        window.location.href = "/dashboard";
+        window.location.href = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/dashboard";
       }
     } finally {
       setSwitching(false);

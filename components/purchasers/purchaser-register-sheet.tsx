@@ -5,6 +5,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import type { PurchaserRecord } from "@/types/purchaser";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
@@ -62,13 +63,21 @@ function FormField({
         {label}
         {required && " *"}
       </Label>
-      <Input
-        type={type ?? "text"}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-8 text-xs"
-        placeholder={placeholder}
-      />
+      {type === "date" ? (
+        <DateInput
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 text-xs"
+        />
+      ) : (
+        <Input
+          type={type ?? "text"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 text-xs"
+          placeholder={placeholder}
+        />
+      )}
     </div>
   );
 }

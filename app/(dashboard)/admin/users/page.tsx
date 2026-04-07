@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import {
   Sheet,
@@ -13,6 +14,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Plus, Pencil, Trash2, Users, KeyRound, Eye, EyeOff, Mail } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 
 interface UserRow {
   Id: number;
@@ -98,8 +100,8 @@ export default function AdminUsersPage() {
     setLoading(true);
     try {
       const [usersRes, factoriesRes] = await Promise.all([
-        fetch("/api/admin/users"),
-        fetch("/api/admin/factories"),
+        fetch(apiPath("/api/admin/users")),
+        fetch(apiPath("/api/admin/factories")),
       ]);
       const [ud, fd] = await Promise.all([usersRes.json(), factoriesRes.json()]);
       if (ud.ok) setRows(ud.users);
@@ -110,7 +112,7 @@ export default function AdminUsersPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/common-codes?category=position")
+    fetch(apiPath("/api/common-codes?category=position"))
       .then((r) => r.json())
       .then((data) => {
         if (data.ok && Array.isArray(data.items)) {
@@ -167,13 +169,13 @@ export default function AdminUsersPage() {
         employeeNo:  draft.EmployeeNo || null,
       };
       if (editTarget) {
-        res = await fetch(`/api/admin/users/${editTarget.Id}`, {
+        res = await fetch(apiPath(`/api/admin/users/${editTarget.Id}`), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(common),
         });
       } else {
-        res = await fetch("/api/admin/users", {
+        res = await fetch(apiPath("/api/admin/users"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: draft.Username, password: draft.Password, ...common }),
@@ -211,7 +213,7 @@ export default function AdminUsersPage() {
     setPwSaving(true);
     setPwError(null);
     try {
-      const res = await fetch(`/api/admin/users/${pwTarget!.Id}`, {
+      const res = await fetch(apiPath(`/api/admin/users/${pwTarget!.Id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: pwDraft.newPassword }),
@@ -239,7 +241,7 @@ export default function AdminUsersPage() {
     setMailPwSaving(true);
     setMailPwError(null);
     try {
-      const res = await fetch(`/api/admin/users/${mailPwTarget!.Id}`, {
+      const res = await fetch(apiPath(`/api/admin/users/${mailPwTarget!.Id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emailPassword: mailPwDraft.emailPassword }),
@@ -258,7 +260,7 @@ export default function AdminUsersPage() {
   const handleDelete = async (row: UserRow) => {
     if (!confirm(`"${row.Username}" 사용자를 삭제하시겠습니까?`)) return;
     try {
-      const res = await fetch(`/api/admin/users/${row.Id}`, { method: "DELETE" });
+      const res = await fetch(apiPath(`/api/admin/users/${row.Id}`), { method: "DELETE" });
       const data = await res.json();
       if (!data.ok) { alert(data.message); return; }
       await load();
@@ -543,8 +545,7 @@ export default function AdminUsersPage() {
 
               <div className="space-y-1.5">
                 <Label>입사일자</Label>
-                <Input
-                  type="date"
+                <DateInput
                   value={draft.HireDate}
                   onChange={(e) => setDraft((d) => ({ ...d, HireDate: e.target.value }))}
                   disabled={saving}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
 import type { PurchaserRecord } from "@/types/purchaser";
+import { apiPath } from "@/lib/api-path";
 
 interface SupplierSelectPopupProps {
   open: boolean;
@@ -27,7 +28,7 @@ export function SupplierSelectPopup({
 
   // 구매처 목록 최초 1회 로드
   useEffect(() => {
-    fetch("/api/purchasers")
+    fetch(apiPath("/api/purchasers"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;

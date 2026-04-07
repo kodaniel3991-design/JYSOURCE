@@ -6,6 +6,7 @@ import { Eye, EyeOff, LogIn, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { apiPath } from "@/lib/api-path";
 
 const STORAGE_KEY = "jys_remember";
 
@@ -30,7 +31,7 @@ export default function LoginPage() {
 
   // 공장 목록 로드
   useEffect(() => {
-    fetch("/api/factories")
+    fetch(apiPath("/api/factories"))
       .then((r) => r.json())
       .then((data) => {
         if (data.ok && data.factories.length > 0) {
@@ -81,7 +82,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(apiPath("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

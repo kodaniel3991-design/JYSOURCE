@@ -13,6 +13,7 @@ import {
 } from "@/types/item-register";
 import { suppliers } from "@/lib/mock/suppliers";
 import type { SelectOption } from "@/lib/item-register-options";
+import { apiPath } from "@/lib/api-path";
 
 const supplierOptions: SelectOption[] = suppliers.map((s) => ({
   value: s.id,
@@ -47,7 +48,7 @@ export function ItemRegisterSheet({
     if (!open) return;
     if (mode === "create") {
       // 신규 등록: 로그인 사업장을 plant 기본값으로 세팅
-      fetch("/api/auth/me")
+      fetch(apiPath("/api/auth/me"))
         .then((r) => r.json())
         .then((data) => {
           const factory = data?.factory ?? "";

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { MasterListGrid } from "@/components/common/master-list-grid";
 import { formatCurrency } from "@/lib/utils";
 import { SearchPanel } from "@/components/common/search-panel";
@@ -16,6 +17,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { apiPath } from "@/lib/api-path";
 
 // ── 날짜 헬퍼 ─────────────────────────────────────────────────────────────────
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -78,13 +80,13 @@ export default function ClosingStatusPage() {
 
   // ── 로그인 사업장 로드 ──────────────────────────────────────────────────────
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch(apiPath("/api/auth/me"))
       .then((r) => r.json())
       .then(async (d) => {
         if (!d.ok || !d.factory) return;
         setFactoryCode(d.factory);
         // 사업장명 조회
-        const fr = await fetch("/api/factories");
+        const fr = await fetch(apiPath("/api/factories"));
         const fd = await fr.json();
         if (fd.ok && Array.isArray(fd.factories)) {
           const match = fd.factories.find(
@@ -102,7 +104,7 @@ export default function ClosingStatusPage() {
     if (dateFrom) p.set("dateFrom", dateFrom);
     if (dateTo)   p.set("dateTo",   dateTo);
     setLoading(true);
-    fetch(`/api/purchase-inputs/closing?${p}`)
+    fetch(apiPath(`/api/purchase-inputs/closing?${p}`))
       .then((r) => r.json())
       .then((d) => { if (d.ok) setRawItems(d.items ?? []); })
       .catch(() => {})
@@ -349,15 +351,13 @@ export default function ClosingStatusPage() {
           <div className="space-y-1">
             <span className="text-[12px] text-slate-600">입고일자</span>
             <div className="flex items-center gap-1">
-              <input
-                type="date"
+              <DateInput
                 className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
               />
               <span className="text-[11px] text-muted-foreground">~</span>
-              <input
-                type="date"
+              <DateInput
                 className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}

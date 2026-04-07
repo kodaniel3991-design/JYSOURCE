@@ -24,6 +24,7 @@ import { Search } from "lucide-react";
 import { SearchPanel } from "@/components/common/search-panel";
 import { ModelCodeRegisterSheet } from "@/components/model-codes/model-code-register-sheet";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
+import { apiPath } from "@/lib/api-path";
 
 interface ModelCodeFilterState {
   modelCode: string;
@@ -81,7 +82,7 @@ export default function ModelCodesPage() {
   const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/model-codes");
+      const r = await fetch(apiPath("/api/model-codes"));
       const data = await r.json();
       if (data?.ok) {
         setRows(
@@ -289,7 +290,7 @@ export default function ModelCodesPage() {
               );
               if (!ok) return;
               try {
-                const res = await fetch(`/api/model-codes/${selectedRowId}`, {
+                const res = await fetch(apiPath(`/api/model-codes/${selectedRowId}`), {
                   method: "DELETE",
                 });
                 const data = await res.json();
@@ -559,7 +560,7 @@ export default function ModelCodesPage() {
         mode="create"
         onSave={async (draft) => {
           try {
-            const res = await fetch("/api/model-codes", {
+            const res = await fetch(apiPath("/api/model-codes"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),
@@ -609,7 +610,7 @@ export default function ModelCodesPage() {
         onSave={async (draft) => {
           if (!selectedRowId) return;
           try {
-            const res = await fetch(`/api/model-codes/${selectedRowId}`, {
+            const res = await fetch(apiPath(`/api/model-codes/${selectedRowId}`), {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),

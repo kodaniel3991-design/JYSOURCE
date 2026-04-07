@@ -11,6 +11,8 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { suppliers } from "@/lib/mock/suppliers";
 import type { PurchaseOrderSummary } from "@/types/purchase";
 import type { SelectOption } from "@/components/ui/select";
+import { apiPath } from "@/lib/api-path";
+import { DateInput } from "@/components/ui/date-input";
 
 const supplierOptions: SelectOption[] = suppliers.map((s) => ({
   value: s.id,
@@ -37,7 +39,7 @@ export default function PurchasePerformancePage() {
     if (getPageState("perf/list")) return;
     let cancelled = false;
     setLoading(true);
-    fetch("/api/purchase-orders")
+    fetch(apiPath("/api/purchase-orders"))
       .then((res) => res.json())
       .then((data) => {
         if (cancelled || !data?.items) return;
@@ -174,20 +176,18 @@ export default function PurchasePerformancePage() {
             type: "custom",
             children: (
               <div className="flex gap-2">
-                <input
-                  type="date"
+                <DateInput
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 text-xs"
                 />
                 <span className="self-center text-xs text-muted-foreground">
                   ~
                 </span>
-                <input
-                  type="date"
+                <DateInput
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 text-xs"
                 />
               </div>
             ),

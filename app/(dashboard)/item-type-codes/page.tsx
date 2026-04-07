@@ -24,6 +24,7 @@ import { SearchPanel } from "@/components/common/search-panel";
 import { ItemTypeCodeRegisterSheet } from "@/components/item-type-codes/item-type-code-register-sheet";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 import { itemTypeCodes as mockData } from "@/lib/mock/item-type-codes";
+import { apiPath } from "@/lib/api-path";
 
 interface ItemTypeCodeFilterState {
   itemTypeCode: string;
@@ -85,7 +86,7 @@ export default function ItemTypeCodesPage() {
   const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/item-type-codes");
+      const r = await fetch(apiPath("/api/item-type-codes"));
       const data = await r.json();
       if (data?.ok) {
         setRows(
@@ -313,7 +314,7 @@ export default function ItemTypeCodesPage() {
               );
               if (!ok) return;
               try {
-                const res = await fetch(`/api/item-type-codes/${selectedRowId}`, {
+                const res = await fetch(apiPath(`/api/item-type-codes/${selectedRowId}`), {
                   method: "DELETE",
                 });
                 const data = await res.json();
@@ -552,7 +553,7 @@ export default function ItemTypeCodesPage() {
         mode="create"
         onSave={async (draft) => {
           try {
-            const res = await fetch("/api/item-type-codes", {
+            const res = await fetch(apiPath("/api/item-type-codes"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),
@@ -601,7 +602,7 @@ export default function ItemTypeCodesPage() {
         onSave={async (draft) => {
           if (!selectedRowId) return;
           try {
-            const res = await fetch(`/api/item-type-codes/${selectedRowId}`, {
+            const res = await fetch(apiPath(`/api/item-type-codes/${selectedRowId}`), {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),

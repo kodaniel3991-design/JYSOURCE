@@ -15,6 +15,7 @@ import { DashboardKPICards } from "@/components/dashboard/dashboard-kpi-cards";
 import { RecentPOTable } from "@/components/dashboard/recent-po-table";
 import { DelayAlertCard } from "@/components/dashboard/delay-alert-card";
 import { DashboardSummaryWidgets } from "@/components/dashboard/dashboard-summary-widgets";
+import { apiPath } from "@/lib/api-path";
 
 /** 차트는 클라이언트 전용(차트 라이브러리)이므로 dynamic import, 로딩 시 스켈레톤 표시 */
 const MonthlySpendChart = dynamic(
@@ -44,7 +45,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/dashboard")
+    fetch(apiPath("/api/dashboard"))
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled && data.ok) setDashboardData(data as typeof defaultDashboardData);

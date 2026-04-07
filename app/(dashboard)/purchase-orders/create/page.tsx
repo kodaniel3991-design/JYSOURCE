@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, type SelectOption } from "@/components/ui/select";
@@ -25,6 +26,7 @@ import { MasterListGrid, type MasterListGridColumn } from "@/components/common/m
 import { SearchPopup } from "@/components/common/search-popup";
 import { Plus, Trash2, Search, RotateCcw, Save, X, Send, FileDown, Copy } from "lucide-react";
 import { FieldError } from "@/components/ui/field-error";
+import { apiPath } from "@/lib/api-path";
 
 const statusOptions: SelectOption[] = (["draft", "approved", "issued"] as const).map(
   (v) => ({ value: v, label: poStatusLabels[v] })
@@ -125,7 +127,7 @@ export default function CreatePurchaseOrderPage() {
 
   useEffect(() => {
     const cats = ["currency","vatRate","paymentTerm","paymentForm","importType","warehouse"];
-    Promise.all(cats.map((cat) => fetch(`/api/common-codes?category=${cat}`).then((r) => r.json())))
+    Promise.all(cats.map((cat) => fetch(apiPath(`/api/common-codes?category=${cat}`)).then((r) => r.json())))
       .then(([cur, vat, pTerm, pForm, imp, wh]) => {
         type C = { Code: string; Name: string };
         if (cur.ok)   setCurrencyOptions(cur.items.map((c: C) => ({ value: c.Code, label: `${c.Code}  ${c.Name}`, displayLabel: c.Code })));
@@ -141,7 +143,7 @@ export default function CreatePurchaseOrderPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/factories")
+    fetch(apiPath("/api/factories"))
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
@@ -206,7 +208,7 @@ export default function CreatePurchaseOrderPage() {
 
   // 구매오더 목록 로드
   const loadBasicInfoList = () => {
-    fetch("/api/purchase-orders")
+    fetch(apiPath("/api/purchase-orders"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -244,7 +246,7 @@ export default function CreatePurchaseOrderPage() {
 
   // 로그인 사용자를 구매 발주자 초기값으로 설정
   useEffect(() => {
-    fetch("/api/auth/me")
+    fetch(apiPath("/api/auth/me"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -263,7 +265,7 @@ export default function CreatePurchaseOrderPage() {
 
   // 구매처 DB 로드
   useEffect(() => {
-    fetch("/api/purchasers")
+    fetch(apiPath("/api/purchasers"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -296,7 +298,7 @@ export default function CreatePurchaseOrderPage() {
 
   // 품목 마스터 DB 로드
   useEffect(() => {
-    fetch("/api/items")
+    fetch(apiPath("/api/items"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -326,7 +328,7 @@ export default function CreatePurchaseOrderPage() {
 
   useEffect(() => {
     if (!isItemModalOpen) return;
-    fetch("/api/purchase-prices")
+    fetch(apiPath("/api/purchase-prices"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -418,7 +420,7 @@ export default function CreatePurchaseOrderPage() {
     if (!copyModal || !selectedBasicId) return;
     setCopying(true);
     try {
-      const copyRes = await fetch("/api/purchase-orders", {
+      const copyRes = await fetch(apiPath("/api/purchase-orders"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -435,7 +437,7 @@ export default function CreatePurchaseOrderPage() {
       const newId = String(copyData.id);
       setSelectedBasicId(newId);
       setIsFormActive(true);
-      const detailRes = await fetch(`/api/purchase-orders/${newId}`);
+      const detailRes = await fetch(apiPath(`/api/purchase-orders/${newId}`));
       const detailData = await detailRes.json();
       if (detailData.ok) {
         setBasicForm(detailData.data.basicForm);
@@ -452,7 +454,7 @@ export default function CreatePurchaseOrderPage() {
     try {
       if (selectedBasicId) {
         // 기존 PO 수정 (PUT)
-        const res = await fetch(`/api/purchase-orders/${selectedBasicId}`, {
+        const res = await fetch(apiPath(`/api/purchase-orders/${selectedBasicId}`), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...basicForm, items: specItems }),
@@ -461,7 +463,7 @@ export default function CreatePurchaseOrderPage() {
         if (!data.ok) { setNotifyModal({ open: true, title: "저장 실패", message: data.message ?? "저장에 실패했습니다." }); return; }
         await loadBasicInfoList();
         // DB에서 다시 로드
-        const detailRes = await fetch(`/api/purchase-orders/${selectedBasicId}`);
+        const detailRes = await fetch(apiPath(`/api/purchase-orders/${selectedBasicId}`));
         const detailData = await detailRes.json();
         if (detailData.ok) {
           setBasicForm(detailData.data.basicForm);
@@ -469,7 +471,7 @@ export default function CreatePurchaseOrderPage() {
         }
       } else {
         // 신규 PO 등록 (POST)
-        const res = await fetch("/api/purchase-orders", {
+        const res = await fetch(apiPath("/api/purchase-orders"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...basicForm, items: [] }),
@@ -479,7 +481,7 @@ export default function CreatePurchaseOrderPage() {
         await loadBasicInfoList();
         const newId = String(data.id);
         setSelectedBasicId(newId);
-        const detailRes = await fetch(`/api/purchase-orders/${newId}`);
+        const detailRes = await fetch(apiPath(`/api/purchase-orders/${newId}`));
         const detailData = await detailRes.json();
         if (detailData.ok) {
           setBasicForm(detailData.data.basicForm);
@@ -497,7 +499,7 @@ export default function CreatePurchaseOrderPage() {
     setIsFormActive(true);
     setErrors({});
     try {
-      const res = await fetch(`/api/purchase-orders/${row.id}`);
+      const res = await fetch(apiPath(`/api/purchase-orders/${row.id}`));
       const data = await res.json();
       if (!data.ok) {
         // 로드 실패 시 리스트 데이터만 표시
@@ -632,7 +634,7 @@ export default function CreatePurchaseOrderPage() {
     let codes = priceItemCodes;
     if (codes.size === 0) {
       try {
-        const res = await fetch("/api/purchase-prices");
+        const res = await fetch(apiPath("/api/purchase-prices"));
         const data = await res.json();
         if (data.ok) {
           const supplierName = basicForm.supplierName.trim().toLowerCase();
@@ -677,7 +679,7 @@ export default function CreatePurchaseOrderPage() {
     if (!targetId) {
       // 기본정보가 아직 등록되지 않은 경우 자동 등록
       try {
-        const res = await fetch("/api/purchase-orders", {
+        const res = await fetch(apiPath("/api/purchase-orders"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...basicForm, orderStatus: "approved", items: specItems }),
@@ -697,7 +699,7 @@ export default function CreatePurchaseOrderPage() {
 
     // 기존 오더 업데이트
     try {
-      const res = await fetch(`/api/purchase-orders/${targetId}`, {
+      const res = await fetch(apiPath(`/api/purchase-orders/${targetId}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...basicForm, orderStatus: "approved", items: specItems }),
@@ -719,7 +721,7 @@ export default function CreatePurchaseOrderPage() {
       onConfirm: async () => {
         setConfirmModal(null);
         try {
-          const res = await fetch(`/api/purchase-orders/${selectedBasicId}`, { method: "DELETE" });
+          const res = await fetch(apiPath(`/api/purchase-orders/${selectedBasicId}`), { method: "DELETE" });
           const data = await res.json();
           if (!data.ok) { setNotifyModal({ open: true, title: "삭제 실패", message: data.message ?? "삭제에 실패했습니다." }); return; }
           setSelectedBasicId(null);
@@ -775,7 +777,7 @@ export default function CreatePurchaseOrderPage() {
     // 발행 확정 콜백을 opener에 등록 (sendEmail: 이메일 발송 여부)
     const issueId = selectedBasicId;
     (window as Window & { __poIssueConfirm?: (sendEmail: boolean) => void }).__poIssueConfirm = (sendEmail: boolean) => {
-      fetch(`/api/purchase-orders/${issueId}`, {
+      fetch(apiPath(`/api/purchase-orders/${issueId}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...basicForm, orderStatus: "issued", items: specItems }),
@@ -785,7 +787,7 @@ export default function CreatePurchaseOrderPage() {
           if (d.ok) {
             loadBasicInfoList();
             if (sendEmail) {
-              fetch(`/api/purchase-orders/${issueId}/send-email`, { method: "POST" })
+              fetch(apiPath(`/api/purchase-orders/${issueId}/send-email`), { method: "POST" })
                 .then((r) => r.json())
                 .then((emailResult) => {
                   if (!emailResult.ok) {
@@ -1228,13 +1230,22 @@ export default function CreatePurchaseOrderPage() {
                           debounceRef.current = setTimeout(async () => {
                             if (!v.trim()) return;
                             try {
-                              const res = await fetch("/api/purchasers");
+                              const res = await fetch(apiPath("/api/purchasers"));
                               const data = await res.json();
                               if (data?.ok && Array.isArray(data.items)) {
-                                const match = data.items.find(
+                                const kw = v.trim().toLowerCase();
+                                // 코드 정확 일치 우선, 없으면 이름 포함 검색
+                                const exactMatch = data.items.find(
                                   (item: Record<string, string>) =>
-                                    (item.PurchaserNo ?? "").toLowerCase() === v.trim().toLowerCase()
+                                    (item.PurchaserNo ?? "").toLowerCase() === kw
                                 );
+                                const nameMatches = !exactMatch
+                                  ? data.items.filter(
+                                      (item: Record<string, string>) =>
+                                        (item.PurchaserName ?? "").toLowerCase().includes(kw)
+                                    )
+                                  : [];
+                                const match = exactMatch ?? (nameMatches.length === 1 ? nameMatches[0] : null);
                                 if (match) {
                                   setBasicForm((prev) => ({
                                     ...prev,
@@ -1252,14 +1263,22 @@ export default function CreatePurchaseOrderPage() {
                             if (debounceRef.current) clearTimeout(debounceRef.current);
                             const v = basicForm.supplierId.trim();
                             if (!v) return;
-                            fetch("/api/purchasers")
+                            fetch(apiPath("/api/purchasers"))
                               .then((r) => r.json())
                               .then((data) => {
                                 if (data?.ok && Array.isArray(data.items)) {
-                                  const match = data.items.find(
+                                  const kw = v.toLowerCase();
+                                  const exactMatch = data.items.find(
                                     (item: Record<string, string>) =>
-                                      (item.PurchaserNo ?? "").toLowerCase() === v.toLowerCase()
+                                      (item.PurchaserNo ?? "").toLowerCase() === kw
                                   );
+                                  const nameMatches = !exactMatch
+                                    ? data.items.filter(
+                                        (item: Record<string, string>) =>
+                                          (item.PurchaserName ?? "").toLowerCase().includes(kw)
+                                      )
+                                    : [];
+                                  const match = exactMatch ?? (nameMatches.length === 1 ? nameMatches[0] : null);
                                   if (match) {
                                     setBasicForm((prev) => ({
                                       ...prev,
@@ -1340,7 +1359,7 @@ export default function CreatePurchaseOrderPage() {
                           buyerDebounceRef.current = setTimeout(async () => {
                             if (!v.trim()) return;
                             try {
-                              const res = await fetch("/api/users");
+                              const res = await fetch(apiPath("/api/users"));
                               const data = await res.json();
                               if (data?.ok && Array.isArray(data.items)) {
                                 const match = data.items.find(
@@ -1364,7 +1383,7 @@ export default function CreatePurchaseOrderPage() {
                             if (buyerDebounceRef.current) clearTimeout(buyerDebounceRef.current);
                             const v = basicForm.buyerCode.trim();
                             if (!v) return;
-                            fetch("/api/users")
+                            fetch(apiPath("/api/users"))
                               .then((r) => r.json())
                               .then((data) => {
                                 if (data?.ok && Array.isArray(data.items)) {
@@ -1450,8 +1469,7 @@ export default function CreatePurchaseOrderPage() {
                   <div>
                     <div className="grid grid-cols-[100px_1fr] gap-1 items-center">
                       <Label className={fieldLabelClass}>발주일자</Label>
-                      <Input
-                        type="date"
+                      <DateInput
                         value={basicForm.orderDate}
                         onChange={(e) => { setBasic("orderDate", e.target.value); clearError("orderDate"); }}
                         onKeyDown={(e) => blockIfEmpty(e, "orderDate", basicForm.orderDate)}
@@ -1708,7 +1726,7 @@ export default function CreatePurchaseOrderPage() {
         open={isPurchaserPopupOpen}
         onOpenChange={setIsPurchaserPopupOpen}
         title="구매처"
-        apiUrl="/api/purchasers"
+        apiUrl={apiPath("/api/purchasers")}
         columns={[
           { key: "PurchaserNo", header: "구매처번호", width: 120 },
           { key: "PurchaserName", header: "구매처명" },
@@ -1729,7 +1747,7 @@ export default function CreatePurchaseOrderPage() {
         open={isUserPopupOpen}
         onOpenChange={setIsUserPopupOpen}
         title="발주자"
-        apiUrl="/api/users"
+        apiUrl={apiPath("/api/users")}
         columns={[
           { key: "Username", header: "사용자 ID", width: 130 },
           { key: "UserId", header: "사용자명", width: 110 },
@@ -1810,12 +1828,13 @@ export default function CreatePurchaseOrderPage() {
                       if (itemHighlightIdx >= 0) {
                         const target = filteredItems[itemHighlightIdx];
                         if (target) selectItemFromModal(target, activeSpecRowIndex);
-                      } else if (itemFilterSupplierName) {
-                        // 거래처가 이미 선택된 상태 → 다음 필드(모델)로 이동
-                        itemModelInputRef.current?.focus();
-                      } else {
+                      } else if (itemFilterSupplierId.trim()) {
+                        // 뭔가 입력된 상태 → 구매처 팝업 열기
                         setSupplierSubSearch(itemFilterSupplierId);
                         setIsItemSupplierPopupOpen(true);
+                      } else {
+                        // 비어있으면 다음 필드(모델)로 이동
+                        itemModelInputRef.current?.focus();
                       }
                     }
                   }}
@@ -1863,9 +1882,13 @@ export default function CreatePurchaseOrderPage() {
                       if (itemHighlightIdx >= 0) {
                         const target = filteredItems[itemHighlightIdx];
                         if (target) selectItemFromModal(target, activeSpecRowIndex);
-                      } else {
+                      } else if (itemFilterModel.trim()) {
+                        // 뭔가 입력된 상태 → 모델 팝업 열기
                         setModelSubSearch(itemFilterModel);
                         setIsModelPopupOpen(true);
+                      } else {
+                        // 비어있으면 품목검색 input으로 이동
+                        itemSearchInputRef.current?.focus();
                       }
                     }
                   }}
@@ -2123,8 +2146,7 @@ export default function CreatePurchaseOrderPage() {
             </p>
             <div className="mb-4 space-y-1">
               <label className="text-xs font-medium text-muted-foreground">발주일자</label>
-              <input
-                type="date"
+              <DateInput
                 value={copyModal.orderDate}
                 onChange={(e) => setCopyModal((prev) => prev ? { ...prev, orderDate: e.target.value } : prev)}
                 className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"

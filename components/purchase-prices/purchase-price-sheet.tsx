@@ -5,11 +5,13 @@ import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, X } from "lucide-react";
 import type { PurchasePriceRecord } from "@/types/purchase-price";
+import { apiPath } from "@/lib/api-path";
 
 /** 품목 검색용 API 응답 행 */
 interface ItemSearchRow {
@@ -95,7 +97,7 @@ export function PurchasePriceSheet({
   useEffect(() => {
     if (!itemSearchOpen) return;
     setItemSearchQuery("");
-    fetch("/api/items")
+    fetch(apiPath("/api/items"))
       .then((r) => r.json())
       .then((data) => {
         if (data?.ok && Array.isArray(data.items)) {
@@ -118,7 +120,7 @@ export function PurchasePriceSheet({
   useEffect(() => {
     if (!supplierSearchOpen) return;
     setSupplierSearchQuery("");
-    fetch("/api/purchasers")
+    fetch(apiPath("/api/purchasers"))
       .then((r) => r.json())
       .then((data) => {
         if (data?.ok && Array.isArray(data.items)) {
@@ -326,7 +328,7 @@ export function PurchasePriceSheet({
                   </div>
                   <div className="min-h-[3.25rem] flex flex-col justify-end gap-1">
                     <Label className="text-[12px] text-slate-600">적용일자</Label>
-                    <Input type="date" value={draft.applyDate} onChange={(e) => setDraft((p) => ({ ...p, applyDate: e.target.value }))} className="h-8 text-xs" />
+                    <DateInput value={draft.applyDate} onChange={(e) => setDraft((p) => ({ ...p, applyDate: e.target.value }))} className="h-8 text-xs" />
                   </div>
                   <div className="min-h-[3.25rem] flex flex-col justify-end gap-1">
                     <Label className="text-[12px] text-slate-600">구매단가</Label>
@@ -390,7 +392,7 @@ export function PurchasePriceSheet({
                   </div>
                   <div className="min-h-[3.25rem] flex flex-col justify-end gap-1">
                     <Label className="text-[12px] text-slate-600">유효일자</Label>
-                    <Input type="date" value={draft.validDate ?? ""} onChange={(e) => setDraft((p) => ({ ...p, validDate: e.target.value }))} className="h-8 text-xs" />
+                    <DateInput value={draft.validDate ?? ""} onChange={(e) => setDraft((p) => ({ ...p, validDate: e.target.value }))} className="h-8 text-xs" />
                   </div>
                   <div className="min-h-[3.25rem] flex flex-col justify-end">
                     <div className="flex items-center gap-2">

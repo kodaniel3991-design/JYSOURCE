@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Plus, Pencil, Trash2, Factory } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 
 interface FactoryRow {
   FactoryCode: string;
@@ -40,7 +41,7 @@ export default function AdminFactoriesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/factories");
+      const res = await fetch(apiPath("/api/admin/factories"));
       const data = await res.json();
       if (data.ok) setRows(data.factories);
     } finally {
@@ -76,7 +77,7 @@ export default function AdminFactoriesPage() {
     try {
       let res: Response;
       if (editTarget) {
-        res = await fetch(`/api/admin/factories/${editTarget.FactoryCode}`, {
+        res = await fetch(apiPath(`/api/admin/factories/${editTarget.FactoryCode}`), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -86,7 +87,7 @@ export default function AdminFactoriesPage() {
           }),
         });
       } else {
-        res = await fetch("/api/admin/factories", {
+        res = await fetch(apiPath("/api/admin/factories"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -111,7 +112,7 @@ export default function AdminFactoriesPage() {
   const handleDelete = async (row: FactoryRow) => {
     if (!confirm(`"${row.FactoryName}" 공장을 삭제하시겠습니까?`)) return;
     try {
-      const res = await fetch(`/api/admin/factories/${row.FactoryCode}`, { method: "DELETE" });
+      const res = await fetch(apiPath(`/api/admin/factories/${row.FactoryCode}`), { method: "DELETE" });
       const data = await res.json();
       if (!data.ok) { alert(data.message); return; }
       await load();

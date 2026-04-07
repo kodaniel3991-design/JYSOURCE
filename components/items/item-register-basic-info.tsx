@@ -17,6 +17,7 @@ import {
 import type { SelectOption } from "@/lib/item-register-options";
 import { ItemCopyHelper } from "./item-copy-helper";
 import { SearchPopup } from "@/components/common/search-popup";
+import { apiPath } from "@/lib/api-path";
 
 interface ItemRegisterBasicInfoProps {
   data: ItemRegisterBasicInfo;
@@ -80,7 +81,7 @@ export function ItemRegisterBasicInfoCard({
 
   const [plantOptions, setPlantOptions] = useState<{ value: string; label: string }[]>([]);
   useEffect(() => {
-    fetch("/api/common-codes?category=plant")
+    fetch(apiPath("/api/common-codes?category=plant"))
       .then((r) => r.json())
       .then((data) => {
         if (data.ok)
@@ -93,6 +94,7 @@ export function ItemRegisterBasicInfoCard({
   dataRef.current = data;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   const [errors, setErrors] = useState<Partial<Record<keyof ItemRegisterBasicInfo, string>>>({});
 
@@ -205,7 +207,7 @@ export function ItemRegisterBasicInfoCard({
                   clearError("itemForm");
                   if (debounceRef.current) clearTimeout(debounceRef.current);
                   debounceRef.current = setTimeout(() => {
-                    confirmCode<ItemTypeCodeItem>("/api/item-type-codes", v, "ItemTypeCode", "ItemTypeName",
+                    confirmCode<ItemTypeCodeItem>(apiPath("/api/item-type-codes"), v, "ItemTypeCode", "ItemTypeName",
                       (code, name) => onChange({ ...dataRef.current, itemForm: code, itemFormName: name }));
                   }, 300);
                 }}
@@ -213,7 +215,7 @@ export function ItemRegisterBasicInfoCard({
                   if (blockIfEmpty(e, "itemForm", data.itemForm)) return;
                   if (e.key === "Enter") {
                     if (debounceRef.current) clearTimeout(debounceRef.current);
-                    confirmCode<ItemTypeCodeItem>("/api/item-type-codes", data.itemForm, "ItemTypeCode", "ItemTypeName",
+                    confirmCode<ItemTypeCodeItem>(apiPath("/api/item-type-codes"), data.itemForm, "ItemTypeCode", "ItemTypeName",
                       (code, name) => onChange({ ...dataRef.current, itemForm: code, itemFormName: name }));
                   }
                 }}
@@ -260,7 +262,7 @@ export function ItemRegisterBasicInfoCard({
                   clearError("itemType");
                   if (debounceRef.current) clearTimeout(debounceRef.current);
                   debounceRef.current = setTimeout(() => {
-                    confirmCode<ItemTypeItem>("/api/item-types", v, "ItemTypeCode", "ItemTypeName",
+                    confirmCode<ItemTypeItem>(apiPath("/api/item-types"), v, "ItemTypeCode", "ItemTypeName",
                       (code, name) => onChange({ ...dataRef.current, itemType: code, itemTypeName: name }));
                   }, 300);
                 }}
@@ -268,7 +270,7 @@ export function ItemRegisterBasicInfoCard({
                   if (blockIfEmpty(e, "itemType", data.itemType)) return;
                   if (e.key === "Enter") {
                     if (debounceRef.current) clearTimeout(debounceRef.current);
-                    confirmCode<ItemTypeItem>("/api/item-types", data.itemType, "ItemTypeCode", "ItemTypeName",
+                    confirmCode<ItemTypeItem>(apiPath("/api/item-types"), data.itemType, "ItemTypeCode", "ItemTypeName",
                       (code, name) => onChange({ ...dataRef.current, itemType: code, itemTypeName: name }));
                   }
                 }}
@@ -315,7 +317,7 @@ export function ItemRegisterBasicInfoCard({
                   clearError("productModel");
                   if (debounceRef.current) clearTimeout(debounceRef.current);
                   debounceRef.current = setTimeout(() => {
-                    confirmCode<ModelCodeItem>("/api/model-codes", v, "ModelCode", "ModelName",
+                    confirmCode<ModelCodeItem>(apiPath("/api/model-codes"), v, "ModelCode", "ModelName",
                       (code, name) => onChange({ ...dataRef.current, productModel: code, productModelName: name }));
                   }, 300);
                 }}
@@ -323,7 +325,7 @@ export function ItemRegisterBasicInfoCard({
                   if (blockIfEmpty(e, "productModel", data.productModel)) return;
                   if (e.key === "Enter") {
                     if (debounceRef.current) clearTimeout(debounceRef.current);
-                    confirmCode<ModelCodeItem>("/api/model-codes", data.productModel, "ModelCode", "ModelName",
+                    confirmCode<ModelCodeItem>(apiPath("/api/model-codes"), data.productModel, "ModelCode", "ModelName",
                       (code, name) => onChange({ ...dataRef.current, productModel: code, productModelName: name }));
                   }
                 }}
@@ -373,7 +375,7 @@ export function ItemRegisterBasicInfoCard({
                   clearError("supplierId");
                   if (debounceRef.current) clearTimeout(debounceRef.current);
                   debounceRef.current = setTimeout(() => {
-                    confirmCode<PurchaserItem>("/api/purchasers", v, "PurchaserNo", "PurchaserName",
+                    confirmCode<PurchaserItem>(apiPath("/api/purchasers"), v, "PurchaserNo", "PurchaserName",
                       (code, name) => onChange({ ...dataRef.current, supplierId: code, supplierName: name }));
                   }, 300);
                 }}
@@ -381,7 +383,7 @@ export function ItemRegisterBasicInfoCard({
                   if (blockIfEmpty(e, "supplierId", data.supplierId)) return;
                   if (e.key === "Enter") {
                     if (debounceRef.current) clearTimeout(debounceRef.current);
-                    confirmCode<PurchaserItem>("/api/purchasers", data.supplierId, "PurchaserNo", "PurchaserName",
+                    confirmCode<PurchaserItem>(apiPath("/api/purchasers"), data.supplierId, "PurchaserNo", "PurchaserName",
                       (code, name) => onChange({ ...dataRef.current, supplierId: code, supplierName: name }));
                   }
                 }}
@@ -427,7 +429,7 @@ export function ItemRegisterBasicInfoCard({
                   clearError("warehouse");
                   if (debounceRef.current) clearTimeout(debounceRef.current);
                   debounceRef.current = setTimeout(() => {
-                    confirmCode<WarehouseItem>("/api/warehouses", v, "WarehouseCode", "WarehouseName",
+                    confirmCode<WarehouseItem>(apiPath("/api/warehouses"), v, "WarehouseCode", "WarehouseName",
                       (code, name) => onChange({ ...dataRef.current, warehouse: code, warehouseName: name, storageLocation: "", storageLocationName: "" }));
                   }, 300);
                 }}
@@ -435,7 +437,7 @@ export function ItemRegisterBasicInfoCard({
                   if (blockIfEmpty(e, "warehouse", data.warehouse)) return;
                   if (e.key === "Enter") {
                     if (debounceRef.current) clearTimeout(debounceRef.current);
-                    confirmCode<WarehouseItem>("/api/warehouses", data.warehouse, "WarehouseCode", "WarehouseName",
+                    confirmCode<WarehouseItem>(apiPath("/api/warehouses"), data.warehouse, "WarehouseCode", "WarehouseName",
                       (code, name) => onChange({ ...dataRef.current, warehouse: code, warehouseName: name, storageLocation: "", storageLocationName: "" }));
                   }
                 }}
@@ -528,7 +530,7 @@ export function ItemRegisterBasicInfoCard({
           open={itemFormPopupOpen}
           onOpenChange={setItemFormPopupOpen}
           title="품목형태"
-          apiUrl="/api/item-type-codes"
+          apiUrl={apiPath("/api/item-type-codes")}
           columns={[
             { key: "ItemTypeCode", header: "형태코드", width: 120 },
             { key: "ItemTypeName", header: "품목형태명" },
@@ -546,7 +548,7 @@ export function ItemRegisterBasicInfoCard({
           open={itemTypePopupOpen}
           onOpenChange={setItemTypePopupOpen}
           title="품목유형"
-          apiUrl="/api/item-types"
+          apiUrl={apiPath("/api/item-types")}
           columns={[
             { key: "ItemTypeCode", header: "유형코드", width: 120 },
             { key: "ItemTypeName", header: "품목유형명" },
@@ -564,7 +566,7 @@ export function ItemRegisterBasicInfoCard({
           open={modelPopupOpen}
           onOpenChange={setModelPopupOpen}
           title="모델 코드"
-          apiUrl="/api/model-codes"
+          apiUrl={apiPath("/api/model-codes")}
           columns={[
             { key: "ModelCode", header: "모델코드", width: 150 },
             { key: "ModelName", header: "모델명" },
@@ -582,7 +584,7 @@ export function ItemRegisterBasicInfoCard({
           open={purchaserPopupOpen}
           onOpenChange={setPurchaserPopupOpen}
           title="구매처"
-          apiUrl="/api/purchasers"
+          apiUrl={apiPath("/api/purchasers")}
           columns={[
             { key: "PurchaserNo", header: "구매처번호", width: 120 },
             { key: "PurchaserName", header: "구매처명" },
@@ -600,7 +602,7 @@ export function ItemRegisterBasicInfoCard({
           open={warehousePopupOpen}
           onOpenChange={setWarehousePopupOpen}
           title="창고"
-          apiUrl="/api/warehouses"
+          apiUrl={apiPath("/api/warehouses")}
           columns={[
             { key: "WarehouseCode", header: "창고코드", width: 120 },
             { key: "WarehouseName", header: "창고명" },
@@ -624,7 +626,7 @@ export function ItemRegisterBasicInfoCard({
           open={storageLocationPopupOpen}
           onOpenChange={setStorageLocationPopupOpen}
           title="저장위치"
-          apiUrl={data.warehouse ? `/api/storage-locations?warehouseCode=${data.warehouse}` : `/api/storage-locations`}
+          apiUrl={apiPath(data.warehouse ? `/api/storage-locations?warehouseCode=${data.warehouse}` : `/api/storage-locations`)}
           columns={[
             { key: "WarehouseCode", header: "창고코드", width: 100 },
             { key: "StorageLocationCode", header: "저장위치코드", width: 120 },

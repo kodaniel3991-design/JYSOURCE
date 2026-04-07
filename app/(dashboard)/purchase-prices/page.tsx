@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { History, Upload, Download, X } from "lucide-react";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 import { SearchPanel } from "@/components/common/search-panel";
+import { apiPath } from "@/lib/api-path";
 
 interface PurchasePriceFilterState {
   itemCode: string;
@@ -61,7 +62,7 @@ export default function PurchasePricesPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const r = await fetch("/api/purchase-prices");
+      const r = await fetch(apiPath("/api/purchase-prices"));
       const data = await r.json();
       if (data?.ok && Array.isArray(data.items)) {
         setRows(data.items);
@@ -107,7 +108,7 @@ export default function PurchasePricesPage() {
   useEffect(() => {
     if (!historyOpen) return;
     setHistoryLoading(true);
-    fetch("/api/purchase-prices/history")
+    fetch(apiPath("/api/purchase-prices/history"))
       .then((r) => r.json())
       .then((data) => { if (data.ok) setChangeLogs(data.items ?? []); })
       .catch(() => {})
@@ -527,7 +528,7 @@ export default function PurchasePricesPage() {
           return;
         }
 
-        const res = await fetch("/api/purchase-prices/import", {
+        const res = await fetch(apiPath("/api/purchase-prices/import"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ items }),
@@ -544,7 +545,7 @@ export default function PurchasePricesPage() {
         const count = (result as { count?: number })?.count ?? 0;
         const invalidFromApi = (result as { invalid?: number })?.invalid ?? 0;
 
-        const listRes = await fetch("/api/purchase-prices");
+        const listRes = await fetch(apiPath("/api/purchase-prices"));
         const listData = await listRes.json();
         if (listData?.ok && Array.isArray(listData.items)) {
           setRows(listData.items);
@@ -593,7 +594,7 @@ export default function PurchasePricesPage() {
                   `선택한 구매단가를 삭제하시겠습니까?\n\n품목번호: ${row.itemCode}\n품목명: ${row.itemName}\n구매처: ${row.supplierName ?? row.supplierCode}`
                 );
                 if (!ok) return;
-                fetch(`/api/purchase-prices/${selectedRowId}`, { method: "DELETE" })
+                fetch(apiPath(`/api/purchase-prices/${selectedRowId}`), { method: "DELETE" })
                   .then((r) => r.json())
                   .then((data) => {
                     if (!data.ok) { alert(data.message ?? "삭제 실패"); return; }
@@ -707,7 +708,7 @@ export default function PurchasePricesPage() {
         mode="create"
         onSave={async (draft) => {
           try {
-            const res = await fetch("/api/purchase-prices", {
+            const res = await fetch(apiPath("/api/purchase-prices"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),
@@ -740,7 +741,7 @@ export default function PurchasePricesPage() {
         onSave={async (draft, options) => {
           if (!selectedRowId) return;
           try {
-            const res = await fetch(`/api/purchase-prices/${selectedRowId}`, {
+            const res = await fetch(apiPath(`/api/purchase-prices/${selectedRowId}`), {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ ...draft, editReason: options?.editReason }),

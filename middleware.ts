@@ -39,7 +39,9 @@ export async function middleware(request: NextRequest) {
   // 이미 로그인 상태에서 /login 접근 → 역할에 맞는 홈으로
   if (pathname === "/login" && session) {
     const home = session.username === ADMIN_USERNAME ? "/admin/users" : "/dashboard";
-    return NextResponse.redirect(new URL(home, request.url));
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = home;
+    return NextResponse.redirect(homeUrl);
   }
 
   // 공개 경로는 통과
@@ -49,13 +51,16 @@ export async function middleware(request: NextRequest) {
 
   // 미인증 → 로그인 페이지로
   if (!session) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
   }
 
   // /admin 경로는 관리자 전용 — 일반 사용자는 /dashboard 로 이동
   if (pathname.startsWith("/admin") && session.username !== ADMIN_USERNAME) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const dashUrl = request.nextUrl.clone();
+    dashUrl.pathname = "/dashboard";
+    return NextResponse.redirect(dashUrl);
   }
 
   return NextResponse.next();

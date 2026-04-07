@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'standalone',   // ← 이 줄 추가
+  output: 'standalone',
+  basePath: '/jys',
   // Windows에서 .next 캐시 파일 잠금 방지
   onDemandEntries: {
     maxInactiveAge: 60 * 1000,

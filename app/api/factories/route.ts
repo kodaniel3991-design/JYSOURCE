@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDbPool } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // 인증 없이 공장 목록 조회 (로그인 페이지에서 사용)
 export async function GET() {
   try {

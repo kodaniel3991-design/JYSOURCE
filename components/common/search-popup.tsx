@@ -41,17 +41,22 @@ export function SearchPopup<T extends Record<string, unknown>>({
   initialSearchCode,
 }: SearchPopupProps<T>) {
   const [allItems, setAllItems] = useState<T[]>([]);
-  const [searchCode, setSearchCode] = useState("");
-  const [searchName, setSearchName] = useState("");
+  const [search, setSearch] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
   const [loading, setLoading] = useState(false);
   const codeInputRef = useRef<HTMLInputElement>(null);
+  const highlightRowRef = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    highlightRowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [highlightIdx]);
 
   useEffect(() => {
     if (!open) return;
-    setSearchCode(initialSearchCode ?? "");
-    setSearchName("");
+    setSearch(initialSearchCode ?? "");
     setSelectedKey(null);
+    setHighlightIdx(-1);
     setTimeout(() => codeInputRef.current?.focus(), 100);
 
     if (externalData) {
@@ -71,13 +76,11 @@ export function SearchPopup<T extends Record<string, unknown>>({
   }, [open, apiUrl, externalData, initialSearchCode]);
 
   const filtered = allItems.filter((item) => {
-    const codeKey = searchKeys[0];
-    const nameKey = searchKeys[1] ?? searchKeys[0];
-    const codeVal = String(item[codeKey] ?? "").toLowerCase();
-    const nameVal = String(item[nameKey] ?? "").toLowerCase();
-    if (searchCode && !codeVal.includes(searchCode.toLowerCase())) return false;
-    if (searchName && !nameVal.includes(searchName.toLowerCase())) return false;
-    return true;
+    const kw = search.trim().toLowerCase();
+    if (!kw) return true;
+    return searchKeys.some((key) =>
+      String(item[key] ?? "").toLowerCase().includes(kw)
+    );
   });
 
   const handleSelect = (item: T) => {
@@ -86,8 +89,19 @@ export function SearchPopup<T extends Record<string, unknown>>({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      if (filtered.length === 1) handleSelect(filtered[0]);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightIdx((prev) => Math.min(prev + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightIdx((prev) => Math.max(prev - 1, -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlightIdx >= 0 && filtered[highlightIdx]) {
+        handleSelect(filtered[highlightIdx]);
+      } else if (filtered.length === 1) {
+        handleSelect(filtered[0]);
+      }
     }
   };
 
@@ -101,8 +115,7 @@ export function SearchPopup<T extends Record<string, unknown>>({
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => {
-              setSearchCode("");
-              setSearchName("");
+              setSearch("");
             }}>
               초기화
             </Button>
@@ -121,30 +134,18 @@ export function SearchPopup<T extends Record<string, unknown>>({
 
         {/* 검색 조건 */}
         <div className="border-b bg-muted/20 px-4 py-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">{columns[0]?.header}</label>
-              <Input
-                ref={codeInputRef}
-                value={searchCode}
-                onChange={(e) => setSearchCode(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="h-8 text-xs"
-                placeholder={columns[0]?.header}
-              />
-            </div>
-            {columns[1] && (
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">{columns[1].header}</label>
-                <Input
-                  value={searchName}
-                  onChange={(e) => setSearchName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="h-8 text-xs"
-                  placeholder={columns[1].header}
-                />
-              </div>
-            )}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">
+              {columns.map((c) => c.header).join(" / ")}
+            </label>
+            <Input
+              ref={codeInputRef}
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setSelectedKey(null); setHighlightIdx(-1); }}
+              onKeyDown={handleKeyDown}
+              className="h-8 text-xs"
+              placeholder={columns.map((c) => c.header).join(" 또는 ")}
+            />
           </div>
         </div>
 
@@ -178,16 +179,20 @@ export function SearchPopup<T extends Record<string, unknown>>({
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => {
+                filtered.map((item, idx) => {
                   const key = keyExtractor(item);
+                  const isHighlighted = idx === highlightIdx;
                   return (
                     <tr
                       key={key}
+                      ref={isHighlighted ? highlightRowRef : null}
                       className={cn(
                         "cursor-pointer border-b hover:bg-muted",
-                        selectedKey === key && "bg-sky-100 dark:bg-sky-500/20 dark:text-foreground ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
+                        isHighlighted
+                          ? "bg-sky-100 dark:bg-sky-500/20 dark:text-foreground ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
+                          : selectedKey === key && "bg-sky-100 dark:bg-sky-500/20 dark:text-foreground ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
                       )}
-                      onClick={() => setSelectedKey(key)}
+                      onClick={() => { setSelectedKey(key); setHighlightIdx(idx); }}
                       onDoubleClick={() => handleSelect(item)}
                     >
                       {columns.map((col) => (

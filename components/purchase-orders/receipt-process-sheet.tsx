@@ -9,7 +9,9 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { apiPath } from "@/lib/api-path";
 import { Loader2, PackageCheck } from "lucide-react";
 import type { PurchaseOrder, PurchaseOrderSummary, POStatus } from "@/types/purchase";
 
@@ -52,7 +54,7 @@ export function ReceiptProcessSheet({ open, onClose, selectedPOs, onComplete }: 
     setLoading(true);
     Promise.all(
       selectedPOs.map((po) =>
-        fetch(`/api/purchase-orders/${po.id}`)
+        fetch(apiPath(`/api/purchase-orders/${po.id}`))
           .then((r) => r.json())
           .then((d) => d.data as PurchaseOrder)
       )
@@ -244,8 +246,7 @@ export function ReceiptProcessSheet({ open, onClose, selectedPOs, onComplete }: 
                               {formatCurrency(row.receiveQty * row.unitPrice)}
                             </td>
                             <td className="px-2 py-1.5 text-center">
-                              <input
-                                type="date"
+                              <DateInput
                                 value={row.receiveDate}
                                 disabled={!row.included}
                                 onChange={(e) =>

@@ -24,6 +24,7 @@ import type { PurchaserRecord } from "@/types/purchaser";
 import { Upload, X, Download } from "lucide-react";
 import { SearchPanel } from "@/components/common/search-panel";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
+import { apiPath } from "@/lib/api-path";
 import {
   PrimaryActionButton,
   SecondaryActionButton,
@@ -82,7 +83,7 @@ export default function PurchasersPage() {
   const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/purchasers");
+      const r = await fetch(apiPath("/api/purchasers"));
       const data = await r.json();
       if (data?.ok) {
         setRows(
@@ -553,7 +554,7 @@ export default function PurchasersPage() {
 
         // DB 저장
         try {
-          const res = await fetch("/api/purchasers/import", {
+          const res = await fetch(apiPath("/api/purchasers/import"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ items: newPurchasers }),
@@ -570,7 +571,7 @@ export default function PurchasersPage() {
           const dbSkipped: number = saved.skipped ?? 0;
 
           // 저장 성공 → DB에서 다시 로딩하여 ID 포함한 최신 데이터 반영
-          const listRes = await fetch("/api/purchasers");
+          const listRes = await fetch(apiPath("/api/purchasers"));
           const listData = await listRes.json();
           if (listData?.ok) {
             setRows(
@@ -671,7 +672,7 @@ export default function PurchasersPage() {
                 );
                 if (!ok) return;
                 try {
-                  const res = await fetch(`/api/purchasers/${selectedRowId}`, {
+                  const res = await fetch(apiPath(`/api/purchasers/${selectedRowId}`), {
                     method: "DELETE",
                   });
                   const data = await res.json();
@@ -1106,7 +1107,7 @@ export default function PurchasersPage() {
         mode="create"
         onSave={async (draft) => {
           try {
-            const res = await fetch("/api/purchasers", {
+            const res = await fetch(apiPath("/api/purchasers"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),
@@ -1151,7 +1152,7 @@ export default function PurchasersPage() {
         onSave={async (draft) => {
           if (!selectedRowId) return;
           try {
-            const res = await fetch(`/api/purchasers/${selectedRowId}`, {
+            const res = await fetch(apiPath(`/api/purchasers/${selectedRowId}`), {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),

@@ -24,6 +24,7 @@ import { SearchPanel } from "@/components/common/search-panel";
 import { ItemTypeRegisterSheet } from "@/components/item-types/item-type-register-sheet";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 import { itemTypes as mockData } from "@/lib/mock/item-types";
+import { apiPath } from "@/lib/api-path";
 
 interface FilterState {
   itemTypeCode: string;
@@ -74,7 +75,7 @@ export default function ItemTypesPage() {
   const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/item-types");
+      const r = await fetch(apiPath("/api/item-types"));
       const data = await r.json();
       if (data?.ok) {
         setRows(
@@ -188,7 +189,7 @@ export default function ItemTypesPage() {
               );
               if (!ok) return;
               try {
-                const res = await fetch(`/api/item-types/${selectedRowId}`, { method: "DELETE" });
+                const res = await fetch(apiPath(`/api/item-types/${selectedRowId}`), { method: "DELETE" });
                 const data = await res.json();
                 if (!data.ok) { alert("삭제 실패: " + (data.message ?? "")); return; }
                 setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
@@ -346,7 +347,7 @@ export default function ItemTypesPage() {
         mode="create"
         onSave={async (draft) => {
           try {
-            const res = await fetch("/api/item-types", {
+            const res = await fetch(apiPath("/api/item-types"), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),
@@ -376,7 +377,7 @@ export default function ItemTypesPage() {
         onSave={async (draft) => {
           if (!selectedRowId) return;
           try {
-            const res = await fetch(`/api/item-types/${selectedRowId}`, {
+            const res = await fetch(apiPath(`/api/item-types/${selectedRowId}`), {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(draft),

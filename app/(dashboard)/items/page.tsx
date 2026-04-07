@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -38,7 +39,8 @@ import {
 } from "lucide-react";
 import type { ItemRegisterBasicInfo } from "@/types/item-register";
 import { defaultItemRegisterState } from "@/types/item-register";
-import { storageLocations } from "@/lib/mock/storage-locations";
+import type { StorageLocationRecord } from "@/lib/mock/storage-locations";
+import { apiPath } from "@/lib/api-path";
 
 const ItemRegisterSheet = dynamic(
   () =>
@@ -703,15 +705,17 @@ export default function ItemsPage() {
   const [modelCodeMap, setModelCodeMap] = useState<Record<string, string>>({});
   const [warehouseMap, setWarehouseMap] = useState<Record<string, string>>({});
   const [plantMap, setPlantMap] = useState<Record<string, string>>({});
+  const [storageLocations, setStorageLocations] = useState<StorageLocationRecord[]>([]);
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/item-type-codes").then((r) => r.json()),
-      fetch("/api/item-types").then((r) => r.json()),
-      fetch("/api/model-codes").then((r) => r.json()),
-      fetch("/api/common-codes?category=warehouse").then((r) => r.json()),
-      fetch("/api/common-codes?category=plant").then((r) => r.json()),
-    ]).then(([formData, typeData, modelData, whData, plantData]) => {
+      fetch(apiPath("/api/item-type-codes")).then((r) => r.json()),
+      fetch(apiPath("/api/item-types")).then((r) => r.json()),
+      fetch(apiPath("/api/model-codes")).then((r) => r.json()),
+      fetch(apiPath("/api/common-codes?category=warehouse")).then((r) => r.json()),
+      fetch(apiPath("/api/common-codes?category=plant")).then((r) => r.json()),
+      fetch(apiPath("/api/storage-locations")).then((r) => r.json()),
+    ]).then(([formData, typeData, modelData, whData, plantData, slData]) => {
       if (formData.ok)
         setItemTypeCodeMap(Object.fromEntries((formData.items as { ItemTypeCode: string; ItemTypeName: string }[]).map((x) => [x.ItemTypeCode, x.ItemTypeName])));
       if (typeData.ok)
@@ -722,13 +726,15 @@ export default function ItemsPage() {
         setWarehouseMap(Object.fromEntries((whData.items as { Code: string; Name: string }[]).map((x) => [x.Code, x.Name])));
       if (plantData.ok)
         setPlantMap(Object.fromEntries((plantData.items as { Code: string; Name: string }[]).map((x) => [x.Code, x.Name])));
+      if (slData.ok)
+        setStorageLocations(slData.items as StorageLocationRecord[]);
     }).catch(() => {});
   }, []);
 
   const handleSearch = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/items");
+      const r = await fetch(apiPath("/api/items"));
       const data = await r.json();
       if (data.ok) {
         setRows(
@@ -792,6 +798,8 @@ export default function ItemsPage() {
               customerWarehouse: it.CustomerWarehouse ?? undefined,
               deliveryContainer: it.DeliveryContainer ?? undefined,
               receiptContainer: it.ReceiptContainer ?? undefined,
+              warehouse: it.Warehouse ?? "",
+              storageLocation: it.StorageLocation ?? "",
             }))
           );
         }
@@ -1520,7 +1528,7 @@ export default function ItemsPage() {
 
         // DB 저장
         try {
-          const res = await fetch("/api/items/import", {
+          const res = await fetch(apiPath("/api/items/import"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ items: newItems }),
@@ -1583,7 +1591,7 @@ export default function ItemsPage() {
                   `선택한 품목을 삭제하시겠습니까?\n\n품목번호: ${target.itemNo}\n품목명: ${target.itemName}`
                 );
                 if (!ok) return;
-                const res = await fetch(`/api/items/${selectedRowId}`, { method: "DELETE" });
+                const res = await fetch(apiPath(`/api/items/${selectedRowId}`), { method: "DELETE" });
                 const data = await res.json();
                 if (!data.ok) { alert("삭제 실패: " + data.message); return; }
                 setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
@@ -1835,8 +1843,7 @@ export default function ItemsPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-slate-700">등록일자</Label>
-                <Input
-                  type="date"
+                <DateInput
                   value={excelRegisterDate}
                   readOnly
                   className="border-slate-300 dark:border-slate-600"
@@ -2199,7 +2206,7 @@ export default function ItemsPage() {
             lNoSpecificGravity: state.technical.lNo || null,
             receiptContainer: state.technical.deliveryContainer || null,
           };
-          const res = await fetch("/api/items", {
+          const res = await fetch(apiPath("/api/items"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -2268,9 +2275,9 @@ export default function ItemsPage() {
                   currencyCode: editingItem.currencyCode ?? "KRW",
                   purchaseUnitPrice: editingItem.purchaseUnitPrice != null ? String(editingItem.purchaseUnitPrice) : "",
                   warehouse: editingItem.warehouse ?? "",
-                  warehouseName: warehouseMap[editingItem.warehouse ?? ""] ?? "",
+                  warehouseName: warehouseMap[editingItem.warehouse ?? ""] || editingItem.warehouse || "",
                   storageLocation: editingItem.storageLocation ?? "",
-                  storageLocationName: storageLocations.find((s) => s.WarehouseCode === editingItem.warehouse && s.StorageLocationCode === editingItem.storageLocation)?.StorageLocationName ?? "",
+                  storageLocationName: storageLocations.find((s) => s.WarehouseCode === editingItem.warehouse && s.StorageLocationCode === editingItem.storageLocation)?.StorageLocationName || editingItem.storageLocation || "",
                   plant: editingItem.businessUnit ?? "",
                   plantName: plantMap[editingItem.businessUnit ?? ""] ?? "",
                 },
@@ -2336,7 +2343,7 @@ export default function ItemsPage() {
             lNoSpecificGravity: state.technical.lNo || null,
             receiptContainer: state.technical.deliveryContainer || null,
           };
-          const res = await fetch(`/api/items/${editingItem.id}`, {
+          const res = await fetch(apiPath(`/api/items/${editingItem.id}`), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),

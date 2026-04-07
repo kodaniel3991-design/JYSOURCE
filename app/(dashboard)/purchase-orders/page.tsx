@@ -9,6 +9,7 @@ import { POStatusBadge } from "@/components/common/status-badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { poStatusLabels } from "@/lib/mock/purchase-orders";
@@ -28,6 +29,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { apiPath } from "@/lib/api-path";
 
 const statusOptions: SelectOption[] = Object.entries(poStatusLabels).map(
   ([value, label]) => ({ value, label })
@@ -87,7 +89,7 @@ export default function PurchaseOrdersPage() {
 
   // 모델 목록 로드
   useEffect(() => {
-    fetch("/api/items")
+    fetch(apiPath("/api/items"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -109,7 +111,7 @@ export default function PurchaseOrdersPage() {
       if (toDate)               params.set("dateTo",       toDate);
       if (itemCode.trim())      params.set("itemCode",     itemCode.trim());
       if (model.trim())         params.set("model",        model.trim());
-      const res = await fetch(`/api/purchase-orders?${params.toString()}`);
+      const res = await fetch(apiPath(`/api/purchase-orders?${params.toString()}`));
       const data = await res.json();
       setList(data?.items && Array.isArray(data.items) ? data.items : []);
     } catch {
@@ -483,18 +485,16 @@ export default function PurchaseOrdersPage() {
             <div className="flex flex-col gap-1 shrink-0">
               <label className="text-xs font-medium text-muted-foreground">발주일자</label>
               <div className="flex gap-1 items-center">
-                <Input
+                <DateInput
                   ref={refDateFrom}
-                  type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refDateTo.current?.focus(); } }}
                   className="h-8 text-xs w-[130px]"
                 />
                 <span className="text-xs text-muted-foreground shrink-0">~</span>
-                <Input
+                <DateInput
                   ref={refDateTo}
-                  type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refSupplierCode.current?.focus(); } }}
@@ -513,7 +513,7 @@ export default function PurchaseOrdersPage() {
                   onChange={(e) => { setSupplierCode(e.target.value); setSupplierName(""); }}
                   placeholder="코드"
                   className="h-8 text-xs w-32"
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsSupplierPopupOpen(true); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (supplierCode.trim()) { setIsSupplierPopupOpen(true); } else { refItemCode.current?.focus(); } } }}
                 />
                 <Button type="button" variant="outline" size="icon"
                   className="h-8 w-7 shrink-0" onClick={() => setIsSupplierPopupOpen(true)}>
@@ -569,7 +569,8 @@ export default function PurchaseOrdersPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      setModelSubSearch(model); setModelSubIdx(-1); setIsModelPopupOpen(true);
+                      if (model.trim()) { setModelSubSearch(model); setModelSubIdx(-1); setIsModelPopupOpen(true); }
+                      else { refSearchBtn.current?.focus(); }
                     }
                   }}
                 />

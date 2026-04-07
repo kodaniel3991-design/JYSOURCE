@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { SearchPopup } from "@/components/common/search-popup";
 import { ItemSelectModal } from "@/components/common/item-select-modal";
 import { Search, RotateCcw, Plus, Save, Trash2, CheckSquare, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiPath } from "@/lib/api-path";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -136,7 +138,7 @@ export default function PurchaseInputPage() {
   // ── 로그인 사용자 / 사용자 목록 로드 ─────────────────────────────────────────
   useEffect(() => {
     // 로그인 사용자 → 구매담당자 기본값
-    fetch("/api/auth/me")
+    fetch(apiPath("/api/auth/me"))
       .then((r) => r.json())
       .then((d) => {
         if (!d.ok) return;
@@ -147,7 +149,7 @@ export default function PurchaseInputPage() {
       })
       .catch(() => {});
     // 사용자 목록 (팝업용)
-    fetch("/api/users")
+    fetch(apiPath("/api/users"))
       .then((r) => r.json())
       .then((d) => {
         if (!d.ok) return;
@@ -165,7 +167,7 @@ export default function PurchaseInputPage() {
 
   // ── 모델 목록 로드 ────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch("/api/items")
+    fetch(apiPath("/api/items"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -192,7 +194,7 @@ export default function PurchaseInputPage() {
     if (listSearch.dateFrom)     p.set("dateFrom",     listSearch.dateFrom);
     if (listSearch.dateTo)       p.set("dateTo",       listSearch.dateTo);
     setListLoading(true);
-    fetch(`/api/purchase-inputs?${p}`)
+    fetch(apiPath(`/api/purchase-inputs?${p}`))
       .then((r) => r.json())
       .then((d) => { if (d.ok) setList(d.items); })
       .catch(() => {})
@@ -203,7 +205,7 @@ export default function PurchaseInputPage() {
 
   // ── 헤더 단건 로드 ──────────────────────────────────────────────────────────
   const loadHeader = useCallback((id: string) => {
-    fetch(`/api/purchase-inputs/${id}`)
+    fetch(apiPath(`/api/purchase-inputs/${id}`))
       .then((r) => r.json())
       .then((d) => { if (d.ok) setHeader(d.header); })
       .catch(() => {});
@@ -212,7 +214,7 @@ export default function PurchaseInputPage() {
   // ── 매입내역 로드 ────────────────────────────────────────────────────────────
   const loadItems = useCallback((id: string) => {
     setItemsLoading(true);
-    fetch(`/api/purchase-inputs/${id}/items`)
+    fetch(apiPath(`/api/purchase-inputs/${id}/items`))
       .then((r) => r.json())
       .then((d) => { if (d.ok) setInputItems(d.items); })
       .catch(() => {})
@@ -228,7 +230,7 @@ export default function PurchaseInputPage() {
     if (unSearch.dateTo)   p.set("dateTo",   unSearch.dateTo);
     if (unSearch.model)    p.set("model",    unSearch.model);
     setUnLoading(true);
-    fetch(`/api/purchase-inputs/unreceived?${p}`)
+    fetch(apiPath(`/api/purchase-inputs/unreceived?${p}`))
       .then((r) => r.json())
       .then((d) => {
         if (d.ok) {
@@ -280,7 +282,7 @@ export default function PurchaseInputPage() {
     setSaving(true);
     try {
       if (isNew) {
-        const res  = await fetch("/api/purchase-inputs", {
+        const res  = await fetch(apiPath("/api/purchase-inputs"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(header),
@@ -292,7 +294,7 @@ export default function PurchaseInputPage() {
         loadList();
         loadItems(data.id);
       } else if (selectedId) {
-        const res = await fetch(`/api/purchase-inputs/${selectedId}`, {
+        const res = await fetch(apiPath(`/api/purchase-inputs/${selectedId}`), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(header),
@@ -310,7 +312,7 @@ export default function PurchaseInputPage() {
   const handleDeleteHeader = async () => {
     if (!selectedId) return;
     if (!confirm("이 매입 실적을 삭제하시겠습니까?")) return;
-    await fetch(`/api/purchase-inputs/${selectedId}`, { method: "DELETE" });
+    await fetch(apiPath(`/api/purchase-inputs/${selectedId}`), { method: "DELETE" });
     setSelectedId(null);
     setIsNew(false);
     setHeader(emptyHeader());
@@ -323,7 +325,7 @@ export default function PurchaseInputPage() {
     if (!selectedId || !selectedItemIds.size) return;
     if (!confirm(`선택한 ${selectedItemIds.size}건을 삭제하시겠습니까?`)) return;
     for (const itemId of Array.from(selectedItemIds)) {
-      await fetch(`/api/purchase-inputs/${selectedId}/items/${itemId}`, { method: "DELETE" });
+      await fetch(apiPath(`/api/purchase-inputs/${selectedId}/items/${itemId}`), { method: "DELETE" });
     }
     setSelectedItemIds(new Set());
     loadItems(selectedId);
@@ -349,7 +351,7 @@ export default function PurchaseInputPage() {
       purchaseOrderNo:  i.poNumber,
     }));
 
-    const res  = await fetch(`/api/purchase-inputs/${selectedId}/items`, {
+    const res  = await fetch(apiPath(`/api/purchase-inputs/${selectedId}/items`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -424,11 +426,11 @@ export default function PurchaseInputPage() {
           </div>
           {/* 2행: 일자 범위 */}
           <div className="flex gap-1 items-center mb-1">
-            <Input type="date" value={listSearch.dateFrom}
+            <DateInput value={listSearch.dateFrom}
               onChange={(e) => setListSearch((p) => ({ ...p, dateFrom: e.target.value }))}
               className="h-7 text-xs flex-1" />
             <span className="text-xs text-muted-foreground shrink-0">~</span>
-            <Input type="date" value={listSearch.dateTo}
+            <DateInput value={listSearch.dateTo}
               onChange={(e) => setListSearch((p) => ({ ...p, dateTo: e.target.value }))}
               className="h-7 text-xs flex-1" />
           </div>
@@ -525,7 +527,7 @@ export default function PurchaseInputPage() {
                       supplierDebounceRef.current = setTimeout(async () => {
                         if (!v.trim()) return;
                         try {
-                          const res = await fetch("/api/purchasers");
+                          const res = await fetch(apiPath("/api/purchasers"));
                           const data = await res.json();
                           if (data?.ok && Array.isArray(data.items)) {
                             const match = data.items.find(
@@ -545,7 +547,7 @@ export default function PurchaseInputPage() {
                         if (supplierDebounceRef.current) clearTimeout(supplierDebounceRef.current);
                         const v = header.supplierCode.trim();
                         if (!v) return;
-                        fetch("/api/purchasers")
+                        fetch(apiPath("/api/purchasers"))
                           .then((r) => r.json())
                           .then((data) => {
                             if (data?.ok && Array.isArray(data.items)) {
@@ -575,7 +577,7 @@ export default function PurchaseInputPage() {
                 {/* 매입일자 */}
                 <div className="grid grid-cols-[110px_1fr] gap-1 items-center">
                   <Label className={FLD}>매입일자 <span className="text-destructive ml-0.5">*</span></Label>
-                  <Input type="date" value={header.inputDate}
+                  <DateInput value={header.inputDate}
                     readOnly={isFormLocked}
                     onChange={(e) => { if (!isFormLocked) hd("inputDate", e.target.value); }}
                     className={cn(REQ, isFormLocked && "opacity-60 cursor-not-allowed")} />
@@ -794,11 +796,11 @@ export default function PurchaseInputPage() {
                     <div className="flex flex-col gap-1 shrink-0">
                       <label className="text-xs font-medium text-muted-foreground">입고일자</label>
                       <div className="flex gap-1 items-center">
-                        <Input type="date" value={unSearch.dateFrom}
+                        <DateInput value={unSearch.dateFrom}
                           onChange={(e) => setUnSearch((p) => ({ ...p, dateFrom: e.target.value }))}
                           className="h-7 text-xs w-[120px]" />
                         <span className="text-xs text-muted-foreground">~</span>
-                        <Input type="date" value={unSearch.dateTo}
+                        <DateInput value={unSearch.dateTo}
                           onChange={(e) => setUnSearch((p) => ({ ...p, dateTo: e.target.value }))}
                           className="h-7 text-xs w-[120px]" />
                       </div>
@@ -940,7 +942,7 @@ export default function PurchaseInputPage() {
         open={isSupplierOpen}
         onOpenChange={setIsSupplierOpen}
         title="구매처"
-        apiUrl="/api/purchasers"
+        apiUrl={apiPath("/api/purchasers")}
         columns={[
           { key: "PurchaserNo", header: "구매처번호", width: 120 },
           { key: "PurchaserName", header: "구매처명" },

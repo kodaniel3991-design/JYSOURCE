@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { purchaseOrders, poStatusLabels } from "@/lib/mock/purchase-orders";
 import { SearchPanel } from "@/components/common/search-panel";
 import type { PurchaseOrder, POItem } from "@/types/purchase";
+import { DateInput } from "@/components/ui/date-input";
 
 type ReceiptStatusRow = {
   id: string;
@@ -315,8 +316,7 @@ export default function PurchaseReceiptStatusPage() {
           <div className="space-y-1">
             <span className="text-[12px] text-slate-600">입고예정일자</span>
             <div className="flex items-center gap-1">
-              <input
-                type="date"
+              <DateInput
                 value={draft.fromDueDate}
                 onChange={(e) =>
                   setDraft((prev) => ({
@@ -327,8 +327,7 @@ export default function PurchaseReceiptStatusPage() {
                 className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
               />
               <span className="text-[11px] text-muted-foreground">~</span>
-              <input
-                type="date"
+              <DateInput
                 value={draft.toDueDate}
                 onChange={(e) =>
                   setDraft((prev) => ({
@@ -343,8 +342,7 @@ export default function PurchaseReceiptStatusPage() {
           <div className="space-y-1">
             <span className="text-[12px] text-slate-600">발주일자</span>
             <div className="flex items-center gap-1">
-              <input
-                type="date"
+              <DateInput
                 value={draft.fromOrderDate}
                 onChange={(e) =>
                   setDraft((prev) => ({
@@ -355,8 +353,7 @@ export default function PurchaseReceiptStatusPage() {
                 className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-xs"
               />
               <span className="text-[11px] text-muted-foreground">~</span>
-              <input
-                type="date"
+              <DateInput
                 value={draft.toOrderDate}
                 onChange={(e) =>
                   setDraft((prev) => ({

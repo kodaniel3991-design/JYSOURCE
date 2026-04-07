@@ -5,12 +5,14 @@ import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Select } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ItemSelectModal } from "@/components/common/item-select-modal";
 import { SupplierSelectPopup } from "@/components/common/supplier-select-popup";
 import { formatCurrency } from "@/lib/utils";
 import { Search, RotateCcw, Save, PackageCheck, X, Printer, FileText, ChevronDown } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -233,7 +235,7 @@ export default function PurchaseReceiptsPage() {
 
   const [warehouseOptions, setWarehouseOptions] = useState<{ value: string; label: string; displayLabel?: string }[]>([]);
   useEffect(() => {
-    fetch("/api/common-codes?category=warehouse")
+    fetch(apiPath("/api/common-codes?category=warehouse"))
       .then((r) => r.json())
       .then((data) => {
         if (data.ok)
@@ -282,7 +284,7 @@ export default function PurchaseReceiptsPage() {
 
   // 모델 목록 로드 (최초 1회)
   useEffect(() => {
-    fetch("/api/items")
+    fetch(apiPath("/api/items"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -332,7 +334,7 @@ export default function PurchaseReceiptsPage() {
     if (!editingHistoryId || historySaving) return;
     setHistorySaving(true);
     try {
-      const res = await fetch(`/api/purchase-receipts/history/${editingHistoryId}`, {
+      const res = await fetch(apiPath(`/api/purchase-receipts/history/${editingHistoryId}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -378,7 +380,7 @@ export default function PurchaseReceiptsPage() {
     if (hModel.trim())        params.set("model",         hModel.trim());
 
     setHistoryLoading(true);
-    fetch(`/api/purchase-receipts/history?${params}`)
+    fetch(apiPath(`/api/purchase-receipts/history?${params}`))
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
@@ -458,7 +460,7 @@ export default function PurchaseReceiptsPage() {
   const loadAllPending = async () => {
     setLoadingFlat(true);
     try {
-      const res = await fetch("/api/purchase-receipts");
+      const res = await fetch(apiPath("/api/purchase-receipts"));
       const data = await res.json();
       if (!data.ok) return;
       const pos: POListItem[] = data.items;
@@ -468,7 +470,7 @@ export default function PurchaseReceiptsPage() {
       await Promise.all(
         pos.map(async (po) => {
           try {
-            const d = await fetch(`/api/purchase-receipts/${po.id}`).then((r) => r.json());
+            const d = await fetch(apiPath(`/api/purchase-receipts/${po.id}`)).then((r) => r.json());
             if (d.ok) {
               (d.specRows as SpecRow[]).forEach((row) =>
                 allRows.push({ ...row, poId: po.id, poNumber: po.orderNumber, supplierCode: po.supplierId, supplierName: po.supplierName, orderDate: po.orderDate, uid: `${po.id}::${row.itemCode}` })
@@ -521,7 +523,7 @@ export default function PurchaseReceiptsPage() {
     const receiptNos: string[] = [];
     try {
       for (const [poId, rows] of Array.from(byPo.entries())) {
-        const res = await fetch(`/api/purchase-receipts/${poId}/receive`, {
+        const res = await fetch(apiPath(`/api/purchase-receipts/${poId}/receive`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -560,7 +562,7 @@ export default function PurchaseReceiptsPage() {
       for (const [poId, rows] of Array.from(byPo.entries())) {
         const po = poList.find((p) => p.id === poId);
         if (!po) continue;
-        const res = await fetch(`/api/purchase-receipts/${poId}/return`, {
+        const res = await fetch(apiPath(`/api/purchase-receipts/${poId}/return`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -907,17 +909,17 @@ export default function PurchaseReceiptsPage() {
                   <div className="flex flex-col gap-1 shrink-0">
                     <label className="text-xs font-medium text-muted-foreground">입고일자</label>
                     <div className="flex gap-1 items-center">
-                      <Input
+                      <DateInput
                         ref={refDateFrom}
-                        type="date" value={hDateFrom}
+                        value={hDateFrom}
                         onChange={(e) => setHDateFrom(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refDateTo.current?.focus(); } }}
                         className="h-7 text-xs w-[130px]"
                       />
                       <span className="text-xs text-muted-foreground shrink-0">~</span>
-                      <Input
+                      <DateInput
                         ref={refDateTo}
-                        type="date" value={hDateTo}
+                        value={hDateTo}
                         onChange={(e) => setHDateTo(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refItemCode.current?.focus(); } }}
                         className="h-7 text-xs w-[130px]"
@@ -1177,9 +1179,8 @@ export default function PurchaseReceiptsPage() {
                                 </td>
                                 {/* 입고일자 편집 */}
                                 <td className="px-1 py-0.5">
-                                  <input
+                                  <DateInput
                                     ref={editDateRef}
-                                    type="date"
                                     value={historyDraft.receiptDate}
                                     onChange={(e) => setHistoryDraft((d) => ({ ...d, receiptDate: e.target.value }))}
                                     onKeyDown={(e) => {
@@ -1327,17 +1328,17 @@ export default function PurchaseReceiptsPage() {
                   <div className="flex flex-col gap-1 shrink-0">
                     <label className="text-xs font-medium text-muted-foreground">발주일자</label>
                     <div className="flex gap-1 items-center">
-                      <Input
+                      <DateInput
                         ref={rRefDateFrom}
-                        type="date" value={searchDateFrom}
+                        value={searchDateFrom}
                         onChange={(e) => setSearchDateFrom(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); rRefDateTo.current?.focus(); } }}
                         className="h-7 text-xs w-[130px]"
                       />
                       <span className="text-xs text-muted-foreground shrink-0">~</span>
-                      <Input
+                      <DateInput
                         ref={rRefDateTo}
-                        type="date" value={searchDateTo}
+                        value={searchDateTo}
                         onChange={(e) => setSearchDateTo(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); rRefItemCode.current?.focus(); } }}
                         className="h-7 text-xs w-[130px]"
@@ -1629,7 +1630,7 @@ export default function PurchaseReceiptsPage() {
                                   />
                                 </td>
                                 <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10">
-                                  <Input type="date" value={row.receiptDate}
+                                  <DateInput value={row.receiptDate}
                                     onChange={(e) => updateRow(row.uid, "receiptDate", e.target.value)}
                                     className="h-6 w-full text-xs px-1 dark:bg-amber-500/10 dark:border-amber-600/30 dark:text-foreground"
                                   />

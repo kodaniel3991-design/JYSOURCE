@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import { SupplierSelectPopup } from "./supplier-select-popup";
+import { apiPath } from "@/lib/api-path";
 
 export type ItemModalItem = {
   itemCode: string;
@@ -50,7 +51,7 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName }: 
 
   // 품목 마스터 로드 (최초 1회)
   useEffect(() => {
-    fetch("/api/items")
+    fetch(apiPath("/api/items"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -80,7 +81,7 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName }: 
   // 구매처 단가 필터 로드
   useEffect(() => {
     if (!open) return;
-    fetch("/api/purchase-prices")
+    fetch(apiPath("/api/purchase-prices"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;

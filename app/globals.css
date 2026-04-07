@@ -7,7 +7,7 @@
   font-weight: 45 920;
   font-style: normal;
   font-display: swap;
-  src: url("/fonts/Pretendard/web/variable/woff2/PretendardVariable.woff2")
+  src: url("../public/fonts/Pretendard/web/variable/woff2/PretendardVariable.woff2")
     format("woff2-variations");
 }
 

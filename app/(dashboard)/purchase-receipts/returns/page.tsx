@@ -5,10 +5,12 @@ import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { ItemSelectModal } from "@/components/common/item-select-modal";
 import { SupplierSelectPopup } from "@/components/common/supplier-select-popup";
 import { formatCurrency } from "@/lib/utils";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
+import { apiPath } from "@/lib/api-path";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -103,7 +105,7 @@ export default function PurchaseReturnsPage() {
 
   // ── 모델 목록 로드 ─────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch("/api/items")
+    fetch(apiPath("/api/items"))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -135,7 +137,7 @@ export default function PurchaseReturnsPage() {
 
     setLoading(true);
     setSelectedReceiptNo(null);
-    fetch(`/api/purchase-receipts/history?${params}`)
+    fetch(apiPath(`/api/purchase-receipts/history?${params}`))
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
@@ -487,17 +489,17 @@ export default function PurchaseReturnsPage() {
               <div className="flex flex-col gap-1 shrink-0">
                 <label className="text-xs font-medium text-muted-foreground">반품일자</label>
                 <div className="flex gap-1 items-center">
-                  <Input
+                  <DateInput
                     ref={refDateFrom}
-                    type="date" value={dateFrom}
+                    value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refDateTo.current?.focus(); } }}
                     className="h-7 text-xs w-[130px]"
                   />
                   <span className="text-xs text-muted-foreground shrink-0">~</span>
-                  <Input
+                  <DateInput
                     ref={refDateTo}
-                    type="date" value={dateTo}
+                    value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refItemCode.current?.focus(); } }}
                     className="h-7 text-xs w-[130px]"
