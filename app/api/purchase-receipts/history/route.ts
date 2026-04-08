@@ -70,7 +70,7 @@ export async function GET(request: Request) {
         po.SupplierName,
         po.BuyerName,
         po.BusinessPlace,
-        poi.SpecNo,
+        ISNULL(rh.SeqNo, poi.SpecNo) AS SpecNo,
         ISNULL(rh.UnitPrice, poi.UnitPrice) AS UnitPrice,
         poi.Quantity AS OrderedQty,
         im.StorageLocation,
@@ -79,19 +79,29 @@ export async function GET(request: Request) {
       FROM dbo.ReceiptHistory rh
       JOIN dbo.PurchaseOrder po ON po.Id = rh.PurchaseOrderId
       LEFT JOIN dbo.PurchaseOrderItem poi
-        ON poi.PurchaseOrderId = rh.PurchaseOrderId AND poi.ItemCode = rh.ItemCode
+        ON poi.PurchaseOrderId = rh.PurchaseOrderId
+        AND (
+          (rh.SeqNo IS NOT NULL AND poi.SpecNo    = rh.SeqNo)
+          OR
+          (rh.SeqNo IS NULL     AND poi.ItemCode  = rh.ItemCode
+            AND poi.SpecNo = (
+              SELECT MIN(SpecNo) FROM dbo.PurchaseOrderItem
+              WHERE PurchaseOrderId = rh.PurchaseOrderId AND ItemCode = rh.ItemCode
+            )
+          )
+        )
       LEFT JOIN dbo.ItemMaster im ON im.ItemNo = rh.ItemCode
       WHERE 1=1
-        AND (@DateFrom     IS NULL OR rh.ReceiptDate  >= @DateFrom)
-        AND (@DateTo       IS NULL OR rh.ReceiptDate  <= @DateTo)
-        AND (@ItemCode     IS NULL OR rh.ItemCode     LIKE @ItemCode + '%')
-        AND (@PoNumber     IS NULL OR po.PoNumber     LIKE '%' + @PoNumber + '%')
-        AND (@Warehouse    IS NULL OR rh.Warehouse    = @Warehouse)
-        AND (@SupplierCode IS NULL OR po.SupplierCode LIKE @SupplierCode + '%')
-        AND (@Type         IS NULL OR rh.Type         = @Type)
+        AND (@DateFrom      IS NULL OR rh.ReceiptDate   >= @DateFrom)
+        AND (@DateTo        IS NULL OR rh.ReceiptDate   <= @DateTo)
+        AND (@ItemCode      IS NULL OR rh.ItemCode      LIKE @ItemCode + '%')
+        AND (@PoNumber      IS NULL OR po.PoNumber      LIKE '%' + @PoNumber + '%')
+        AND (@Warehouse     IS NULL OR rh.Warehouse     = @Warehouse)
+        AND (@SupplierCode  IS NULL OR po.SupplierCode  LIKE @SupplierCode + '%')
+        AND (@Type          IS NULL OR rh.Type          = @Type)
         AND (@BusinessPlace IS NULL OR po.BusinessPlace = @BusinessPlace)
-        AND (@Model        IS NULL OR im.VehicleModel  LIKE '%' + @Model + '%')
-      ORDER BY rh.ReceiptDate DESC, rh.ProcessedAt DESC
+        AND (@Model         IS NULL OR im.VehicleModel  LIKE '%' + @Model + '%')
+      ORDER BY po.PoNumber ASC, ISNULL(rh.SeqNo, poi.SpecNo) ASC, rh.ProcessedAt DESC
     `);
 
     const items = result.recordset.map((r: Record<string, unknown>) => {

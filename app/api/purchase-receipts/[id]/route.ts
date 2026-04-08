@@ -18,9 +18,14 @@ async function ensureReceiptHistoryTable(pool: Awaited<ReturnType<typeof getDbPo
         Warehouse       NVARCHAR(20)   NULL,
         LotNo           NVARCHAR(100)  NULL,
         Note            NVARCHAR(500)  NULL,
+        SeqNo           INT            NULL,
         CONSTRAINT FK_ReceiptHistory_PurchaseOrder
           FOREIGN KEY (PurchaseOrderId) REFERENCES dbo.PurchaseOrder(Id) ON DELETE CASCADE
       );
+    END
+    ELSE IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.ReceiptHistory') AND name = N'SeqNo')
+    BEGIN
+      ALTER TABLE dbo.ReceiptHistory ADD SeqNo INT NULL;
     END
   `);
 }
@@ -83,7 +88,7 @@ export async function GET(
           rh.Type, rh.ItemCode, rh.ItemName,
           rh.Qty,
           CONVERT(NVARCHAR(10), rh.ReceiptDate, 23) AS ReceiptDate,
-          rh.Warehouse, rh.LotNo, rh.Note,
+          rh.Warehouse, rh.LotNo, rh.Note, rh.SeqNo,
           ISNULL(im.Unit, '')            AS Unit,
           ISNULL(im.VehicleModel, '')    AS VehicleModel,
           ISNULL(im.StorageLocation, '') AS StorageLocation
@@ -108,6 +113,7 @@ export async function GET(
       unit:            String(r.Unit ?? ""),
       vehicleModel:    String(r.VehicleModel ?? ""),
       storageLocation: String(r.StorageLocation ?? ""),
+      specNo:          r.SeqNo != null ? Number(r.SeqNo) : null,
     }));
 
     return NextResponse.json({ ok: true, specRows, history });

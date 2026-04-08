@@ -88,6 +88,7 @@ function DateInput({ value = "", onChange, onKeyDown, className, disabled, readO
 
   const handleDayKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace" && day === "") { monthRef.current?.focus(); monthRef.current?.select(); }
+    else if (e.key === "Enter") onKeyDown?.(e);
   };
 
   return (

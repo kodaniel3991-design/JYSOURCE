@@ -22,14 +22,17 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { History, Upload, Download, X } from "lucide-react";
+import { History, Upload, Download, X, Search } from "lucide-react";
 import { useEnterNavigation } from "@/lib/hooks/use-enter-navigation";
 import { SearchPanel } from "@/components/common/search-panel";
 import { apiPath } from "@/lib/api-path";
+import { ItemSelectModal } from "@/components/common/item-select-modal";
+import { SupplierSelectPopup } from "@/components/common/supplier-select-popup";
 
 interface PurchasePriceFilterState {
   itemCode: string;
   itemName: string;
+  supplierCode: string;
   supplierName: string;
 }
 
@@ -81,8 +84,11 @@ export default function PurchasePricesPage() {
   const [filters, setFilters] = useCachedState<PurchasePriceFilterState>("purchase-prices/filters", {
     itemCode: "",
     itemName: "",
+    supplierCode: "",
     supplierName: "",
   });
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [isSupplierPopupOpen, setIsSupplierPopupOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -96,7 +102,7 @@ export default function PurchasePricesPage() {
   const [compactView, setCompactView] = useState(true);
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>([
     "__no__", "itemCode", "itemName", "itemSpec", "itemMaterialName",
-    "supplierCode", "applyDate", "unitPrice", "isTempPrice",
+    "supplierCode", "supplierName", "applyDate", "unitPrice", "isTempPrice",
     "warehouseCode", "storageLocationCode", "orderRate", "priceNotUsed",
     "outsourcingOrderIssue", "outsourcingMethod", "outsourcingReceiptItemCode",
     "workOrderNo", "plant", "validDate", "validDateAdjust", "currencyCode",
@@ -128,6 +134,7 @@ export default function PurchasePricesPage() {
     setFilters({
       itemCode: "",
       itemName: "",
+      supplierCode: "",
       supplierName: "",
     });
     setSelectedRowId(null);
@@ -144,10 +151,14 @@ export default function PurchasePricesPage() {
       )
         return false;
       if (
+        filters.supplierCode &&
+        !(row.supplierCode ?? "").toLowerCase().includes(filters.supplierCode.toLowerCase())
+      )
+        return false;
+      if (
+        !filters.supplierCode &&
         filters.supplierName &&
-        !(row.supplierName ?? row.supplierCode ?? "")
-          .toLowerCase()
-          .includes(filters.supplierName.toLowerCase())
+        !(row.supplierName ?? "").toLowerCase().includes(filters.supplierName.toLowerCase())
       )
         return false;
       return true;
@@ -184,8 +195,15 @@ export default function PurchasePricesPage() {
       { key: "itemName", header: "품목명", minWidth: 160, maxWidth: 200 },
       { key: "itemSpec", header: "품목규격", minWidth: 180, maxWidth: 220 },
       { key: "itemMaterialName", header: "품목재질명", minWidth: 100, maxWidth: 120 },
-      { key: "supplierCode", header: "구매처번호", minWidth: 100, maxWidth: 120 },
-      { key: "applyDate", header: "적용일자", minWidth: 100, maxWidth: 110 },
+      { key: "supplierCode", header: "구매처코드", minWidth: 100, maxWidth: 120 },
+      { key: "supplierName", header: "구매처명", minWidth: 140, maxWidth: 180 },
+      {
+        key: "applyDate",
+        header: "적용일자",
+        minWidth: 100,
+        maxWidth: 110,
+        cell: (r) => r.applyDate ? String(r.applyDate).slice(0, 10) : "",
+      },
       {
         key: "unitPrice",
         header: "구매단가",
@@ -634,37 +652,68 @@ export default function PurchasePricesPage() {
       />
 
       <SearchPanel
-        description="품목번호·품목명·구매처명으로 구매단가를 조회합니다."
+        description="품목번호·구매처로 구매단가를 조회합니다."
         onSearch={handleSearch}
         onReset={resetFilters}
         totalCountLabel={`총 ${filteredList.length.toLocaleString("ko-KR")}건이 조회되었습니다.`}
       >
-        <div ref={searchRef} className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1">
-            <Label className="text-[14px] text-slate-600">품목번호</Label>
-            <Input
-              value={filters.itemCode}
-              onChange={(e) => handleFilterChange("itemCode", e.target.value)}
-              className="h-8 text-xs"
-            />
+        <div ref={searchRef} className="flex flex-wrap gap-4">
+          {/* 품목번호 */}
+          <div className="flex flex-col gap-1 shrink-0">
+            <Label className="text-xs font-medium text-muted-foreground">품목번호</Label>
+            <div className="flex gap-1">
+              <Input
+                value={filters.itemCode}
+                onChange={(e) => {
+                  handleFilterChange("itemCode", e.target.value);
+                  handleFilterChange("itemName", "");
+                }}
+                placeholder="품목번호"
+                className="h-8 text-xs w-36"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); setIsItemModalOpen(true); }
+                }}
+              />
+              <Button type="button" variant="outline" size="icon"
+                className="h-8 w-8 shrink-0" onClick={() => setIsItemModalOpen(true)}>
+                <Search className="h-3.5 w-3.5" />
+              </Button>
+              <Input
+                value={filters.itemName}
+                readOnly
+                placeholder="품목명"
+                className="h-8 text-xs w-48 bg-muted text-muted-foreground"
+              />
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-[14px] text-slate-600">품목명</Label>
-            <Input
-              value={filters.itemName}
-              onChange={(e) => handleFilterChange("itemName", e.target.value)}
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[14px] text-slate-600">구매처명</Label>
-            <Input
-              value={filters.supplierName}
-              onChange={(e) =>
-                handleFilterChange("supplierName", e.target.value)
-              }
-              className="h-8 text-xs"
-            />
+
+          {/* 구매처 */}
+          <div className="flex flex-col gap-1 shrink-0">
+            <Label className="text-xs font-medium text-muted-foreground">구매처</Label>
+            <div className="flex gap-1">
+              <Input
+                value={filters.supplierCode}
+                onChange={(e) => {
+                  handleFilterChange("supplierCode", e.target.value);
+                  handleFilterChange("supplierName", "");
+                }}
+                placeholder="구매처코드"
+                className="h-8 text-xs w-36"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { e.preventDefault(); setIsSupplierPopupOpen(true); }
+                }}
+              />
+              <Button type="button" variant="outline" size="icon"
+                className="h-8 w-8 shrink-0" onClick={() => setIsSupplierPopupOpen(true)}>
+                <Search className="h-3.5 w-3.5" />
+              </Button>
+              <Input
+                value={filters.supplierName}
+                readOnly
+                placeholder="구매처명"
+                className="h-8 text-xs w-48 bg-muted text-muted-foreground"
+              />
+            </div>
           </div>
         </div>
       </SearchPanel>
@@ -686,6 +735,7 @@ export default function PurchasePricesPage() {
               data={filteredList}
               keyExtractor={(r) => r.id}
               onRowClick={(row) => setSelectedRowId(row.id)}
+              onRowDoubleClick={(row) => { setSelectedRowId(row.id); setEditOpen(true); }}
               selectedRowId={selectedRowId}
               variant={stripedRows ? "striped" : "default"}
               pageSize={filteredList.length || 1}
@@ -834,7 +884,7 @@ export default function PurchasePricesPage() {
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setVisibleColumnKeys(allColumns.map((c) => c.key as string))}>전체 선택</Button>
-                  <Button size="sm" variant="outline" onClick={() => setVisibleColumnKeys(["__no__", "itemCode", "itemName", "supplierCode", "applyDate", "unitPrice"])}>기본값</Button>
+                  <Button size="sm" variant="outline" onClick={() => setVisibleColumnKeys(["__no__", "itemCode", "itemName", "supplierCode", "supplierName", "applyDate", "unitPrice"])}>기본값</Button>
                 </div>
               </div>
             )}
@@ -1086,6 +1136,25 @@ export default function PurchasePricesPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* 품목 선택 팝업 */}
+      <ItemSelectModal
+        open={isItemModalOpen}
+        onOpenChange={setIsItemModalOpen}
+        onSelect={(item) => {
+          setFilters((prev) => ({ ...prev, itemCode: item.itemCode, itemName: item.itemName }));
+        }}
+      />
+
+      {/* 구매처 선택 팝업 */}
+      <SupplierSelectPopup
+        open={isSupplierPopupOpen}
+        onOpenChange={setIsSupplierPopupOpen}
+        initialSearch={filters.supplierCode}
+        onSelect={(no, name) => {
+          setFilters((prev) => ({ ...prev, supplierCode: no, supplierName: name }));
+        }}
+      />
     </div>
   );
 }

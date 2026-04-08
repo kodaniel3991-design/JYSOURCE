@@ -24,7 +24,7 @@ import type {
 } from "@/types/purchase";
 import { MasterListGrid, type MasterListGridColumn } from "@/components/common/master-list-grid";
 import { SearchPopup } from "@/components/common/search-popup";
-import { Plus, Trash2, Search, RotateCcw, Save, X, Send, FileDown, Copy } from "lucide-react";
+import { Plus, Trash2, Search, RotateCcw, Save, X, Send, FileDown, Copy, Clipboard } from "lucide-react";
 import { FieldError } from "@/components/ui/field-error";
 import { apiPath } from "@/lib/api-path";
 
@@ -61,6 +61,8 @@ const defaultSpecRow: Omit<POSpecItemRow, "amount"> = {
   material: "",
   specification: "",
   warehouse: "",
+  storageLocation: "",
+  model: "",
   quantity: 0,
   receivedQty: 0,
   unitPrice: 0,
@@ -85,6 +87,8 @@ type ItemMaster = {
   material?: string;
   spec?: string;
   model?: string;
+  warehouse?: string;
+  storageLocation?: string;
   unitPrice: number;
   supplierId: string;
 };
@@ -98,23 +102,7 @@ export default function CreatePurchaseOrderPage() {
   const [isFormActive, setIsFormActive] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof POBasicFormData, string>>>({});
 
-  // 왼쪽 리스트 컨테이너 높이 기반 동적 페이지 사이즈
   const listContentRef = useRef<HTMLDivElement>(null);
-  const [listPageSize, setListPageSize] = useState(10);
-  useEffect(() => {
-    const el = listContentRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const h = entry.contentRect.height;
-      const rowH = 32;   // h-8 = 32px
-      const headerH = 32; // 테이블 헤더 행
-      const footerH = 44; // 페이지네이션 바
-      const size = Math.max(5, Math.floor((h - headerH - footerH) / rowH));
-      setListPageSize(size);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
   // 공통코드에서 동적 생성
   const [currencyOptions,   setCurrencyOptions]   = useState<SelectOption[]>([]);
   const [vatRateOptions,    setVatRateOptions]    = useState<SelectOption[]>([]);
@@ -188,6 +176,7 @@ export default function CreatePurchaseOrderPage() {
   const itemListScrollRef = useRef<HTMLDivElement>(null);
   const warehouseSelectRefs = useRef<(HTMLSelectElement | null)[]>([]);
   const quantityInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const dueDateInputRefs  = useRef<(HTMLInputElement | null)[]>([]);
   const itemCodeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [activeSpecRowIndex, setActiveSpecRowIndex] = useState(0);
   const [basicForm, setBasicForm] = useState<POBasicFormData>(defaultBasicForm);
@@ -196,6 +185,7 @@ export default function CreatePurchaseOrderPage() {
   const [copyModal, setCopyModal] = useState<{ open: boolean; orderDate: string } | null>(null);
   const [copying, setCopying] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; message: string; onConfirm: () => void } | null>(null);
+  const [pasteModal, setPasteModal] = useState<{ open: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!notifyModal?.open) return;
@@ -310,6 +300,8 @@ export default function CreatePurchaseOrderPage() {
           material: x.Material ?? "",
           spec: x.Specification ?? "",
           model: x.VehicleModel ?? "",
+          warehouse: x.Warehouse ?? "",
+          storageLocation: x.StorageLocation ?? "",
           unitPrice: Number(x.PurchaseUnitPrice ?? 0),
         }));
         setItemMaster(mapped);
@@ -668,6 +660,67 @@ export default function CreatePurchaseOrderPage() {
     setActiveSpecRowIndex(0);
   };
 
+  const handlePasteApply = () => {
+    if (!pasteModal) return;
+    const lines = pasteModal.text
+      .split(/\r?\n/)
+      .map((l) => l.trimEnd())
+      .filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return;
+
+    const added: string[] = [];
+    const notFound: string[] = [];
+    const newRows: POSpecItemRow[] = [];
+
+    for (const line of lines) {
+      // 탭으로 분리(엑셀 다중 열 복사)하되, 없으면 전체를 품목번호로
+      const cols = line.split("\t");
+      const code = cols[0].trim();
+      if (!code) continue;
+
+      // 발주량: 두 번째 열, 쉼표 제거 후 숫자 파싱
+      const rawQty = cols[1]?.trim().replace(/,/g, "") ?? "";
+      const qty = rawQty ? (Number.isFinite(Number(rawQty)) ? Number(rawQty) : 0) : 0;
+
+      // 입고예정일자: 세 번째 열, YYYY-MM-DD 형식 검증
+      const rawDate = cols[2]?.trim() ?? "";
+      const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : "";
+
+      const item = itemMaster.find((i) => i.itemCode.toLowerCase() === code.toLowerCase());
+      if (!item) { notFound.push(code); continue; }
+      const row: POSpecItemRow = {
+        ...getDefaultSpecRow(),
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        material: item.material ?? "",
+        specification: item.spec ?? "",
+        warehouse: item.warehouse ?? "",
+        storageLocation: item.storageLocation ?? "",
+        model: item.model ?? "",
+        unitPrice: item.unitPrice,
+        quantity: qty,
+        amount: qty * item.unitPrice,
+        dueDate,
+      };
+      newRows.push(row);
+      added.push(code);
+    }
+
+    if (newRows.length > 0) {
+      setSpecItems((prev) => {
+        const isEmpty = prev.length === 1 && !prev[0].itemCode;
+        return isEmpty ? newRows : [...prev, ...newRows];
+      });
+    }
+
+    setPasteModal(null);
+
+    const parts: string[] = [];
+    if (added.length > 0) parts.push(`${added.length}개 품목 추가됨`);
+    if (notFound.length > 0) parts.push(`미매칭 ${notFound.length}개: ${notFound.slice(0, 5).join(", ")}${notFound.length > 5 ? " ..." : ""}`);
+    setNotifyModal({ open: true, title: "품목 붙여넣기 결과", message: parts.join("\n") });
+  };
+
   const handleSpecRegister = async () => {
     if (specItems.length === 0 || !specItems.some((r) => r.itemCode)) {
       window.alert("등록할 명세가 없습니다. 품목을 먼저 추가해 주세요.");
@@ -737,25 +790,38 @@ export default function CreatePurchaseOrderPage() {
     });
   };
 
+  /** 팝업 열기 — 검색어 기준 1건이면 즉시 세팅, 아니면 팝업 오픈 */
+  const openItemModal = (rowIndex: number, search: string) => {
+    setActiveSpecRowIndex(rowIndex);
+    setItemSearch(search);
+    const kw = search.trim().toLowerCase();
+    if (kw) {
+      const matched = itemMaster.filter((i) =>
+        i.itemCode.toLowerCase().includes(kw) ||
+        i.itemName.toLowerCase().includes(kw)
+      );
+      if (matched.length === 1) {
+        selectItemFromModal(matched[0], rowIndex);
+        return;
+      }
+    }
+    setIsItemModalOpen(true);
+  };
+
   /** 품목 선택 팝업에서 품목 선택 후 공통 처리 */
   const selectItemFromModal = (item: ItemMaster, rowIndex: number) => {
-    // 다른 행에 이미 동일 품목코드가 있으면 선택 불가
-    const isDuplicate = specItems.some(
-      (r, i) => i !== rowIndex && r.itemCode === item.itemCode
-    );
-    if (isDuplicate) {
-      window.alert(`"${item.itemCode}" 은(는) 이미 명세에 등록된 품목입니다.`);
-      return;
-    }
     updateSpecItem(rowIndex, "itemCode", item.itemCode);
     updateSpecItem(rowIndex, "itemName", item.itemName);
     updateSpecItem(rowIndex, "material", item.material ?? "");
     updateSpecItem(rowIndex, "specification", item.spec ?? "");
+    updateSpecItem(rowIndex, "warehouse", item.warehouse ?? "");
+    updateSpecItem(rowIndex, "storageLocation", item.storageLocation ?? "");
+    updateSpecItem(rowIndex, "model", item.model ?? "");
     updateSpecItem(rowIndex, "unitPrice", item.unitPrice);
     setIsItemModalOpen(false);
     setItemSearch(""); setItemFilterModel(""); setItemFilterSupplierId(""); setItemFilterSupplierName("");
     setItemHighlightIdx(-1);
-    setTimeout(() => warehouseSelectRefs.current[rowIndex]?.focus(), 0);
+    setTimeout(() => quantityInputRefs.current[rowIndex]?.focus(), 0);
   };
 
   const handlePoIssue = () => {
@@ -853,7 +919,7 @@ export default function CreatePurchaseOrderPage() {
 
 <div class="btn-bar">
   <label class="email-label">
-    <input type="checkbox" id="sendEmailCheck" checked>
+    <input type="checkbox" id="sendEmailCheck">
     이메일 발송
   </label>
   <button class="btn-confirm" onclick="
@@ -1118,7 +1184,7 @@ export default function CreatePurchaseOrderPage() {
                 selectedRowId={selectedBasicId ?? undefined}
                 maxHeight="100%"
                 noHorizontalScroll
-                pageSize={listPageSize}
+                disablePagination
                 emptyMessage="등록된 기본정보가 없습니다. 오른쪽에서 등록해 주세요."
                 className="min-w-0"
               />
@@ -1183,6 +1249,10 @@ export default function CreatePurchaseOrderPage() {
                       <Button type="button" variant="outline" size="sm" onClick={handleBulkOpen} disabled={!isFormActive}
                         className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
                         <FileDown className="mr-1.5 h-4 w-4 shrink-0" />일괄등록
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setPasteModal({ open: true, text: "" })} disabled={!isFormActive}
+                        className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
+                        <Clipboard className="mr-1.5 h-4 w-4 shrink-0" />품목붙여넣기
                       </Button>
                       <Button type="button" variant="outline" size="sm" onClick={handlePoIssue} disabled={!isFormActive}
                         className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-40 disabled:pointer-events-none">
@@ -1579,11 +1649,13 @@ export default function CreatePurchaseOrderPage() {
                       <th className="px-2 py-1.5 w-32 text-center">품목번호</th>
                       <th className="px-2 py-1.5 w-40 text-center">품목명</th>
                       <th className="px-2 py-1.5 w-20 text-center">규격</th>
-                      <th className="px-2 py-1.5 w-12 text-center">창고선택</th>
+                      <th className="px-2 py-1.5 w-20 text-center">창고선택</th>
+                      <th className="px-2 py-1.5 w-16 text-center">저장위치</th>
+                      <th className="px-2 py-1.5 w-20 text-center">모델</th>
                       <th className="px-2 py-1.5 w-14 text-center">발주량</th>
                       <th className="px-2 py-1.5 w-16 text-center">구매단가</th>
                       <th className="px-2 py-1.5 w-16 text-center">발주금액</th>
-                      <th className="px-2 py-1.5 w-8 text-center whitespace-nowrap">가단가</th>
+                      <th className="px-2 py-1.5 w-32 text-center whitespace-nowrap">입고예정일자</th>
                       <th className="px-2 py-1.5 w-8 text-center"></th>
                     </tr>
                   </thead>
@@ -1601,9 +1673,7 @@ export default function CreatePurchaseOrderPage() {
                                 if (e.key === "Enter") {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  setActiveSpecRowIndex(index);
-                                  setItemSearch(row.itemCode);
-                                  setIsItemModalOpen(true);
+                                  openItemModal(index, row.itemCode);
                                 }
                               }}
                               className="h-6 w-full text-xs px-1"
@@ -1613,11 +1683,7 @@ export default function CreatePurchaseOrderPage() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 shrink-0"
-                              onClick={() => {
-                                setActiveSpecRowIndex(index);
-                                setItemSearch(row.itemCode);
-                                setIsItemModalOpen(true);
-                              }}
+                              onClick={() => openItemModal(index, row.itemCode)}
                             >
                               <Search className="h-3 w-3" />
                             </Button>
@@ -1647,7 +1713,21 @@ export default function CreatePurchaseOrderPage() {
                               setTimeout(() => quantityInputRefs.current[index]?.focus(), 0);
                             }}
                             placeholder=""
-                            className={`h-6 text-xs w-12 ${row.itemCode && !row.warehouse ? "ring-1 ring-red-400 border-red-400" : ""}`}
+                            className={`h-6 text-xs w-16 ${row.itemCode && !row.warehouse ? "ring-1 ring-red-400 border-red-400" : ""}`}
+                          />
+                        </td>
+                        <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-600/30">
+                          <Input
+                            value={row.storageLocation ?? ""}
+                            onChange={(e) => updateSpecItem(index, "storageLocation", e.target.value)}
+                            className="h-6 text-xs w-16 px-1"
+                          />
+                        </td>
+                        <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10 border-r border-amber-200 dark:border-amber-600/30">
+                          <Input
+                            value={row.model ?? ""}
+                            onChange={(e) => updateSpecItem(index, "model", e.target.value)}
+                            className="h-6 text-xs px-1"
                           />
                         </td>
                         <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10 border-l border-r border-amber-200 dark:border-amber-600/30">
@@ -1663,10 +1743,7 @@ export default function CreatePurchaseOrderPage() {
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                // 필수값 미입력 시(빨간 테두리) 행 추가 불가
-                                if (row.itemCode && (!row.warehouse || !row.quantity)) return;
-                                addSpecItem();
-                                setTimeout(() => itemCodeInputRefs.current[index + 1]?.focus(), 0);
+                                setTimeout(() => dueDateInputRefs.current[index]?.focus(), 0);
                               }
                             }}
                             className={`h-6 w-14 text-xs text-right px-1 ${row.itemCode && !row.quantity ? "ring-1 ring-red-400 border-red-400" : ""}`}
@@ -1686,15 +1763,22 @@ export default function CreatePurchaseOrderPage() {
                         <td className="px-2 py-1 text-right">
                           {formatCurrency(row.amount ?? 0)}
                         </td>
-                        <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10 border-l border-r border-amber-200 dark:border-amber-600/30">
-                          <div className="flex justify-center">
-                            <input
-                              type="checkbox"
-                              checked={row.isProvisionalPrice ?? false}
-                              onChange={(e) => updateSpecItem(index, "isProvisionalPrice", e.target.checked)}
-                              className="rounded accent-primary"
-                            />
-                          </div>
+                        <td className="px-1 py-1">
+                          <DateInput
+                            ref={(el) => { dueDateInputRefs.current[index] = el; }}
+                            value={row.dueDate ?? ""}
+                            onChange={(e) => updateSpecItem(index, "dueDate", e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (row.itemCode && (!row.warehouse || !row.quantity)) return;
+                                addSpecItem();
+                                setTimeout(() => itemCodeInputRefs.current[index + 1]?.focus(), 0);
+                              }
+                            }}
+                            className="h-6 text-xs w-32"
+                          />
                         </td>
                         <td className="px-1 py-1">
                           <Button
@@ -1938,7 +2022,8 @@ export default function CreatePurchaseOrderPage() {
                 <colgroup>
                   <col style={{ width: "8rem" }} />
                   <col />
-                  <col style={{ width: "7rem" }} />
+                  <col style={{ width: "6rem" }} />
+                  <col style={{ width: "6rem" }} />
                   <col style={{ width: "6rem" }} />
                 </colgroup>
                 <thead className="bg-muted/60 sticky top-0 z-10">
@@ -1946,12 +2031,13 @@ export default function CreatePurchaseOrderPage() {
                     <th className="px-3 py-2 text-left whitespace-nowrap">품목번호</th>
                     <th className="px-3 py-2 text-left">품목명</th>
                     <th className="px-3 py-2 text-left whitespace-nowrap">모델</th>
-                    <th className="px-3 py-2 text-right whitespace-nowrap">기준단가</th>
+                    <th className="px-3 py-2 text-left whitespace-nowrap">창고</th>
+                    <th className="px-3 py-2 text-left whitespace-nowrap">저장위치</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredItems.length === 0 ? (
-                    <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">조건에 맞는 품목이 없습니다.</td></tr>
+                    <tr><td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">조건에 맞는 품목이 없습니다.</td></tr>
                   ) : (() => {
                     const vitems = itemVirtualizer.getVirtualItems();
                     const totalSize = itemVirtualizer.getTotalSize();
@@ -1959,7 +2045,7 @@ export default function CreatePurchaseOrderPage() {
                     const paddingBottom = vitems.length > 0 ? totalSize - vitems[vitems.length - 1].end : 0;
                     return (
                       <>
-                        {paddingTop > 0 && <tr style={{ height: paddingTop }}><td colSpan={4} /></tr>}
+                        {paddingTop > 0 && <tr style={{ height: paddingTop }}><td colSpan={5} /></tr>}
                         {vitems.map((vRow) => {
                           const i = filteredItems[vRow.index];
                           return (
@@ -1971,11 +2057,12 @@ export default function CreatePurchaseOrderPage() {
                               <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">{i.itemCode}</td>
                               <td className="px-3 py-1.5 overflow-hidden text-ellipsis">{i.itemName}</td>
                               <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">{i.model || "-"}</td>
-                              <td className="px-3 py-1.5 text-right whitespace-nowrap">{formatCurrency(i.unitPrice)}</td>
+                              <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">{i.warehouse || "-"}</td>
+                              <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">{i.storageLocation || "-"}</td>
                             </tr>
                           );
                         })}
-                        {paddingBottom > 0 && <tr style={{ height: paddingBottom }}><td colSpan={4} /></tr>}
+                        {paddingBottom > 0 && <tr style={{ height: paddingBottom }}><td colSpan={5} /></tr>}
                       </>
                     );
                   })()}
@@ -2179,6 +2266,43 @@ export default function CreatePurchaseOrderPage() {
               </Button>
               <Button size="sm" className="h-8 px-5 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground" onClick={() => confirmModal.onConfirm()}>
                 확인
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pasteModal?.open && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
+          onKeyDown={(e) => { if (e.key === "Escape") setPasteModal(null); }}>
+          <div className="w-[480px] rounded-lg border bg-background shadow-xl overflow-hidden">
+            <div className="px-5 py-4 border-b flex items-center justify-between">
+              <p className="text-sm font-semibold">품목번호 붙여넣기</p>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPasteModal(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-muted-foreground mb-2">
+                엑셀에서 복사하여 붙여넣으세요.<br />
+                <span className="font-medium text-foreground">1열: 품목번호</span> (필수) &nbsp;|&nbsp;
+                <span className="font-medium text-foreground">2열: 발주량</span> (선택) &nbsp;|&nbsp;
+                <span className="font-medium text-foreground">3열: 입고예정일자</span> YYYY-MM-DD (선택)
+              </p>
+              <textarea
+                autoFocus
+                className="w-full h-52 rounded-md border border-input bg-background px-3 py-2 text-xs resize-none outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 font-mono"
+                placeholder={"66182-40083\t360000\t2026-04-01\n66082-90071\t8\t2026-04-01\n73998-0878R"}
+                value={pasteModal.text}
+                onChange={(e) => setPasteModal((prev) => prev ? { ...prev, text: e.target.value } : prev)}
+              />
+            </div>
+            <div className="px-5 py-3 flex justify-end gap-2 border-t">
+              <Button size="sm" variant="outline" className="h-8 px-5 text-xs" onClick={() => setPasteModal(null)}>
+                취소
+              </Button>
+              <Button size="sm" className="h-8 px-5 text-xs" onClick={handlePasteApply} disabled={!pasteModal.text.trim()}>
+                적용
               </Button>
             </div>
           </div>

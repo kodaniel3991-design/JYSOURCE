@@ -8,6 +8,7 @@ function rowToRecord(r: {
   ItemName: string;
   ItemSpec: string | null;
   SupplierName: string;
+  SupplierCode: string | null;
   Plant: string | null;
   ApplyDate: Date | string;
   ExpireDate: Date | string | null;
@@ -17,14 +18,17 @@ function rowToRecord(r: {
   Currency: string | null;
   Remarks: string | null;
 }): PurchasePriceRecord {
-  const toDateStr = (v: Date | string | null) =>
-    v == null ? "" : String(v).slice(0, 10);
+  const toDateStr = (v: Date | string | null) => {
+    if (v == null) return "";
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    return String(v).slice(0, 10);
+  };
   return {
     id: String(r.Id),
     itemCode: r.ItemCode ?? "",
     itemName: r.ItemName ?? "",
     itemSpec: r.ItemSpec ?? "",
-    supplierCode: "",
+    supplierCode: r.SupplierCode ?? "",
     supplierName: r.SupplierName ?? "",
     applyDate: toDateStr(r.ApplyDate),
     unitPrice: Number(r.UnitPrice) ?? 0,
@@ -43,11 +47,15 @@ export async function GET() {
     const pool = await getDbPool();
     const result = await pool.request().query(`
       SELECT
-        Id, ItemCode, ItemName, ItemSpec, SupplierName, Plant,
-        ApplyDate, ExpireDate, UnitPrice, DevUnitPrice, DiscountRate,
-        Currency, Remarks
-      FROM dbo.PurchasePrice
-      ORDER BY UpdatedAt DESC, Id DESC
+        pp.Id, pp.ItemCode, pp.ItemName, pp.ItemSpec, pp.SupplierName, pp.Plant,
+        pp.ApplyDate, pp.ExpireDate, pp.UnitPrice, pp.DevUnitPrice, pp.DiscountRate,
+        pp.Currency, pp.Remarks,
+        ISNULL(
+          (SELECT TOP 1 PurchaserNo FROM dbo.Purchaser WHERE PurchaserName = pp.SupplierName),
+          ''
+        ) AS SupplierCode
+      FROM dbo.PurchasePrice pp
+      ORDER BY pp.UpdatedAt DESC, pp.Id DESC
     `);
 
     const items: PurchasePriceRecord[] = (result.recordset ?? []).map(
@@ -58,6 +66,7 @@ export async function GET() {
           ItemName: r.ItemName as string,
           ItemSpec: r.ItemSpec as string | null,
           SupplierName: r.SupplierName as string,
+          SupplierCode: r.SupplierCode as string | null,
           Plant: r.Plant as string | null,
           ApplyDate: r.ApplyDate as Date | string,
           ExpireDate: r.ExpireDate as Date | string | null,

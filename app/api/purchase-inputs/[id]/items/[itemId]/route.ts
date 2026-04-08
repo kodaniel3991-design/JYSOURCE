@@ -16,14 +16,19 @@ export async function DELETE(
       .input("PurchaseInputId", sql.Int, id)
       .query(`DELETE FROM dbo.PurchaseInputItem WHERE Id=@Id AND PurchaseInputId=@PurchaseInputId`);
 
-    // 헤더 합계 재계산
+    // 헤더 합계 재계산 + 행이 없으면 상태를 '입력중'으로 복원
     await pool.request()
       .input("Id", sql.Int, id)
       .query(`
         UPDATE dbo.PurchaseInput SET
           TotalAmount  = (SELECT ISNULL(SUM(InputAmount),0)  FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
           TaxAmount    = (SELECT ISNULL(SUM(TaxAmount),0)    FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
-          TotalWithTax = (SELECT ISNULL(SUM(TotalWithTax),0) FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id)
+          TotalWithTax = (SELECT ISNULL(SUM(TotalWithTax),0) FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
+          Status       = CASE
+                           WHEN (SELECT COUNT(*) FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id) = 0
+                           THEN N'입력중'
+                           ELSE Status
+                         END
         WHERE Id=@Id
       `);
 

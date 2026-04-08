@@ -104,7 +104,7 @@ export async function POST(
         `);
     }
 
-    // 헤더 합계 재계산 + 상태를 "회계처리"로 변경
+    // 헤더 합계 재계산 + 상태를 "확정"으로 변경
     await pool.request()
       .input("Id", sql.Int, id)
       .query(`
@@ -112,7 +112,7 @@ export async function POST(
           TotalAmount  = (SELECT ISNULL(SUM(InputAmount),0)  FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
           TaxAmount    = (SELECT ISNULL(SUM(TaxAmount),0)    FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
           TotalWithTax = (SELECT ISNULL(SUM(TotalWithTax),0) FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
-          Status       = N'회계처리'
+          Status       = N'확정'
         WHERE Id=@Id
       `);
 

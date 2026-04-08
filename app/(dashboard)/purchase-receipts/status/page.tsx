@@ -172,7 +172,11 @@ export default function ReceiptStatusPage() {
         r.receiptAmount += signedAmt;
       }
     }
-    return Array.from(map.values());
+    return Array.from(map.values()).sort((a, b) => {
+      const poCmp = a.poNumber.localeCompare(b.poNumber);
+      if (poCmp !== 0) return poCmp;
+      return (a.specNo ?? 0) - (b.specNo ?? 0);
+    });
   }, [items]);
 
   // 2단계: 구매처별 그룹화

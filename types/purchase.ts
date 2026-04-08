@@ -89,6 +89,8 @@ export interface POSpecItemRow {
   material?: string;
   specification?: string;
   warehouse?: string;
+  storageLocation?: string;
+  model?: string;
   quantity: number;
   receivedQty?: number;
   unitPrice: number;

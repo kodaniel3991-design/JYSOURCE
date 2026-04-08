@@ -60,6 +60,8 @@ export interface MasterListGridProps<T> {
   variant?: MasterListGridVariant;
   /** 자동 페이지네이션 시 페이지 크기 (기본 10) */
   pageSize?: number;
+  /** true이면 페이지네이션 없이 전체 표시, 하단에 건수만 표시 */
+  disablePagination?: boolean;
   /** 가상 스크롤 활성화 (대량 데이터 렉 방지) */
   virtual?: boolean;
   /** 가상 스크롤 행 높이 추정값 (기본 32px) */
@@ -84,6 +86,7 @@ export function MasterListGrid<T>({
   className,
   variant = "default",
   pageSize: pageSizeProp,
+  disablePagination = false,
   virtual = false,
   estimatedRowHeight = 32,
 }: MasterListGridProps<T>) {
@@ -92,7 +95,7 @@ export function MasterListGrid<T>({
 
   // 가상 스크롤이 활성화된 경우 자동 페이지네이션 비활성화
   const autoPageSize = pageSizeProp ?? 10;
-  const shouldAutoPaginate = !virtual && !pagination && data.length > autoPageSize;
+  const shouldAutoPaginate = !virtual && !pagination && !disablePagination && data.length > autoPageSize;
   const [internalPage, setInternalPage] = React.useState(1);
 
   React.useEffect(() => {
@@ -313,6 +316,12 @@ export function MasterListGrid<T>({
           </TableBody>
         </Table>
       </div>
+
+      {disablePagination && (
+        <div className="shrink-0 flex justify-start border-t pt-2 text-[11px] text-muted-foreground pl-2">
+          총 <span className="font-semibold mx-1">{data.length}</span>건
+        </div>
+      )}
 
       {effectivePagination && totalPages > 1 && (
         <div className="shrink-0 flex flex-col items-start justify-between gap-2 border-t pt-3 text-[11px] text-muted-foreground sm:flex-row sm:items-center">

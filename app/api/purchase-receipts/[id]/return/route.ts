@@ -11,8 +11,13 @@ async function ensureReceiptHistoryTable(pool: Awaited<ReturnType<typeof getDbPo
         Type NVARCHAR(10) NOT NULL, ItemCode NVARCHAR(50) NOT NULL, ItemName NVARCHAR(200) NULL,
         Qty DECIMAL(18,3) NOT NULL DEFAULT 0, ReceiptDate DATE NULL,
         Warehouse NVARCHAR(20) NULL, LotNo NVARCHAR(100) NULL, Note NVARCHAR(500) NULL,
+        SeqNo INT NULL,
         CONSTRAINT FK_ReceiptHistory_PurchaseOrder FOREIGN KEY (PurchaseOrderId) REFERENCES dbo.PurchaseOrder(Id) ON DELETE CASCADE
       );
+    END
+    ELSE IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.ReceiptHistory') AND name = N'SeqNo')
+    BEGIN
+      ALTER TABLE dbo.ReceiptHistory ADD SeqNo INT NULL;
     END
   `);
 }
@@ -31,7 +36,7 @@ export async function POST(
     const poId = Number(params.id);
     const body = await request.json();
     const items = (body.items ?? []) as {
-      itemCode: string; itemName: string;
+      itemCode: string; itemName: string; specNo?: number;
       returnQty: number; receiptDate: string;
       warehouse: string; lotNo: string; note: string;
     }[];
@@ -70,16 +75,25 @@ export async function POST(
     const processedAt = new Date();
 
     for (const it of targets) {
-      // ReceivedQty 감소
-      await pool.request()
+      // ReceivedQty 감소 (SpecNo 있으면 행 특정, 없으면 ItemCode fallback)
+      const updateReq = pool.request()
         .input("PurchaseOrderId", sql.Int, poId)
         .input("ItemCode", sql.NVarChar(50), it.itemCode)
-        .input("ReturnQty", sql.Decimal(18, 3), it.returnQty)
-        .query(`
+        .input("ReturnQty", sql.Decimal(18, 3), it.returnQty);
+      if (it.specNo != null) {
+        updateReq.input("SpecNo", sql.Int, it.specNo);
+        await updateReq.query(`
+          UPDATE dbo.PurchaseOrderItem
+          SET ReceivedQty = CASE WHEN ReceivedQty - @ReturnQty < 0 THEN 0 ELSE ReceivedQty - @ReturnQty END
+          WHERE PurchaseOrderId = @PurchaseOrderId AND SpecNo = @SpecNo
+        `);
+      } else {
+        await updateReq.query(`
           UPDATE dbo.PurchaseOrderItem
           SET ReceivedQty = CASE WHEN ReceivedQty - @ReturnQty < 0 THEN 0 ELSE ReceivedQty - @ReturnQty END
           WHERE PurchaseOrderId = @PurchaseOrderId AND ItemCode = @ItemCode
         `);
+      }
 
       // 이력 삽입
       await pool.request()
@@ -94,11 +108,12 @@ export async function POST(
         .input("Warehouse",        sql.NVarChar(20),  it.warehouse ?? null)
         .input("LotNo",            sql.NVarChar(100), it.lotNo ?? null)
         .input("Note",             sql.NVarChar(500), it.note ?? null)
+        .input("SeqNo",            sql.Int,           it.specNo ?? null)
         .query(`
           INSERT INTO dbo.ReceiptHistory
-            (PurchaseOrderId, ReceiptNo, ProcessedAt, Type, ItemCode, ItemName, Qty, ReceiptDate, Warehouse, LotNo, Note)
+            (PurchaseOrderId, ReceiptNo, ProcessedAt, Type, ItemCode, ItemName, Qty, ReceiptDate, Warehouse, LotNo, Note, SeqNo)
           VALUES
-            (@PurchaseOrderId, @ReceiptNo, @ProcessedAt, @Type, @ItemCode, @ItemName, @Qty, @ReceiptDate, @Warehouse, @LotNo, @Note)
+            (@PurchaseOrderId, @ReceiptNo, @ProcessedAt, @Type, @ItemCode, @ItemName, @Qty, @ReceiptDate, @Warehouse, @LotNo, @Note, @SeqNo)
         `);
     }
 

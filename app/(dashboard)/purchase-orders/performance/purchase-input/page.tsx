@@ -72,7 +72,7 @@ const REQ = "h-8 text-xs bg-blue-50 border-blue-200 dark:bg-primary/15 dark:bord
 
 const statusOptions: SelectOption[] = [
   { value: "입력중",  label: "0.입력중"  },
-  { value: "확정",    label: "1.확정"    },
+  { value: "확정",    label: "1. 매입확정결재" },
   { value: "회계처리",label: "2.회계처리" },
   { value: "취소",    label: "9.취소"    },
 ];
@@ -96,8 +96,10 @@ export default function PurchaseInputPage() {
   // 우측 헤더 폼
   const [header, setHeader] = useState<HeaderForm>(emptyHeader());
   const [saving, setSaving] = useState(false);
-  const [isSupplierOpen, setIsSupplierOpen] = useState(false);
-  const [isBuyerOpen,    setIsBuyerOpen]    = useState(false);
+  const [isSupplierOpen,     setIsSupplierOpen]     = useState(false);
+  const [isListSupplierOpen, setIsListSupplierOpen] = useState(false);
+  const [listSupplierName,   setListSupplierName]   = useState("");
+  const [isBuyerOpen,        setIsBuyerOpen]        = useState(false);
 
   // 사용자 목록 (구매담당자 팝업)
   const [users,          setUsers]          = useState<UserItem[]>([]);
@@ -131,6 +133,16 @@ export default function PurchaseInputPage() {
 
   // 품목 팝업 (구매입고참조)
   const [isUnItemOpen,   setIsUnItemOpen]   = useState(false);
+
+  // ── 내부 모달 (alert / confirm) ───────────────────────────────────────────────
+  type DialogState =
+    | { type: "alert";   message: string }
+    | { type: "confirm"; message: string; onConfirm: () => void }
+    | null;
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const showAlert   = (message: string) => setDialog({ type: "alert", message });
+  const showConfirm = (message: string, onConfirm: () => void) =>
+    setDialog({ type: "confirm", message, onConfirm });
 
   const supplierCodeRef    = useRef<HTMLInputElement>(null);
   const supplierDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -276,8 +288,8 @@ export default function PurchaseInputPage() {
 
   // ── 헤더 저장 ────────────────────────────────────────────────────────────────
   const handleSaveHeader = async () => {
-    if (!header.supplierCode) { alert("구매처번호를 입력하세요."); return; }
-    if (!header.inputDate)    { alert("매입일자를 입력하세요.");   return; }
+    if (!header.supplierCode) { showAlert("구매처번호를 입력하세요."); return; }
+    if (!header.inputDate)    { showAlert("매입일자를 입력하세요.");   return; }
 
     setSaving(true);
     try {
@@ -288,7 +300,7 @@ export default function PurchaseInputPage() {
           body: JSON.stringify(header),
         });
         const data = await res.json();
-        if (!data.ok) { alert(data.message || "저장 실패"); return; }
+        if (!data.ok) { showAlert(data.message || "저장 실패"); return; }
         setSelectedId(data.id);
         setIsNew(false);
         loadList();
@@ -300,7 +312,7 @@ export default function PurchaseInputPage() {
           body: JSON.stringify(header),
         });
         const data = await res.json();
-        if (!data.ok) { alert("수정 실패"); return; }
+        if (!data.ok) { showAlert("수정 실패"); return; }
         loadList();
       }
     } finally {
@@ -309,35 +321,37 @@ export default function PurchaseInputPage() {
   };
 
   // ── 헤더 삭제 ────────────────────────────────────────────────────────────────
-  const handleDeleteHeader = async () => {
+  const handleDeleteHeader = () => {
     if (!selectedId) return;
-    if (!confirm("이 매입 실적을 삭제하시겠습니까?")) return;
-    await fetch(apiPath(`/api/purchase-inputs/${selectedId}`), { method: "DELETE" });
-    setSelectedId(null);
-    setIsNew(false);
-    setHeader(emptyHeader());
-    setInputItems([]);
-    loadList();
+    showConfirm("이 매입 실적을 삭제하시겠습니까?", async () => {
+      await fetch(apiPath(`/api/purchase-inputs/${selectedId}`), { method: "DELETE" });
+      setSelectedId(null);
+      setIsNew(false);
+      setHeader(emptyHeader());
+      setInputItems([]);
+      loadList();
+    });
   };
 
   // ── 매입내역 행 삭제 ──────────────────────────────────────────────────────────
-  const handleDeleteItems = async () => {
+  const handleDeleteItems = () => {
     if (!selectedId || !selectedItemIds.size) return;
-    if (!confirm(`선택한 ${selectedItemIds.size}건을 삭제하시겠습니까?`)) return;
-    for (const itemId of Array.from(selectedItemIds)) {
-      await fetch(apiPath(`/api/purchase-inputs/${selectedId}/items/${itemId}`), { method: "DELETE" });
-    }
-    setSelectedItemIds(new Set());
-    loadItems(selectedId);
-    loadHeader(selectedId);
-    loadList();
+    showConfirm(`선택한 ${selectedItemIds.size}건을 삭제하시겠습니까?`, async () => {
+      for (const itemId of Array.from(selectedItemIds)) {
+        await fetch(apiPath(`/api/purchase-inputs/${selectedId}/items/${itemId}`), { method: "DELETE" });
+      }
+      setSelectedItemIds(new Set());
+      loadItems(selectedId);
+      loadHeader(selectedId);
+      loadList();
+    });
   };
 
   // ── 매입확정 ─────────────────────────────────────────────────────────────────
   const handleConfirmPurchase = async () => {
-    if (!selectedId) { alert("먼저 매입 실적을 저장하세요."); return; }
+    if (!selectedId) { showAlert("먼저 매입 실적을 저장하세요."); return; }
     const selected = unreceivedItems.filter((i) => selectedUnIds.has(i.id));
-    if (!selected.length) { alert("처리할 항목을 선택하세요."); return; }
+    if (!selected.length) { showAlert("처리할 항목을 선택하세요."); return; }
 
     const body = selected.map((i) => ({
       receiptHistoryId: Number(i.id),
@@ -357,7 +371,7 @@ export default function PurchaseInputPage() {
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!data.ok) { alert(data.message || "매입확정 실패"); return; }
+    if (!data.ok) { showAlert(data.message || "매입확정 실패"); return; }
 
     loadItems(selectedId);
     loadHeader(selectedId);
@@ -389,7 +403,7 @@ export default function PurchaseInputPage() {
     setHeader((p) => ({ ...p, [key]: val }));
 
   const isEditable   = isNew || !!selectedId;
-  const isFormLocked = isEditable && header.status === "회계처리";
+  const isFormLocked = isEditable && (header.status === "확정" || header.status === "회계처리");
 
   // ── 렌더 ──────────────────────────────────────────────────────────────────────
   return (
@@ -407,20 +421,27 @@ export default function PurchaseInputPage() {
               신규
             </Button>
           </div>
-          {/* 1행: 구매처번호 + 버튼 */}
+          {/* 1행: 구매처번호 팝업조회 + 초기화 */}
           <div className="flex gap-1 mb-1">
             <Input
               value={listSearch.supplierCode}
-              onChange={(e) => setListSearch((p) => ({ ...p, supplierCode: e.target.value }))}
+              onChange={(e) => { setListSearch((p) => ({ ...p, supplierCode: e.target.value })); setListSupplierName(""); }}
               placeholder="구매처번호"
-              className="h-7 text-xs flex-1"
-              onKeyDown={(e) => { if (e.key === "Enter") loadList(); }}
+              className="h-7 text-xs w-24 shrink-0"
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsListSupplierOpen(true); } }}
             />
-            <Button type="button" size="icon" variant="outline" className="h-7 w-7 shrink-0" onClick={loadList}>
+            <Button type="button" size="icon" variant="outline" className="h-7 w-7 shrink-0"
+              onClick={() => setIsListSupplierOpen(true)}>
               <Search className="h-3 w-3" />
             </Button>
+            <Input
+              value={listSupplierName}
+              readOnly
+              placeholder="구매처명"
+              className="h-7 text-xs flex-1 bg-muted text-muted-foreground"
+            />
             <Button type="button" size="icon" variant="outline" className="h-7 w-7 shrink-0"
-              onClick={() => setListSearch({ supplierCode: "", dateFrom: firstOfMonthStr(), dateTo: todayStr() })}>
+              onClick={() => { setListSearch({ supplierCode: "", dateFrom: firstOfMonthStr(), dateTo: todayStr() }); setListSupplierName(""); }}>
               <RotateCcw className="h-3 w-3" />
             </Button>
           </div>
@@ -443,9 +464,9 @@ export default function PurchaseInputPage() {
               <tr>
                 <th className="px-2 py-1.5 text-right border-b border-r border-border w-15">매입번호</th>
                 <th className="px-2 py-1.5 text-left border-b border-r border-border w-20">구매처번호</th>
-                <th className="px-2 py-1.5 text-center border-b border-r border-border w-22">매입일자</th>
+                <th className="px-2 py-1.5 text-center border-b border-r border-border w-21">매입일자</th>
                 <th className="px-2 py-1.5 text-right border-b border-r border-border">부가세포함금액</th>
-                <th className="px-2 py-1.5 text-center border-b border-border w-16">상태</th>
+                <th className="px-2 py-1.5 text-center border-b border-border w-22">상태</th>
               </tr>
             </thead>
             <tbody>
@@ -472,13 +493,22 @@ export default function PurchaseInputPage() {
                     {fmt(item.totalWithTax)}
                   </td>
                   <td className={cn("px-2 py-1 text-center text-[11px]",
-                    item.status === "회계처리" ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground")}>
-                    {item.status}
+                    item.status === "확정" ? "text-emerald-600 dark:text-emerald-400 font-semibold" :
+                    item.status === "회계처리" ? "text-blue-600 dark:text-blue-400 font-semibold" : "text-muted-foreground")}>
+                    {statusOptions.find(o => o.value === item.status)?.label ?? item.status}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* 하단 합계 */}
+        <div className="shrink-0 border-t px-3 py-1.5 flex items-center justify-between text-xs bg-muted/30">
+          <span className="text-muted-foreground">총 <b className="text-foreground">{list.length.toLocaleString("ko-KR")}</b>건</span>
+          <span className="text-muted-foreground">부가세포함 총 금액 : <b className="tabular-nums font-semibold text-blue-600 dark:text-blue-400">
+            {list.reduce((s, i) => s + i.totalWithTax, 0).toLocaleString("ko-KR")}
+          </b></span>
         </div>
 
       </div>
@@ -499,11 +529,13 @@ export default function PurchaseInputPage() {
                 <Save className="mr-1 h-3 w-3" />
                 저장
               </Button>
-              <Button type="button" size="sm" variant="destructive" className="h-7 px-3"
-                onClick={handleDeleteHeader} disabled={!selectedId || isNew}>
-                <Trash2 className="mr-1 h-3 w-3" />
-                삭제
-              </Button>
+              {header.status !== "회계처리" && (
+                <Button type="button" size="sm" variant="destructive" className="h-7 px-3"
+                  onClick={handleDeleteHeader} disabled={!selectedId || isNew}>
+                  <Trash2 className="mr-1 h-3 w-3" />
+                  삭제
+                </Button>
+              )}
             </div>
           </div>
 
@@ -647,12 +679,12 @@ export default function PurchaseInputPage() {
             {/* 탭 바 */}
             <div className="flex border-b bg-muted/30 shrink-0">
               {(["매입내역", "구매입고참조"] as const).map((tab) => {
-                const isLocked = tab === "구매입고참조" && header.status === "회계처리";
+                const isLocked = tab === "구매입고참조" && (header.status === "확정" || header.status === "회계처리");
                 return (
                   <button key={tab} type="button"
                     disabled={isLocked}
                     onClick={() => !isLocked && setActiveTab(tab)}
-                    title={isLocked ? "회계처리 상태에서는 구매입고참조를 사용할 수 없습니다." : undefined}
+                    title={isLocked ? "매입확정결재 이후에는 구매입고참조를 사용할 수 없습니다." : undefined}
                     className={cn(
                       "px-5 py-2 text-xs font-medium border-r border-border transition-colors",
                       isLocked
@@ -672,11 +704,13 @@ export default function PurchaseInputPage() {
               <div className="flex-1 flex flex-col min-h-0">
                 {/* 툴바 */}
                 <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0">
-                  <Button type="button" size="sm" variant="destructive" className="h-7 px-3"
-                    onClick={handleDeleteItems} disabled={!selectedItemIds.size}>
-                    <Trash2 className="mr-1 h-3 w-3" />
-                    선택 삭제
-                  </Button>
+                  {header.status !== "회계처리" && (
+                    <Button type="button" size="sm" variant="destructive" className="h-7 px-3"
+                      onClick={handleDeleteItems} disabled={!selectedItemIds.size}>
+                      <Trash2 className="mr-1 h-3 w-3" />
+                      선택 삭제
+                    </Button>
+                  )}
                   <span className="ml-auto text-xs text-muted-foreground">
                     총 <b>{inputItems.length}</b>건
                   </span>
@@ -689,7 +723,8 @@ export default function PurchaseInputPage() {
                         <th className="px-2 py-1.5 border-b border-r border-border w-8">
                           <input type="checkbox"
                             checked={inputItems.length > 0 && selectedItemIds.size === inputItems.length}
-                            onChange={toggleAllItems} />
+                            onChange={toggleAllItems}
+                            disabled={header.status === "회계처리"} />
                         </th>
                         <th className="px-2 py-1.5 text-center border-b border-r border-border w-10">No.</th>
                         <th className="px-2 py-1.5 text-left border-b border-r border-border w-32">품목번호</th>
@@ -718,6 +753,7 @@ export default function PurchaseInputPage() {
                             selectedItemIds.has(item.id) && "bg-primary/5")}>
                           <td className="px-2 py-1 text-center border-r border-border">
                             <input type="checkbox" checked={selectedItemIds.has(item.id)}
+                              disabled={header.status === "회계처리"}
                               onChange={(e) => {
                                 const s = new Set(selectedItemIds);
                                 e.target.checked ? s.add(item.id) : s.delete(item.id);
@@ -775,6 +811,19 @@ export default function PurchaseInputPage() {
                 {/* 검색 영역 */}
                 <div className="shrink-0 border-b px-3 py-2 bg-muted/10">
                   <div className="flex flex-wrap gap-2 mb-2">
+                    {/* 입고일자 */}
+                    <div className="flex flex-col gap-1 shrink-0">
+                      <label className="text-xs font-medium text-muted-foreground">입고일자</label>
+                      <div className="flex gap-1 items-center">
+                        <DateInput value={unSearch.dateFrom}
+                          onChange={(e) => setUnSearch((p) => ({ ...p, dateFrom: e.target.value }))}
+                          className="h-7 text-xs w-[120px]" />
+                        <span className="text-xs text-muted-foreground">~</span>
+                        <DateInput value={unSearch.dateTo}
+                          onChange={(e) => setUnSearch((p) => ({ ...p, dateTo: e.target.value }))}
+                          className="h-7 text-xs w-[120px]" />
+                      </div>
+                    </div>
                     {/* 품목번호 */}
                     <div className="flex flex-col gap-1 shrink-0">
                       <label className="text-xs font-medium text-muted-foreground">품목번호</label>
@@ -790,19 +839,6 @@ export default function PurchaseInputPage() {
                         </Button>
                         <Input value={unItemName} readOnly placeholder="품목명"
                           className="h-7 text-xs w-36 bg-muted text-muted-foreground" />
-                      </div>
-                    </div>
-                    {/* 입고일자 */}
-                    <div className="flex flex-col gap-1 shrink-0">
-                      <label className="text-xs font-medium text-muted-foreground">입고일자</label>
-                      <div className="flex gap-1 items-center">
-                        <DateInput value={unSearch.dateFrom}
-                          onChange={(e) => setUnSearch((p) => ({ ...p, dateFrom: e.target.value }))}
-                          className="h-7 text-xs w-[120px]" />
-                        <span className="text-xs text-muted-foreground">~</span>
-                        <DateInput value={unSearch.dateTo}
-                          onChange={(e) => setUnSearch((p) => ({ ...p, dateTo: e.target.value }))}
-                          className="h-7 text-xs w-[120px]" />
                       </div>
                     </div>
                     {/* 모델(차종) */}
@@ -937,7 +973,7 @@ export default function PurchaseInputPage() {
         )}
       </div>
 
-      {/* 구매처 팝업 */}
+      {/* 구매처 팝업 (우측 폼) */}
       <SearchPopup<{ Id: string; PurchaserNo: string; PurchaserName: string; [key: string]: unknown }>
         open={isSupplierOpen}
         onOpenChange={setIsSupplierOpen}
@@ -952,6 +988,25 @@ export default function PurchaseInputPage() {
         initialSearchCode={header.supplierCode}
         onSelect={(item) => {
           setHeader((p) => ({ ...p, supplierCode: String(item.PurchaserNo), supplierName: String(item.PurchaserName) }));
+        }}
+      />
+
+      {/* 구매처 팝업 (좌측 목록 검색) */}
+      <SearchPopup<{ Id: string; PurchaserNo: string; PurchaserName: string; [key: string]: unknown }>
+        open={isListSupplierOpen}
+        onOpenChange={setIsListSupplierOpen}
+        title="구매처"
+        apiUrl={apiPath("/api/purchasers")}
+        columns={[
+          { key: "PurchaserNo", header: "구매처번호", width: 120 },
+          { key: "PurchaserName", header: "구매처명" },
+        ]}
+        searchKeys={["PurchaserNo", "PurchaserName"]}
+        keyExtractor={(item) => String(item.Id)}
+        initialSearchCode={listSearch.supplierCode}
+        onSelect={(item) => {
+          setListSearch((p) => ({ ...p, supplierCode: String(item.PurchaserNo) }));
+          setListSupplierName(String(item.PurchaserName));
         }}
       />
 
@@ -1019,6 +1074,31 @@ export default function PurchaseInputPage() {
           setIsUnItemOpen(false);
         }}
       />
+
+      {/* 내부 Alert / Confirm 모달 */}
+      {dialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"
+          onKeyDown={(e) => { if (e.key === "Escape" && dialog.type === "alert") setDialog(null); }}>
+          <div className="w-80 rounded-lg bg-background shadow-xl border p-5 flex flex-col gap-4">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">{dialog.message}</p>
+            <div className="flex justify-end gap-2">
+              {dialog.type === "confirm" && (
+                <Button variant="outline" size="sm"
+                  onClick={() => setDialog(null)}>
+                  취소
+                </Button>
+              )}
+              <Button size="sm"
+                onClick={() => {
+                  if (dialog.type === "confirm") dialog.onConfirm();
+                  setDialog(null);
+                }}>
+                확인
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 모델 팝업 (구매입고참조) */}
       {isUnModelOpen && (

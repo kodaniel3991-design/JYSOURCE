@@ -473,13 +473,19 @@ export default function PurchaseReceiptsPage() {
             const d = await fetch(apiPath(`/api/purchase-receipts/${po.id}`)).then((r) => r.json());
             if (d.ok) {
               (d.specRows as SpecRow[]).forEach((row) =>
-                allRows.push({ ...row, poId: po.id, poNumber: po.orderNumber, supplierCode: po.supplierId, supplierName: po.supplierName, orderDate: po.orderDate, uid: `${po.id}::${row.itemCode}` })
+                allRows.push({ ...row, poId: po.id, poNumber: po.orderNumber, supplierCode: po.supplierId, supplierName: po.supplierName, orderDate: po.orderDate, uid: `${po.id}::${row.seq}` })
               );
-              allHistory.push(...(d.history as HistoryEntry[]).map((h, i) => ({ ...h, poNumber: po.orderNumber, seq: i + 1 })));
+              allHistory.push(...(d.history as HistoryEntry[]).map((h) => ({ ...h, poNumber: po.orderNumber, seq: (h as unknown as { specNo?: number }).specNo ?? undefined })));
             }
           } catch {}
         })
       );
+      allRows.sort((a, b) => a.poNumber.localeCompare(b.poNumber) || a.seq - b.seq);
+      allHistory.sort((a, b) => {
+        const poCmp = (a.poNumber ?? "").localeCompare(b.poNumber ?? "");
+        if (poCmp !== 0) return poCmp;
+        return (a.seq ?? 0) - (b.seq ?? 0);
+      });
       setFlatRows(allRows);
       setHistory(allHistory);
     } finally {
@@ -527,7 +533,7 @@ export default function PurchaseReceiptsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            items: rows.map((r: FlatSpecRow) => ({ itemCode: r.itemCode, itemName: r.itemName, inputQty: r.inputQty, receiptDate: r.receiptDate, warehouse: r.warehouse, lotNo: r.lotNo, note: r.note })),
+            items: rows.map((r: FlatSpecRow) => ({ itemCode: r.itemCode, itemName: r.itemName, specNo: r.seq, inputQty: r.inputQty, receiptDate: r.receiptDate, warehouse: r.warehouse, lotNo: r.lotNo, note: r.note })),
           }),
         });
         const data = await res.json();
@@ -566,7 +572,7 @@ export default function PurchaseReceiptsPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            items: rows.map((r: FlatSpecRow) => ({ itemCode: r.itemCode, itemName: r.itemName, returnQty: r.returnQty, receiptDate: r.receiptDate, warehouse: r.warehouse, lotNo: r.lotNo, note: r.note })),
+            items: rows.map((r: FlatSpecRow) => ({ itemCode: r.itemCode, itemName: r.itemName, specNo: r.seq, returnQty: r.returnQty, receiptDate: r.receiptDate, warehouse: r.warehouse, lotNo: r.lotNo, note: r.note })),
           }),
         });
         const data = await res.json();
