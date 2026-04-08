@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import {
   Sheet,
   SheetContent,
@@ -69,10 +71,12 @@ const EMPTY_PW: PwDraft = { newPassword: "", confirm: "", showNew: false, showCo
 const EMPTY_MAIL_PW: MailPwDraft = { emailPassword: "", show: false };
 
 export default function AdminUsersPage() {
-  const [rows, setRows] = useState<UserRow[]>([]);
-  const [factories, setFactories] = useState<FactoryOption[]>([]);
+  const [rows, setRows] = useCachedState<UserRow[]>("admin/users/rows", []);
+  const [factories, setFactories] = useCachedState<FactoryOption[]>("admin/users/factories", []);
   const [positionOptions, setPositionOptions] = useState<{ value: string; label: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
 
   // 사용자 등록/수정 시트
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -122,7 +126,8 @@ export default function AdminUsersPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (rows.length > 0) return; load(); }, []);
 
   // ── 사용자 등록/수정 ──
   const openCreate = () => {
@@ -276,7 +281,11 @@ export default function AdminUsersPage() {
         description="시스템 접속 사용자 계정을 관리합니다."
       />
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <DataGridToolbar
+          active={gridSettingsOpen ? gridSettingsTab : undefined}
+          onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+        />
         <Button onClick={openCreate} className="gap-2">
           <Plus className="h-4 w-4" />
           사용자 추가
@@ -387,6 +396,47 @@ export default function AdminUsersPage() {
           </tbody>
         </table>
       </div>
+
+      <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>그리드 설정</SheetTitle>
+            <SheetDescription className="text-xs">내보내기 설정</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-5 text-xs">
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="default" onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+            </div>
+            {gridSettingsTab === "export" && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">현재 사용자 목록을 CSV 파일로 다운로드합니다.</p>
+                <Button size="sm" disabled={rows.length === 0} onClick={() => {
+                  if (rows.length === 0) return;
+                  const header = ["아이디", "사용자명", "사번", "직책", "전화번호", "이메일", "입사일자", "소속공장", "상태"];
+                  const csvRows = rows.map((r) => [
+                    r.Username,
+                    r.UserId ?? "",
+                    r.EmployeeNo ?? "",
+                    r.Position ? (positionOptions.find((o) => o.value === r.Position)?.label ?? r.Position) : "",
+                    r.PhoneNo ?? "",
+                    r.Email ?? "",
+                    r.HireDate ? new Date(r.HireDate).toLocaleDateString("ko-KR") : "",
+                    r.FactoryName ? `${r.FactoryName}(${r.FactoryCode})` : "",
+                    r.IsActive ? "활성" : "비활성",
+                  ]);
+                  const csv = [header, ...csvRows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
+                  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url; a.download = "users.csv";
+                  document.body.appendChild(a); a.click();
+                  document.body.removeChild(a); URL.revokeObjectURL(url);
+                }}>CSV 내보내기</Button>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* ── 사용자 등록/수정 시트 ── */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

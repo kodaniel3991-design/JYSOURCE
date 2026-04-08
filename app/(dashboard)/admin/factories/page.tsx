@@ -1,15 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Plus, Pencil, Trash2, Factory } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
@@ -29,8 +32,10 @@ const EMPTY_DRAFT: Omit<FactoryRow, "FactoryCode"> & { FactoryCode: string } = {
 };
 
 export default function AdminFactoriesPage() {
-  const [rows, setRows] = useState<FactoryRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useCachedState<FactoryRow[]>("admin/factories/rows", []);
+  const [loading, setLoading] = useState(false);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<FactoryRow | null>(null);
@@ -49,7 +54,8 @@ export default function AdminFactoriesPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (rows.length > 0) return; load(); }, []);
 
   const openCreate = () => {
     setEditTarget(null);
@@ -128,7 +134,11 @@ export default function AdminFactoriesPage() {
         description="로그인 시 선택 가능한 공장 목록을 관리합니다."
       />
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        <DataGridToolbar
+          active={gridSettingsOpen ? gridSettingsTab : undefined}
+          onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+        />
         <Button onClick={openCreate} className="gap-2">
           <Plus className="h-4 w-4" />
           공장 추가
@@ -201,6 +211,37 @@ export default function AdminFactoriesPage() {
           </tbody>
         </table>
       </div>
+
+      <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>그리드 설정</SheetTitle>
+            <SheetDescription className="text-xs">내보내기 설정</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-5 text-xs">
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="default" onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+            </div>
+            {gridSettingsTab === "export" && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">현재 공장 목록을 CSV 파일로 다운로드합니다.</p>
+                <Button size="sm" disabled={rows.length === 0} onClick={() => {
+                  if (rows.length === 0) return;
+                  const header = ["공장코드", "공장명", "정렬순서", "상태"];
+                  const csvRows = rows.map((r) => [r.FactoryCode, r.FactoryName, String(r.SortOrder), r.IsActive ? "활성" : "비활성"]);
+                  const csv = [header, ...csvRows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
+                  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url; a.download = "factories.csv";
+                  document.body.appendChild(a); a.click();
+                  document.body.removeChild(a); URL.revokeObjectURL(url);
+                }}>CSV 내보내기</Button>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-full sm:max-w-md">

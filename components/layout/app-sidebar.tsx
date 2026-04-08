@@ -79,7 +79,6 @@ const performanceNavGroup = {
   icon: BarChart3,
   children: [
     { href: "/purchase-orders/performance/purchase-input", label: "매입 실적 관리", icon: Receipt },
-    { href: "/purchase-orders/performance", label: "구매실적관리", icon: BarChart3 },
     { href: "/purchase-orders/performance/receipts", label: "발주대비 입고현황", icon: FileText },
     { href: "/purchase-orders/performance/closing", label: "마감현황", icon: FileText },
   ],

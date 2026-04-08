@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { ItemSelectModal } from "@/components/common/item-select-modal";
 import { SupplierSelectPopup } from "@/components/common/supplier-select-popup";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/lib/utils";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
@@ -68,13 +72,13 @@ export default function PurchaseReturnsPage() {
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
   // ── 검색 상태 ──────────────────────────────────────────────────────────────
-  const [dateFrom, setDateFrom]           = useState(firstOfMonth);
-  const [dateTo, setDateTo]               = useState(todayStr);
-  const [itemCode, setItemCode]           = useState("");
-  const [itemName, setItemName]           = useState("");
-  const [supplierCode, setSupplierCode]   = useState("");
-  const [supplierName, setSupplierName]   = useState("");
-  const [model, setModel]                 = useState("");
+  const [dateFrom, setDateFrom]           = useCachedState("receipt-returns/dateFrom",     firstOfMonth);
+  const [dateTo, setDateTo]               = useCachedState("receipt-returns/dateTo",       todayStr);
+  const [itemCode, setItemCode]           = useCachedState("receipt-returns/itemCode",     "");
+  const [itemName, setItemName]           = useCachedState("receipt-returns/itemName",     "");
+  const [supplierCode, setSupplierCode]   = useCachedState("receipt-returns/supplierCode", "");
+  const [supplierName, setSupplierName]   = useCachedState("receipt-returns/supplierName", "");
+  const [model, setModel]                 = useCachedState("receipt-returns/model",        "");
 
   const [isItemModalOpen, setIsItemModalOpen]         = useState(false);
   const [isSupplierPopupOpen, setIsSupplierPopupOpen] = useState(false);
@@ -92,10 +96,13 @@ export default function PurchaseReturnsPage() {
   const refSearchBtn    = useRef<HTMLButtonElement>(null);
 
   // ── 데이터 상태 ────────────────────────────────────────────────────────────
-  const [items, setItems]         = useState<ReturnHistoryItem[]>([]);
+  const [items, setItems]         = useCachedState<ReturnHistoryItem[]>("receipt-returns/items", []);
   const [totalQty, setTotalQty]   = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [loading, setLoading]     = useState(false);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+  const [stripedRows, setStripedRows] = useState(true);
 
   // 선택된 전표번호
   const [selectedReceiptNo, setSelectedReceiptNo] = useState<string | null>(null);
@@ -191,6 +198,24 @@ export default function PurchaseReturnsPage() {
       })),
     };
     setReturnSlip(slip);
+  };
+
+  const handleExport = () => {
+    if (items.length === 0) return;
+    const header = ["구매오더번호","순번","입고일자","반품일자","품목번호","품목명","창고","저장위치","단위","모델","수량","단가","금액","거래처코드","거래처명"];
+    const rows = items.map((h) => [
+      h.poNumber, String(h.specNo), h.receiptDate, h.processedAt,
+      h.itemCode, h.itemName, h.warehouse, h.storageLocation,
+      h.unit, h.vehicleModel, String(h.qty), String(h.unitPrice ?? ""),
+      String(h.receiptAmount ?? ""), h.supplierCode, h.supplierName,
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [header.join(","), rows].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "receipt-returns.csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
   // ── 인쇄 ───────────────────────────────────────────────────────────────────
@@ -695,6 +720,13 @@ export default function PurchaseReturnsPage() {
 
         {/* 데이터 그리드 */}
         <Card className="flex-1 flex flex-col min-h-0">
+          <CardHeader className="flex flex-row items-center justify-end space-y-0 py-2 px-4 shrink-0">
+            <DataGridToolbar
+              active={gridSettingsOpen ? gridSettingsTab : undefined}
+              onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+              onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
+            />
+          </CardHeader>
           <CardContent className="p-0 flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-auto min-h-0">
               <table className="w-full text-xs">
@@ -738,7 +770,7 @@ export default function PurchaseReturnsPage() {
                           className={`border-b last:border-0 cursor-pointer ${
                             isSelected
                               ? "bg-red-100 dark:bg-red-500/20"
-                              : i % 2 === 1 ? "bg-slate-50/60 dark:bg-muted/20 hover:bg-red-50/40 dark:hover:bg-red-500/10"
+                              : (stripedRows && i % 2 === 1) ? "bg-slate-50/60 dark:bg-muted/20 hover:bg-red-50/40 dark:hover:bg-red-500/10"
                               : "hover:bg-red-50/40 dark:hover:bg-red-500/10"
                           }`}
                         >
@@ -847,6 +879,35 @@ export default function PurchaseReturnsPage() {
         </div>
       </div>
     )}
+
+    <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>그리드 설정</SheetTitle>
+          <SheetDescription className="text-xs">내보내기 · 보기 설정</SheetDescription>
+        </SheetHeader>
+        <div className="mt-4 space-y-5 text-xs">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant={gridSettingsTab === "export" ? "default" : "outline"} onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+            <Button size="sm" variant={gridSettingsTab === "view" ? "default" : "outline"} onClick={() => setGridSettingsTab("view")}>보기</Button>
+          </div>
+          {gridSettingsTab === "export" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">조회된 반품 이력 데이터를 CSV 파일로 다운로드합니다.</p>
+              <Button size="sm" onClick={handleExport} disabled={items.length === 0}>CSV 내보내기</Button>
+            </div>
+          )}
+          {gridSettingsTab === "view" && (
+            <div className="space-y-3">
+              <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">줄무늬 표시</span>
+                <Checkbox checked={stripedRows} onChange={(e) => setStripedRows(e.target.checked)} />
+              </label>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
     </>
   );
 }

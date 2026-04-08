@@ -7,6 +7,10 @@ import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { FilterBar } from "@/components/common/filter-bar";
 import { MasterListGrid } from "@/components/common/master-list-grid";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
+import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { suppliers } from "@/lib/mock/suppliers";
 import type { PurchaseOrderSummary } from "@/types/purchase";
@@ -29,6 +33,9 @@ type SupplierSummaryRow = {
 export default function PurchasePerformancePage() {
   const [list, setList] = useCachedState<PurchaseOrderSummary[]>("perf/list", []);
   const [loading, setLoading] = useState(!getPageState("perf/list"));
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+  const [stripedRows, setStripedRows] = useState(true);
   const [search, setSearch] = useCachedState<string>("perf/search", "");
   const [supplierId, setSupplierId] = useCachedState<string>("perf/supplierId", "");
   const [fromDate, setFromDate] = useCachedState<string>("perf/fromDate", "");
@@ -115,7 +122,24 @@ export default function PurchasePerformancePage() {
       ? 0
       : Math.round(((totalOrders - delayedOrders) / totalOrders) * 100);
 
+  const handleExport = () => {
+    if (filtered.length === 0) return;
+    const header = ["PO번호","공급사","품목수","발주금액","납기일"];
+    const rows = filtered.map((r) => [
+      r.poNumber, r.supplierName, String(r.itemCount),
+      String(r.totalAmount), r.dueDate ?? "",
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [header.join(","), rows].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "purchase-performance.csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
   return (
+    <>
     <div className="space-y-6">
       <PageHeader
         title="구매실적관리"
@@ -202,10 +226,13 @@ export default function PurchasePerformancePage() {
       />
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <CardHeader className="pb-2">
-          <span className="text-sm font-medium text-muted-foreground">
-            PO 목록
-          </span>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <span className="text-sm font-medium text-muted-foreground">PO 목록</span>
+          <DataGridToolbar
+            active={gridSettingsOpen ? gridSettingsTab : undefined}
+            onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+            onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
+          />
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
           <div className="min-h-0 flex-1">
@@ -260,9 +287,7 @@ export default function PurchasePerformancePage() {
 
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardHeader className="pb-2">
-          <span className="text-sm font-medium text-muted-foreground">
-            업체별 구매실적 집계
-          </span>
+          <span className="text-sm font-medium text-muted-foreground">업체별 구매실적 집계</span>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
           <div className="min-h-0 flex-1">
@@ -302,6 +327,36 @@ export default function PurchasePerformancePage() {
         </CardContent>
       </Card>
     </div>
+
+    <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+      <SheetContent>
+        <SheetHdr>
+          <SheetTitle>그리드 설정</SheetTitle>
+          <SheetDescription className="text-xs">내보내기 · 보기 설정</SheetDescription>
+        </SheetHdr>
+        <div className="mt-4 space-y-5 text-xs">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant={gridSettingsTab === "export" ? "default" : "outline"} onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+            <Button size="sm" variant={gridSettingsTab === "view" ? "default" : "outline"} onClick={() => setGridSettingsTab("view")}>보기</Button>
+          </div>
+          {gridSettingsTab === "export" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">조회된 구매실적 데이터를 CSV 파일로 다운로드합니다.</p>
+              <Button size="sm" onClick={handleExport} disabled={filtered.length === 0}>CSV 내보내기</Button>
+            </div>
+          )}
+          {gridSettingsTab === "view" && (
+            <div className="space-y-3">
+              <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">줄무늬 표시</span>
+                <Checkbox checked={stripedRows} onChange={(e) => setStripedRows(e.target.checked)} />
+              </label>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 }
 

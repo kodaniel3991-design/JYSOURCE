@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
+import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2 } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
 
@@ -26,11 +30,14 @@ interface CodeItem {
 }
 
 export default function CommonCodesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedKey, setSelectedKey] = useState<string>("");
-  const [codes, setCodes] = useState<CodeItem[]>([]);
+  const [categories, setCategories] = useCachedState<Category[]>("common-codes/categories", []);
+  const [selectedKey, setSelectedKey] = useCachedState<string>("common-codes/selectedKey", "");
+  const [codes, setCodes] = useCachedState<CodeItem[]>("common-codes/codes", []);
+  const [cachedCodesKey, setCachedCodesKey] = useCachedState<string>("common-codes/cachedCodesKey", "");
   const [loadingCat, setLoadingCat] = useState(false);
   const [loadingCode, setLoadingCode] = useState(false);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
 
   // 분류 입력
   const [newCatKey, setNewCatKey] = useState("");
@@ -64,14 +71,16 @@ export default function CommonCodesPage() {
     try {
       const r = await fetch(apiPath(`/api/common-codes?category=${encodeURIComponent(category)}`));
       const data = await r.json();
-      if (data.ok) setCodes(data.items);
+      if (data.ok) { setCodes(data.items); setCachedCodesKey(category); }
     } finally {
       setLoadingCode(false);
     }
   };
 
-  useEffect(() => { loadCategories(); }, []);
-  useEffect(() => { if (selectedKey) loadCodes(selectedKey); }, [selectedKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (categories.length > 0) return; loadCategories(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (selectedKey && selectedKey !== cachedCodesKey) loadCodes(selectedKey); }, [selectedKey]);
 
   // ── 분류 추가 ──
   const handleAddCategory = async () => {
@@ -118,6 +127,7 @@ export default function CommonCodesPage() {
   const selectedMeta = categories.find((c) => c.CategoryKey === selectedKey);
 
   return (
+    <>
     <div className="flex flex-col gap-4" style={{ height: "calc(100vh - 7rem)" }}>
       <PageHeader
         title="공통코드 관리"
@@ -192,11 +202,17 @@ export default function CommonCodesPage() {
 
         {/* 2 Depth: 코드 목록 */}
         <Card className="flex flex-col min-h-0 overflow-hidden">
-          <CardHeader className="pb-2 shrink-0">
-            <span className="text-sm font-medium text-muted-foreground">
-              {selectedMeta ? `${selectedMeta.Label} 코드 (2 Depth)` : "코드 목록"}
-            </span>
-            <p className="mt-1 text-[11px] text-muted-foreground">화면 전체에서 공통으로 사용하는 코드 값입니다.</p>
+          <CardHeader className="pb-2 shrink-0 flex flex-row items-start justify-between">
+            <div>
+              <span className="text-sm font-medium text-muted-foreground">
+                {selectedMeta ? `${selectedMeta.Label} 코드 (2 Depth)` : "코드 목록"}
+              </span>
+              <p className="mt-1 text-[11px] text-muted-foreground">화면 전체에서 공통으로 사용하는 코드 값입니다.</p>
+            </div>
+            <DataGridToolbar
+              active={gridSettingsOpen ? gridSettingsTab : undefined}
+              onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+            />
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pt-2 text-xs flex-1 min-h-0 overflow-hidden">
             {/* 코드 추가 입력 */}
@@ -253,5 +269,37 @@ export default function CommonCodesPage() {
         </Card>
       </div>
     </div>
+
+    <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+      <SheetContent>
+        <SheetHdr>
+          <SheetTitle>그리드 설정</SheetTitle>
+          <SheetDescription className="text-xs">내보내기 설정</SheetDescription>
+        </SheetHdr>
+        <div className="mt-4 space-y-5 text-xs">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="default" onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+          </div>
+          {gridSettingsTab === "export" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">현재 선택된 분류의 코드 목록을 CSV 파일로 다운로드합니다.</p>
+              <Button size="sm" disabled={codes.length === 0} onClick={() => {
+                if (codes.length === 0) return;
+                const header = ["코드","명칭"];
+                const rows = codes.map((c) => [`"${c.Code}"`, `"${c.Name}"`].join(",")).join("\n");
+                const csv = [header.join(","), rows].join("\n");
+                const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = `common-codes-${selectedKey}.csv`;
+                document.body.appendChild(a); a.click();
+                document.body.removeChild(a); URL.revokeObjectURL(url);
+              }}>CSV 내보내기</Button>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 }

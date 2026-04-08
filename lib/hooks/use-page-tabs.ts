@@ -20,7 +20,6 @@ const ROUTE_LABELS: { pattern: RegExp | string; label: string }[] = [
   { pattern: "/purchase-orders/performance/purchase-input", label: "매입 실적 관리" },
   { pattern: "/purchase-orders/performance/receipts",      label: "발주대비 입고현황" },
   { pattern: "/purchase-orders/performance/closing",       label: "마감현황" },
-  { pattern: "/purchase-orders/performance",               label: "구매실적관리" },
   { pattern: /^\/purchase-orders\/[^/]+$/,                 label: "구매오더 상세" },
   { pattern: "/purchase-orders",                           label: "구매오더 현황" },
   { pattern: "/purchase-prices",                           label: "구매단가 관리" },
@@ -53,14 +52,26 @@ export function getPageLabel(pathname: string): string | null {
 
 const STORAGE_KEY = "page_tabs";
 const MAX_TABS = 10;
+const DASHBOARD_HREF = "/dashboard";
 
 function loadTabs(): PageTab[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as PageTab[]) : [];
+    const tabs = raw ? (JSON.parse(raw) as PageTab[]) : [];
+    // 대시보드가 없으면 항상 맨 앞에 추가
+    if (!tabs.find((t) => t.href === DASHBOARD_HREF)) {
+      return [{ href: DASHBOARD_HREF, label: "대시보드" }, ...tabs];
+    }
+    // 대시보드가 맨 앞이 아니면 재정렬
+    const dashIdx = tabs.findIndex((t) => t.href === DASHBOARD_HREF);
+    if (dashIdx > 0) {
+      const dash = tabs.splice(dashIdx, 1)[0];
+      return [dash, ...tabs];
+    }
+    return tabs;
   } catch {
-    return [];
+    return [{ href: DASHBOARD_HREF, label: "대시보드" }];
   }
 }
 
@@ -83,7 +94,8 @@ export function usePageTabsTracker() {
     if (exists) return; // 이미 있으면 추가 안함
 
     const next: PageTab[] = [...tabs, { href: pathname, label }];
-    if (next.length > MAX_TABS) next.shift(); // 오래된 탭 제거
+    // MAX_TABS 초과 시 대시보드 제외하고 가장 오래된 탭(index 1) 제거
+    if (next.length > MAX_TABS) next.splice(1, 1);
     saveTabs(next);
   }, [pathname]);
 }

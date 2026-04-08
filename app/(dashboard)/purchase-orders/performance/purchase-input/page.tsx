@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { SearchPopup } from "@/components/common/search-popup";
 import { ItemSelectModal } from "@/components/common/item-select-modal";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
+import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Plus, Save, Trash2, CheckSquare, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
@@ -81,24 +85,27 @@ const statusOptions: SelectOption[] = [
 
 export default function PurchaseInputPage() {
   // 좌측 목록 검색
-  const [listSearch, setListSearch] = useState({
+  const [listSearch, setListSearch] = useCachedState("purchase-input/listSearch", {
     supplierCode: "",
     dateFrom: firstOfMonthStr(),
     dateTo:   todayStr(),
   });
-  const [list,       setList]       = useState<ListItem[]>([]);
+  const [list,       setList]       = useCachedState<ListItem[]>("purchase-input/list", []);
   const [listLoading, setListLoading] = useState(false);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+  const [stripedRows, setStripedRows] = useState(true);
 
   // 선택된 항목
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useCachedState<string | null>("purchase-input/selectedId", null);
   const [isNew,      setIsNew]      = useState(false);
 
   // 우측 헤더 폼
-  const [header, setHeader] = useState<HeaderForm>(emptyHeader());
+  const [header, setHeader] = useCachedState<HeaderForm>("purchase-input/header", emptyHeader());
   const [saving, setSaving] = useState(false);
   const [isSupplierOpen,     setIsSupplierOpen]     = useState(false);
   const [isListSupplierOpen, setIsListSupplierOpen] = useState(false);
-  const [listSupplierName,   setListSupplierName]   = useState("");
+  const [listSupplierName,   setListSupplierName]   = useCachedState("purchase-input/listSupplierName", "");
   const [isBuyerOpen,        setIsBuyerOpen]        = useState(false);
 
   // 사용자 목록 (구매담당자 팝업)
@@ -107,20 +114,24 @@ export default function PurchaseInputPage() {
   const loginBuyerRef = useRef<{ buyerCode: string; buyerName: string }>({ buyerCode: "", buyerName: "" });
 
   // 탭
-  const [activeTab, setActiveTab] = useState<"매입내역" | "구매입고참조">("매입내역");
+  const [activeTab, setActiveTab] = useCachedState<"매입내역" | "구매입고참조">("purchase-input/activeTab", "매입내역");
 
   // 매입내역 탭
-  const [inputItems,         setInputItems]         = useState<InputItem[]>([]);
+  const [inputItems,         setInputItems]         = useCachedState<InputItem[]>("purchase-input/inputItems", []);
   const [selectedItemIds,    setSelectedItemIds]    = useState<Set<string>>(new Set());
   const [itemsLoading,       setItemsLoading]       = useState(false);
 
+  // 구매입고참조 탭 그리드 설정
+  const [unGridSettingsOpen, setUnGridSettingsOpen] = useState(false);
+  const [unGridSettingsTab, setUnGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+
   // 구매입고참조 탭
-  const [unSearch, setUnSearch] = useState({
+  const [unSearch, setUnSearch] = useCachedState("purchase-input/unSearch", {
     dateFrom: firstOfMonthStr(), dateTo: todayStr(), model: "",
   });
-  const [unItemCode,   setUnItemCode]   = useState("");
-  const [unItemName,   setUnItemName]   = useState("");
-  const [unreceivedItems,    setUnreceivedItems]    = useState<UnreceivedItem[]>([]);
+  const [unItemCode,   setUnItemCode]   = useCachedState("purchase-input/unItemCode",   "");
+  const [unItemName,   setUnItemName]   = useCachedState("purchase-input/unItemName",   "");
+  const [unreceivedItems,    setUnreceivedItems]    = useCachedState<UnreceivedItem[]>("purchase-input/unreceivedItems", []);
   const [selectedUnIds,      setSelectedUnIds]      = useState<Set<string>>(new Set());
   const [unLoading,          setUnLoading]          = useState(false);
 
@@ -213,7 +224,8 @@ export default function PurchaseInputPage() {
       .finally(() => setListLoading(false));
   }, [listSearch]);
 
-  useEffect(() => { loadList(); }, []);  // 최초 로드
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (list.length > 0) return; loadList(); }, []);  // 최초 로드 (캐시 있으면 스킵)
 
   // ── 헤더 단건 로드 ──────────────────────────────────────────────────────────
   const loadHeader = useCallback((id: string) => {
@@ -271,6 +283,23 @@ export default function PurchaseInputPage() {
     setUnreceivedItems([]);
     setSelectedItemIds(new Set());
     setSelectedUnIds(new Set());
+  };
+
+  const handleExport = () => {
+    if (inputItems.length === 0) return;
+    const header2 = ["순번","입고번호","품목코드","품목명","단위","매입량","매입금액","환산금액","부가세액","합계금액","입고번호","발주번호","비고"];
+    const rows = inputItems.map((r) => [
+      String(r.seqNo), r.receiptNo, r.itemCode, r.itemName, r.unit,
+      String(r.inputQty), String(r.inputAmount), String(r.convertedAmount),
+      String(r.taxAmount), String(r.totalWithTax), r.receiptNo, r.purchaseOrderNo, r.note,
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [header2.join(","), rows].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "purchase-input-items.csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
   // ── 신규 ─────────────────────────────────────────────────────────────────────
@@ -407,6 +436,7 @@ export default function PurchaseInputPage() {
 
   // ── 렌더 ──────────────────────────────────────────────────────────────────────
   return (
+    <>
     <div className="flex gap-0" style={{ height: "calc(100vh - 7rem)" }}>
 
       {/* ── 좌측 패널: 매입 목록 ─────────────────────────────────────────── */}
@@ -711,7 +741,13 @@ export default function PurchaseInputPage() {
                       선택 삭제
                     </Button>
                   )}
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <span className="flex-1" />
+                  <DataGridToolbar
+                    active={gridSettingsOpen ? gridSettingsTab : undefined}
+                    onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+                    onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
+                  />
+                  <span className="text-xs text-muted-foreground">
                     총 <b>{inputItems.length}</b>건
                   </span>
                 </div>
@@ -879,7 +915,12 @@ export default function PurchaseInputPage() {
                         ※ 구매처번호를 입력하고 저장한 후 조회하세요.
                       </span>
                     )}
-                    <span className="ml-auto text-xs text-muted-foreground">
+                    <span className="flex-1" />
+                    <DataGridToolbar
+                      active={unGridSettingsOpen ? unGridSettingsTab : undefined}
+                      onExport={() => { setUnGridSettingsTab("export"); setUnGridSettingsOpen(true); }}
+                    />
+                    <span className="text-xs text-muted-foreground">
                       총 <b>{unreceivedItems.length}</b>건 / 선택 <b>{selectedUnIds.size}</b>건
                     </span>
                   </div>
@@ -899,8 +940,8 @@ export default function PurchaseInputPage() {
                         <th className="px-2 py-1.5 text-left border-b border-r border-border w-32">품목번호</th>
                         <th className="px-2 py-1.5 text-left border-b border-r border-border min-w-[80px]">품목명</th>
                         <th className="px-2 py-1.5 text-center border-b border-r border-border w-10">단위</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-16">미매입량</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-16">매입량</th>
+                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">미매입량</th>
+                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">매입량</th>
                         <th className="px-2 py-1.5 text-center border-b border-r border-border w-24">입고일자</th>
                         <th className="px-2 py-1.5 text-right border-b border-r border-border w-20">입고단가</th>
                         <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">입고금액</th>
@@ -1158,5 +1199,71 @@ export default function PurchaseInputPage() {
         </div>
       )}
     </div>
+
+    <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+      <SheetContent>
+        <SheetHdr>
+          <SheetTitle>그리드 설정</SheetTitle>
+          <SheetDescription className="text-xs">내보내기 · 보기 설정</SheetDescription>
+        </SheetHdr>
+        <div className="mt-4 space-y-5 text-xs">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant={gridSettingsTab === "export" ? "default" : "outline"} onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+            <Button type="button" size="sm" variant={gridSettingsTab === "view" ? "default" : "outline"} onClick={() => setGridSettingsTab("view")}>보기</Button>
+          </div>
+          {gridSettingsTab === "export" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">매입내역 품목 데이터를 CSV 파일로 다운로드합니다.</p>
+              <Button type="button" size="sm" onClick={handleExport} disabled={inputItems.length === 0}>CSV 내보내기</Button>
+            </div>
+          )}
+          {gridSettingsTab === "view" && (
+            <div className="space-y-3">
+              <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">줄무늬 표시</span>
+                <Checkbox checked={stripedRows} onChange={(e) => setStripedRows(e.target.checked)} />
+              </label>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+
+    <Sheet open={unGridSettingsOpen} onOpenChange={setUnGridSettingsOpen} position="center">
+      <SheetContent>
+        <SheetHdr>
+          <SheetTitle>그리드 설정</SheetTitle>
+          <SheetDescription className="text-xs">입고이력 선택 그리드 · 내보내기 설정</SheetDescription>
+        </SheetHdr>
+        <div className="mt-4 space-y-5 text-xs">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="default" onClick={() => setUnGridSettingsTab("export")}>내보내기</Button>
+          </div>
+          {unGridSettingsTab === "export" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">조회된 구매입고참조 목록을 CSV 파일로 다운로드합니다.</p>
+              <Button type="button" size="sm" disabled={unreceivedItems.length === 0} onClick={() => {
+                if (unreceivedItems.length === 0) return;
+                const header = ["입고번호", "품목번호", "품목명", "단위", "미매입량", "매입량", "입고일자", "입고단가", "입고금액", "부가세액", "합계금액", "발주번호", "업체코드", "업체명"];
+                const csvRows = unreceivedItems.map((r) => [
+                  r.receiptNo, r.itemCode, r.itemName, r.unit,
+                  String(r.unreceiptQty), String(r.inputQty), r.receiptDate,
+                  String(r.unitPrice), String(r.receiptAmount), String(r.taxAmount), String(r.totalWithTax),
+                  r.poNumber, r.supplierCode, r.supplierName,
+                ]);
+                const csv = [header, ...csvRows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
+                const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = "purchase-input-history.csv";
+                document.body.appendChild(a); a.click();
+                document.body.removeChild(a); URL.revokeObjectURL(url);
+              }}>CSV 내보내기</Button>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 }

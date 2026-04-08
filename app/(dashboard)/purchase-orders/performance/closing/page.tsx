@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,15 +62,15 @@ type ClosingRow = Omit<RawItem, "inputQty"> & {
 
 export default function ClosingStatusPage() {
   // 사업장
-  const [factoryCode, setFactoryCode] = useState("");
-  const [factoryName, setFactoryName] = useState("");
+  const [factoryCode, setFactoryCode] = useCachedState("closing/factoryCode", "");
+  const [factoryName, setFactoryName] = useCachedState("closing/factoryName", "");
 
   // 검색 조건
-  const [dateFrom, setDateFrom] = useState(firstOfMonthStr());
-  const [dateTo,   setDateTo]   = useState(todayStr());
+  const [dateFrom, setDateFrom] = useCachedState("closing/dateFrom", firstOfMonthStr());
+  const [dateTo,   setDateTo]   = useCachedState("closing/dateTo",   todayStr());
 
   // 데이터
-  const [rawItems, setRawItems]   = useState<RawItem[]>([]);
+  const [rawItems, setRawItems]   = useCachedState<RawItem[]>("closing/rawItems", []);
   const [loading,  setLoading]    = useState(false);
 
   // 그리드 설정
@@ -80,6 +81,7 @@ export default function ClosingStatusPage() {
 
   // ── 로그인 사업장 로드 ──────────────────────────────────────────────────────
   useEffect(() => {
+    if (factoryCode) return; // 캐시 있으면 스킵
     fetch(apiPath("/api/auth/me"))
       .then((r) => r.json())
       .then(async (d) => {

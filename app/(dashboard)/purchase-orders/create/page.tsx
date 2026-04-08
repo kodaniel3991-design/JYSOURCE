@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/page-header";
@@ -24,6 +25,9 @@ import type {
 } from "@/types/purchase";
 import { MasterListGrid, type MasterListGridColumn } from "@/components/common/master-list-grid";
 import { SearchPopup } from "@/components/common/search-popup";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
+import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Search, RotateCcw, Save, X, Send, FileDown, Copy, Clipboard } from "lucide-react";
 import { FieldError } from "@/components/ui/field-error";
 import { apiPath } from "@/lib/api-path";
@@ -96,11 +100,14 @@ type ItemMaster = {
 
 
 export default function CreatePurchaseOrderPage() {
-  const [activeTab, setActiveTab] = useState<"basic" | "spec">("basic");
-  const [basicInfoList, setBasicInfoList] = useState<BasicInfoListItem[]>([]);
-  const [selectedBasicId, setSelectedBasicId] = useState<string | null>(null);
-  const [isFormActive, setIsFormActive] = useState(false);
+  const [activeTab, setActiveTab] = useCachedState<"basic" | "spec">("po-create/activeTab", "basic");
+  const [basicInfoList, setBasicInfoList] = useCachedState<BasicInfoListItem[]>("po-create/basicInfoList", []);
+  const [selectedBasicId, setSelectedBasicId] = useCachedState<string | null>("po-create/selectedBasicId", null);
+  const [isFormActive, setIsFormActive] = useCachedState<boolean>("po-create/isFormActive", false);
   const [errors, setErrors] = useState<Partial<Record<keyof POBasicFormData, string>>>({});
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+  const [stripedRows, setStripedRows] = useState(true);
 
   const listContentRef = useRef<HTMLDivElement>(null);
   // 공통코드에서 동적 생성
@@ -179,8 +186,8 @@ export default function CreatePurchaseOrderPage() {
   const dueDateInputRefs  = useRef<(HTMLInputElement | null)[]>([]);
   const itemCodeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [activeSpecRowIndex, setActiveSpecRowIndex] = useState(0);
-  const [basicForm, setBasicForm] = useState<POBasicFormData>(defaultBasicForm);
-  const [specItems, setSpecItems] = useState<POSpecItemRow[]>([getDefaultSpecRow()]);
+  const [basicForm, setBasicForm] = useCachedState<POBasicFormData>("po-create/basicForm", defaultBasicForm);
+  const [specItems, setSpecItems] = useCachedState<POSpecItemRow[]>("po-create/specItems", [getDefaultSpecRow()]);
   const [notifyModal, setNotifyModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
   const [copyModal, setCopyModal] = useState<{ open: boolean; orderDate: string } | null>(null);
   const [copying, setCopying] = useState(false);
@@ -232,7 +239,8 @@ export default function CreatePurchaseOrderPage() {
       .catch(() => {});
   };
 
-  useEffect(() => { loadBasicInfoList(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (basicInfoList.length > 0) return; loadBasicInfoList(); }, []);
 
   // 로그인 사용자를 구매 발주자 초기값으로 설정
   useEffect(() => {
@@ -1157,7 +1165,26 @@ export default function CreatePurchaseOrderPage() {
     }
   };
 
+  const handleExport = () => {
+    const filled = specItems.filter((r) => r.itemCode);
+    if (filled.length === 0) return;
+    const header = ["명세번호","품목번호","품목명","규격","창고","저장위치","모델","발주량","구매단가","발주금액","입고예정일자"];
+    const rows = filled.map((r, i) => [
+      String(i + 1), r.itemCode, r.itemName, r.specification ?? "",
+      r.warehouse ?? "", r.storageLocation ?? "", r.model ?? "",
+      String(r.quantity), String(r.unitPrice), String(r.amount), r.dueDate,
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [header.join(","), rows].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "purchase-order-spec.csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
   return (
+    <>
     <div className="flex flex-col gap-4" style={{ height: "calc(100vh - 7rem)" }}>
       <PageHeader
         title="구매오더 관리"
@@ -1640,6 +1667,12 @@ export default function CreatePurchaseOrderPage() {
                   <Plus className="mr-1.5 h-3 w-3" />
                   품목 추가
                 </Button>
+                <span className="flex-1" />
+                <DataGridToolbar
+                  active={gridSettingsOpen ? gridSettingsTab : undefined}
+                  onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+                  onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
+                />
               </div>
               <div className={`rounded-md border ${!isFormActive ? "hidden" : ""}`} onKeyDown={handleEnterNav}>
                 <table className="w-full text-xs">
@@ -2332,5 +2365,35 @@ export default function CreatePurchaseOrderPage() {
       )}
 
     </div>
+
+    <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+      <SheetContent>
+        <SheetHdr>
+          <SheetTitle>그리드 설정</SheetTitle>
+          <SheetDescription className="text-xs">내보내기 · 보기 설정</SheetDescription>
+        </SheetHdr>
+        <div className="mt-4 space-y-5 text-xs">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant={gridSettingsTab === "export" ? "default" : "outline"} onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+            <Button size="sm" variant={gridSettingsTab === "view" ? "default" : "outline"} onClick={() => setGridSettingsTab("view")}>보기</Button>
+          </div>
+          {gridSettingsTab === "export" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">명세작업 품목 데이터를 CSV 파일로 다운로드합니다.</p>
+              <Button size="sm" onClick={handleExport} disabled={!specItems.some((r) => r.itemCode)}>CSV 내보내기</Button>
+            </div>
+          )}
+          {gridSettingsTab === "view" && (
+            <div className="space-y-3">
+              <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">줄무늬 표시</span>
+                <Checkbox checked={stripedRows} onChange={(e) => setStripedRows(e.target.checked)} />
+              </label>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 }

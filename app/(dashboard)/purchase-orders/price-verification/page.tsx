@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
+import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
@@ -38,13 +42,13 @@ const TODAY_STR      = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pa
 
 export default function PriceVerificationPage() {
   // ── 검색 조건 ────────────────────────────────────────────────────────────────
-  const [dateFrom,      setDateFrom]      = useState(FIRST_OF_MONTH);
-  const [dateTo,        setDateTo]        = useState(TODAY_STR);
-  const [itemCode,      setItemCode]      = useState("");
-  const [itemName,      setItemName]      = useState("");
-  const [supplierCode,  setSupplierCode]  = useState("");
-  const [supplierName,  setSupplierName]  = useState("");
-  const [model,         setModel]         = useState("");
+  const [dateFrom,      setDateFrom]      = useCachedState("price-verify/dateFrom",      FIRST_OF_MONTH);
+  const [dateTo,        setDateTo]        = useCachedState("price-verify/dateTo",        TODAY_STR);
+  const [itemCode,      setItemCode]      = useCachedState("price-verify/itemCode",      "");
+  const [itemName,      setItemName]      = useCachedState("price-verify/itemName",      "");
+  const [supplierCode,  setSupplierCode]  = useCachedState("price-verify/supplierCode",  "");
+  const [supplierName,  setSupplierName]  = useCachedState("price-verify/supplierName",  "");
+  const [model,         setModel]         = useCachedState("price-verify/model",         "");
 
   // ── 모달/팝업 ────────────────────────────────────────────────────────────────
   const [isItemModalOpen,     setIsItemModalOpen]     = useState(false);
@@ -56,10 +60,13 @@ export default function PriceVerificationPage() {
   const modelSubRowRef = useRef<HTMLTableRowElement>(null);
 
   // ── 결과 ────────────────────────────────────────────────────────────────────
-  const [items,    setItems]    = useState<PriceVerificationItem[]>([]);
+  const [items,    setItems]    = useCachedState<PriceVerificationItem[]>("price-verify/items", []);
   const [loading,  setLoading]  = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useCachedState<boolean>("price-verify/searched", false);
   const [error,    setError]    = useState<string | null>(null);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+  const [stripedRows, setStripedRows] = useState(true);
 
   // ── 멀티셀렉트 ───────────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -82,6 +89,24 @@ export default function PriceVerificationPage() {
       else next.add(key);
       return next;
     });
+  };
+
+  const handleExport = () => {
+    if (items.length === 0) return;
+    const header = ["구매오더번호","발주일자","구매처코드","구매처명","품목번호","품목명","모델","수량","발주단가","현재단가","단가차액","차액율(%)","금액차이","상태"];
+    const rows = items.map((r) => [
+      r.poNumber, r.orderDate, r.supplierCode, r.supplierName,
+      r.itemCode, r.itemName, r.vehicleModel, String(r.quantity),
+      String(r.poUnitPrice), String(r.currentUnitPrice ?? ""),
+      String(r.diff ?? ""), String(r.diffRate ?? ""), String(r.amountDiff ?? ""), r.status,
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [header.join(","), rows].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "price-verification.csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
   const handleApply = async () => {
@@ -189,6 +214,7 @@ export default function PriceVerificationPage() {
   }), [items]);
 
   return (
+    <>
     <div className="flex flex-col gap-4 min-h-0 flex-1">
       <PageHeader
         title="단가변경 교차검증"
@@ -339,31 +365,39 @@ export default function PriceVerificationPage() {
 
       {/* ── 데이터 그리드 ────────────────────────────────────────────────── */}
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {/* 그리드 툴바 */}
-        {items.length > 0 && (
-          <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b bg-muted/30">
-            <span className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{selected.size}</span>건 선택됨
-            </span>
-            <Button
-              type="button" size="sm" variant="default"
-              disabled={selected.size === 0 || applying}
-              onClick={handleApply}
-              className="h-7 px-3 text-xs ml-1"
-            >
-              <RefreshCw className="mr-1.5 h-3 w-3" />
-              {applying ? "적용 중..." : "최신단가로 발주단가 변경"}
-            </Button>
-            <Button
-              type="button" size="sm" variant="ghost"
-              className="h-7 px-2 text-xs text-muted-foreground"
-              onClick={() => setSelected(new Set())}
-              disabled={selected.size === 0}
-            >
-              선택 해제
-            </Button>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2 px-3 shrink-0 border-b">
+          <div className="flex items-center gap-2">
+            {items.length > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">{selected.size}</span>건 선택됨
+                </span>
+                <Button
+                  type="button" size="sm" variant="default"
+                  disabled={selected.size === 0 || applying}
+                  onClick={handleApply}
+                  className="h-7 px-3 text-xs"
+                >
+                  <RefreshCw className="mr-1.5 h-3 w-3" />
+                  {applying ? "적용 중..." : "최신단가로 발주단가 변경"}
+                </Button>
+                <Button
+                  type="button" size="sm" variant="ghost"
+                  className="h-7 px-2 text-xs text-muted-foreground"
+                  onClick={() => setSelected(new Set())}
+                  disabled={selected.size === 0}
+                >
+                  선택 해제
+                </Button>
+              </>
+            )}
           </div>
-        )}
+          <DataGridToolbar
+            active={gridSettingsOpen ? gridSettingsTab : undefined}
+            onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+            onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
+          />
+        </CardHeader>
 
         <CardContent className="p-0 flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-auto min-h-0">
@@ -586,5 +620,35 @@ export default function PriceVerificationPage() {
         </div>
       )}
     </div>
+
+    <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+      <SheetContent>
+        <SheetHdr>
+          <SheetTitle>그리드 설정</SheetTitle>
+          <SheetDescription className="text-xs">내보내기 · 보기 설정</SheetDescription>
+        </SheetHdr>
+        <div className="mt-4 space-y-5 text-xs">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant={gridSettingsTab === "export" ? "default" : "outline"} onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+            <Button size="sm" variant={gridSettingsTab === "view" ? "default" : "outline"} onClick={() => setGridSettingsTab("view")}>보기</Button>
+          </div>
+          {gridSettingsTab === "export" && (
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">조회된 단가검증 데이터를 CSV 파일로 다운로드합니다.</p>
+              <Button size="sm" onClick={handleExport} disabled={items.length === 0}>CSV 내보내기</Button>
+            </div>
+          )}
+          {gridSettingsTab === "view" && (
+            <div className="space-y-3">
+              <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">줄무늬 표시</span>
+                <Checkbox checked={stripedRows} onChange={(e) => setStripedRows(e.target.checked)} />
+              </label>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 }

@@ -44,13 +44,16 @@ export async function GET(
       .input("PurchaseOrderId", sql.Int, Number(params.id))
       .query(`
         SELECT
-          SpecNo, ItemCode, ItemName, Material, Specification,
-          Warehouse, Quantity, ReceivedQty, UnitPrice, Amount,
-          IsProvisionalPrice,
-          CONVERT(NVARCHAR(10), DueDate, 23) AS DueDate
-        FROM dbo.PurchaseOrderItem
-        WHERE PurchaseOrderId = @PurchaseOrderId
-        ORDER BY SpecNo
+          poi.SpecNo, poi.ItemCode, poi.ItemName, poi.Material, poi.Specification,
+          poi.Warehouse, poi.Quantity, poi.ReceivedQty, poi.UnitPrice, poi.Amount,
+          poi.IsProvisionalPrice,
+          CONVERT(NVARCHAR(10), poi.DueDate, 23) AS DueDate,
+          ISNULL(im.StorageLocation, '') AS StorageLocation,
+          ISNULL(im.VehicleModel, '')    AS VehicleModel
+        FROM dbo.PurchaseOrderItem poi
+        LEFT JOIN dbo.ItemMaster im ON im.ItemNo = poi.ItemCode
+        WHERE poi.PurchaseOrderId = @PurchaseOrderId
+        ORDER BY poi.SpecNo
       `);
 
     const basicForm = {
@@ -82,6 +85,8 @@ export async function GET(
       material:          String(it.Material ?? ""),
       specification:     String(it.Specification ?? ""),
       warehouse:         String(it.Warehouse ?? ""),
+      storageLocation:   String(it.StorageLocation ?? ""),
+      model:             String(it.VehicleModel ?? ""),
       quantity:          Number(it.Quantity ?? 0),
       receivedQty:       Number(it.ReceivedQty ?? 0),
       unitPrice:         Number(it.UnitPrice ?? 0),

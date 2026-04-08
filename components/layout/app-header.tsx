@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Building2, ChevronDown, LogOut, X } from "lucide-react";
+import { Bell, Building2, ChevronDown, LogOut, X, XSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
@@ -61,6 +61,7 @@ export function AppHeader({ username, factory, isAdmin }: AppHeaderProps) {
 
   const handleClose = (href: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (href === "/dashboard") return; // 대시보드는 닫기 불가
     const next = tabs.filter((t) => t.href !== href);
     saveTabs(next);
     setTabs(next);
@@ -72,6 +73,13 @@ export function AppHeader({ username, factory, isAdmin }: AppHeaderProps) {
       if (target) router.push(target.href);
       else router.push("/dashboard");
     }
+  };
+
+  const handleCloseAll = () => {
+    const dashOnly = [{ href: "/dashboard", label: "대시보드" }];
+    saveTabs(dashOnly);
+    setTabs(dashOnly);
+    router.push("/dashboard");
   };
 
   const handleLogout = async () => {
@@ -156,24 +164,38 @@ export function AppHeader({ username, factory, isAdmin }: AppHeaderProps) {
                 )}
               >
                 <span className="max-w-[120px] truncate">{tab.label}</span>
-                <span
-                  role="button"
-                  aria-label="탭 닫기"
-                  onClick={(e) => handleClose(tab.href, e)}
-                  className={cn(
-                    "flex h-4 w-4 items-center justify-center rounded-full transition-colors",
-                    isActive
-                      ? "hover:bg-primary-foreground/20"
-                      : "opacity-0 group-hover:opacity-100 hover:bg-muted-foreground/20"
-                  )}
-                >
-                  <X className="h-3 w-3" />
-                </span>
+                {tab.href !== "/dashboard" && (
+                  <span
+                    role="button"
+                    aria-label="탭 닫기"
+                    onClick={(e) => handleClose(tab.href, e)}
+                    className={cn(
+                      "flex h-4 w-4 items-center justify-center rounded-full transition-colors",
+                      isActive
+                        ? "hover:bg-primary-foreground/20"
+                        : "opacity-0 group-hover:opacity-100 hover:bg-muted-foreground/20"
+                    )}
+                  >
+                    <X className="h-3 w-3" />
+                  </span>
+                )}
               </button>
             );
           })
         )}
       </div>
+
+      {/* 탭 전체 닫기 */}
+      {tabs.length > 0 && (
+        <button
+          type="button"
+          onClick={handleCloseAll}
+          className="flex h-full shrink-0 items-center gap-1.5 border-r px-3 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors whitespace-nowrap"
+        >
+          메뉴 모두 닫기
+          <XSquare className="h-3.5 w-3.5" />
+        </button>
+      )}
 
       {/* 우측 사용자 정보 + 버튼 */}
       <div className="flex shrink-0 items-center gap-2 px-4 border-l">

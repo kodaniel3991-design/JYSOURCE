@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
 import { ItemSelectModal } from "@/components/common/item-select-modal";
 import { SupplierSelectPopup } from "@/components/common/supplier-select-popup";
+import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
 
@@ -84,14 +88,14 @@ export default function ReceiptPeriodPage() {
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
   // ── 검색 조건 ──────────────────────────────────────────────────────────────
-  const [viewType,     setViewType]     = useState<ViewType>("내역");
-  const [dateFrom,     setDateFrom]     = useState(firstOfMonth);
-  const [dateTo,       setDateTo]       = useState(todayStr);
-  const [itemCode,     setItemCode]     = useState("");
-  const [itemName,     setItemName]     = useState("");
-  const [supplierCode, setSupplierCode] = useState("");
-  const [supplierName, setSupplierName] = useState("");
-  const [model,        setModel]        = useState("");
+  const [viewType,     setViewType]     = useCachedState<ViewType>("receipt-period/viewType",    "내역");
+  const [dateFrom,     setDateFrom]     = useCachedState("receipt-period/dateFrom",     firstOfMonth);
+  const [dateTo,       setDateTo]       = useCachedState("receipt-period/dateTo",       todayStr);
+  const [itemCode,     setItemCode]     = useCachedState("receipt-period/itemCode",     "");
+  const [itemName,     setItemName]     = useCachedState("receipt-period/itemName",     "");
+  const [supplierCode, setSupplierCode] = useCachedState("receipt-period/supplierCode", "");
+  const [supplierName, setSupplierName] = useCachedState("receipt-period/supplierName", "");
+  const [model,        setModel]        = useCachedState("receipt-period/model",        "");
 
   const [isItemModalOpen,     setIsItemModalOpen]     = useState(false);
   const [isSupplierPopupOpen, setIsSupplierPopupOpen] = useState(false);
@@ -101,8 +105,11 @@ export default function ReceiptPeriodPage() {
   const [modelSubIdx,         setModelSubIdx]         = useState(-1);
   const modelSubRowRef = useRef<HTMLTableRowElement>(null);
 
-  const [items,   setItems]   = useState<HistoryItem[]>([]);
+  const [items,   setItems]   = useCachedState<HistoryItem[]>("receipt-period/items", []);
   const [loading, setLoading] = useState(false);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+  const [stripedRows, setStripedRows] = useState(true);
 
   const refDateFrom     = useRef<HTMLInputElement>(null);
   const refDateTo       = useRef<HTMLInputElement>(null);
@@ -274,6 +281,22 @@ export default function ReceiptPeriodPage() {
   }, [viewType, processedItems, itemGroups, supplierAgg]);
 
   const colCount = viewType === "내역" ? 15 : viewType === "업체+품목" ? 11 : 6;
+
+  const handleExport = () => {
+    if (items.length === 0) return;
+    const header = ["거래처번호","거래처명","입고일자","전표번호","품목번호","품목명","단위","입고수량","입고금액","구분"];
+    const rows = items.map((r) => [
+      r.supplierCode, r.supplierName, r.receiptDate, r.receiptNo,
+      r.itemCode, r.itemName, r.unit, String(r.qty), String(r.receiptAmount), r.type,
+    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [header.join(","), rows].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "receipt-period.csv";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
 
   // ── 인쇄 ──────────────────────────────────────────────────────────────────
   const handlePrint = () => {
@@ -694,6 +717,13 @@ export default function ReceiptPeriodPage() {
 
         {/* ── 데이터 그리드 ─────────────────────────────────────────────────── */}
         <Card className="flex-1 flex flex-col min-h-0">
+          <CardHeader className="flex flex-row items-center justify-end space-y-0 py-2 px-4 shrink-0 no-print">
+            <DataGridToolbar
+              active={gridSettingsOpen ? gridSettingsTab : undefined}
+              onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+              onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
+            />
+          </CardHeader>
           <CardContent className="p-0 flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-auto min-h-0">
               <table className="w-full text-xs border-collapse">
@@ -1004,6 +1034,35 @@ export default function ReceiptPeriodPage() {
           }}
         />
       )}
+
+      <Sheet open={gridSettingsOpen} onOpenChange={setGridSettingsOpen} position="center">
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>그리드 설정</SheetTitle>
+            <SheetDescription className="text-xs">내보내기 설정</SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 space-y-5 text-xs">
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant={gridSettingsTab === "export" ? "default" : "outline"} onClick={() => setGridSettingsTab("export")}>내보내기</Button>
+              <Button size="sm" variant={gridSettingsTab === "view" ? "default" : "outline"} onClick={() => setGridSettingsTab("view")}>보기</Button>
+            </div>
+            {gridSettingsTab === "export" && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">조회된 기간별 입고현황 데이터를 CSV 파일로 다운로드합니다.</p>
+                <Button size="sm" onClick={handleExport} disabled={items.length === 0}>CSV 내보내기</Button>
+              </div>
+            )}
+            {gridSettingsTab === "view" && (
+              <div className="space-y-3">
+                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span className="text-[11px] text-muted-foreground">줄무늬 표시</span>
+                  <Checkbox checked={stripedRows} onChange={(e) => setStripedRows(e.target.checked)} />
+                </label>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
