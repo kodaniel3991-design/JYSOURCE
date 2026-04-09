@@ -16,6 +16,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Plus, Save, Trash2, CheckSquare, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { SortableTh } from "@/components/ui/sortable-th";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -118,6 +120,7 @@ export default function PurchaseInputPage() {
 
   // 매입내역 탭
   const [inputItems,         setInputItems]         = useCachedState<InputItem[]>("purchase-input/inputItems", []);
+  const { sortedItems: sortedInputItems, sortKey: inSortKey, sortDir: inSortDir, toggleSort: inToggleSort } = useSortableGrid(inputItems);
   const [selectedItemIds,    setSelectedItemIds]    = useState<Set<string>>(new Set());
   const [itemsLoading,       setItemsLoading]       = useState(false);
 
@@ -132,6 +135,7 @@ export default function PurchaseInputPage() {
   const [unItemCode,   setUnItemCode]   = useCachedState("purchase-input/unItemCode",   "");
   const [unItemName,   setUnItemName]   = useCachedState("purchase-input/unItemName",   "");
   const [unreceivedItems,    setUnreceivedItems]    = useCachedState<UnreceivedItem[]>("purchase-input/unreceivedItems", []);
+  const { sortedItems: sortedUnItems, sortKey: unSortKey, sortDir: unSortDir, toggleSort: unToggleSort } = useSortableGrid(unreceivedItems);
   const [selectedUnIds,      setSelectedUnIds]      = useState<Set<string>>(new Set());
   const [unLoading,          setUnLoading]          = useState(false);
 
@@ -763,16 +767,16 @@ export default function PurchaseInputPage() {
                             disabled={header.status === "회계처리"} />
                         </th>
                         <th className="px-2 py-1.5 text-center border-b border-r border-border w-10">No.</th>
-                        <th className="px-2 py-1.5 text-left border-b border-r border-border w-32">품목번호</th>
-                        <th className="px-2 py-1.5 text-left border-b border-r border-border min-w-[120px]">품목명</th>
+                        <SortableTh sortKey="itemCode"       currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-32">품목번호</SortableTh>
+                        <SortableTh sortKey="itemName"       currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border min-w-[120px]">품목명</SortableTh>
                         <th className="px-2 py-1.5 text-center border-b border-r border-border w-10">단위</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-20">매입수량</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">매입금액</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">환전매입금액</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-22">부가세액</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">부가세포함금액</th>
-                        <th className="px-2 py-1.5 text-left border-b border-r border-border w-36">입고번호</th>
-                        <th className="px-2 py-1.5 text-left border-b border-r border-border w-28">구매오더</th>
+                        <SortableTh sortKey="inputQty"       currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-20">매입수량</SortableTh>
+                        <SortableTh sortKey="inputAmount"    currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">매입금액</SortableTh>
+                        <SortableTh sortKey="convertedAmount"currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">환전매입금액</SortableTh>
+                        <SortableTh sortKey="taxAmount"      currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-22">부가세액</SortableTh>
+                        <SortableTh sortKey="totalWithTax"   currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">부가세포함금액</SortableTh>
+                        <SortableTh sortKey="receiptNo"      currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-36">입고번호</SortableTh>
+                        <SortableTh sortKey="purchaseOrderNo"currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-28">구매오더</SortableTh>
                         <th className="px-2 py-1.5 text-left border-b border-border">적요</th>
                       </tr>
                     </thead>
@@ -783,7 +787,7 @@ export default function PurchaseInputPage() {
                         <tr><td colSpan={13} className="py-8 text-center text-muted-foreground">
                           구매입고참조 탭에서 입고자료를 선택 후 매입확정하세요.
                         </td></tr>
-                      ) : inputItems.map((item, idx) => (
+                      ) : sortedInputItems.map((item, idx) => (
                         <tr key={item.id}
                           className={cn("border-b hover:bg-muted/20",
                             selectedItemIds.has(item.id) && "bg-primary/5")}>
@@ -936,19 +940,19 @@ export default function PurchaseInputPage() {
                             checked={unreceivedItems.length > 0 && selectedUnIds.size === unreceivedItems.length}
                             onChange={toggleAllUn} />
                         </th>
-                        <th className="px-2 py-1.5 text-left border-b border-r border-border w-36">입고번호</th>
-                        <th className="px-2 py-1.5 text-left border-b border-r border-border w-32">품목번호</th>
-                        <th className="px-2 py-1.5 text-left border-b border-r border-border min-w-[80px]">품목명</th>
+                        <SortableTh sortKey="receiptNo"     currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-36">입고번호</SortableTh>
+                        <SortableTh sortKey="itemCode"      currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-32">품목번호</SortableTh>
+                        <SortableTh sortKey="itemName"      currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-r border-border min-w-[80px]">품목명</SortableTh>
                         <th className="px-2 py-1.5 text-center border-b border-r border-border w-10">단위</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">미매입량</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">매입량</th>
-                        <th className="px-2 py-1.5 text-center border-b border-r border-border w-24">입고일자</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-20">입고단가</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-24">입고금액</th>
-                        <th className="px-2 py-1.5 text-right border-b border-r border-border w-20">부가세액</th>
+                        <SortableTh sortKey="unreceiptQty"  currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">미매입량</SortableTh>
+                        <SortableTh sortKey="inputQty"      currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">매입량</SortableTh>
+                        <SortableTh sortKey="receiptDate"   currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-center border-b border-r border-border w-24">입고일자</SortableTh>
+                        <SortableTh sortKey="unitPrice"     currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-20">입고단가</SortableTh>
+                        <SortableTh sortKey="receiptAmount" currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">입고금액</SortableTh>
+                        <SortableTh sortKey="taxAmount"     currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-20">부가세액</SortableTh>
                         <th className="px-2 py-1.5 text-center border-b border-r border-border w-12">과세</th>
-                        <th className="px-2 py-1.5 text-left border-b border-r border-border w-20">업체코드</th>
-                        <th className="px-2 py-1.5 text-left border-b border-border min-w-[80px]">업체명</th>
+                        <SortableTh sortKey="supplierCode"  currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-20">업체코드</SortableTh>
+                        <SortableTh sortKey="supplierName"  currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-border min-w-[80px]">업체명</SortableTh>
                       </tr>
                     </thead>
                     <tbody>
@@ -958,7 +962,7 @@ export default function PurchaseInputPage() {
                         <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">
                           {header.supplierCode ? "조회 버튼을 눌러 미매입 입고자료를 불러오세요." : "구매처를 먼저 입력하세요."}
                         </td></tr>
-                      ) : unreceivedItems.map((item) => (
+                      ) : sortedUnItems.map((item) => (
                         <tr key={item.id}
                           className={cn("border-b hover:bg-muted/20",
                             selectedUnIds.has(item.id) && "bg-primary/5")}>

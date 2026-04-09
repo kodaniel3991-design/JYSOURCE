@@ -15,6 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/lib/utils";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { SortableTh } from "@/components/ui/sortable-th";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -100,6 +102,7 @@ export default function PurchaseReturnsPage() {
   const [totalQty, setTotalQty]   = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [loading, setLoading]     = useState(false);
+  const { sortedItems, sortKey: rSortKey, sortDir: rSortDir, toggleSort: rToggleSort } = useSortableGrid(items);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
   const [stripedRows, setStripedRows] = useState(true);
@@ -732,21 +735,21 @@ export default function PurchaseReturnsPage() {
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-muted/80 border-b">
                   <tr>
-                    <th className="px-2 py-2 text-left w-32">구매오더번호</th>
-                    <th className="px-2 py-2 text-center w-10">순번</th>
-                    <th className="px-2 py-2 text-center w-24">입고일자</th>
-                    <th className="px-2 py-2 text-center w-36">반품일자</th>
-                    <th className="px-2 py-2 text-left w-32">품목번호</th>
-                    <th className="px-2 py-2 text-left">품목명</th>
-                    <th className="px-2 py-2 text-center w-20">창고</th>
-                    <th className="px-2 py-2 text-left w-24">저장위치</th>
-                    <th className="px-2 py-2 text-center w-14">단위</th>
-                    <th className="px-2 py-2 text-left w-28">모델</th>
-                    <th className="px-2 py-2 text-right w-16">수량</th>
-                    <th className="px-2 py-2 text-right w-20">단가</th>
-                    <th className="px-2 py-2 text-right w-24">금액</th>
-                    <th className="px-2 py-2 text-left w-20">거래처코드</th>
-                    <th className="px-2 py-2 text-left w-28">거래처명</th>
+                    <SortableTh sortKey="poNumber"       currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-32">구매오더번호</SortableTh>
+                    <SortableTh sortKey="specNo"         currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-10">순번</SortableTh>
+                    <SortableTh sortKey="receiptDate"    currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-24">입고일자</SortableTh>
+                    <SortableTh sortKey="processedAt"    currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-36">반품일자</SortableTh>
+                    <SortableTh sortKey="itemCode"       currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-32">품목번호</SortableTh>
+                    <SortableTh sortKey="itemName"       currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left">품목명</SortableTh>
+                    <SortableTh sortKey="warehouse"      currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-20">창고</SortableTh>
+                    <SortableTh sortKey="storageLocation"currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-24">저장위치</SortableTh>
+                    <SortableTh sortKey="unit"           currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-14">단위</SortableTh>
+                    <SortableTh sortKey="vehicleModel"   currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-28">모델</SortableTh>
+                    <SortableTh sortKey="qty"            currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-right w-16">수량</SortableTh>
+                    <SortableTh sortKey="unitPrice"      currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-right w-20">단가</SortableTh>
+                    <SortableTh sortKey="receiptAmount"  currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-right w-24">금액</SortableTh>
+                    <SortableTh sortKey="supplierCode"   currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-20">거래처코드</SortableTh>
+                    <SortableTh sortKey="supplierName"   currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-28">거래처명</SortableTh>
                   </tr>
                 </thead>
                 <tbody>
@@ -761,7 +764,7 @@ export default function PurchaseReturnsPage() {
                       </td>
                     </tr>
                   ) : (
-                    items.map((h, i) => {
+                    sortedItems.map((h, i) => {
                       const isSelected = h.receiptNo === selectedReceiptNo;
                       return (
                         <tr

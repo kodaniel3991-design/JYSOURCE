@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -61,6 +63,7 @@ export default function PriceVerificationPage() {
 
   // ── 결과 ────────────────────────────────────────────────────────────────────
   const [items,    setItems]    = useCachedState<PriceVerificationItem[]>("price-verify/items", []);
+  const { sortedItems: sortedPVItems, sortKey: pvSortKey, sortDir: pvSortDir, toggleSort: pvToggleSort } = useSortableGrid(items);
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useCachedState<boolean>("price-verify/searched", false);
   const [error,    setError]    = useState<string | null>(null);
@@ -416,21 +419,21 @@ export default function PriceVerificationPage() {
                     )}
                   </th>
                   <th className="px-2 py-2 text-center w-8 shrink-0">No.</th>
-                  <th className="px-2 py-2 text-left w-32">구매오더번호</th>
-                  <th className="px-2 py-2 text-center w-24">발주일자</th>
-                  <th className="px-2 py-2 text-left w-24">구매처코드</th>
-                  <th className="px-2 py-2 text-left w-36">구매처명</th>
-                  <th className="px-2 py-2 text-left w-28">품목번호</th>
-                  <th className="px-2 py-2 text-left">품목명</th>
-                  <th className="px-2 py-2 text-left w-28">모델</th>
-                  <th className="px-2 py-2 text-right w-16">발주수량</th>
-                  <th className="px-2 py-2 text-right w-24">발주단가</th>
-                  <th className="px-2 py-2 text-right w-24">최신단가</th>
-                  <th className="px-2 py-2 text-center w-24">단가적용일</th>
-                  <th className="px-2 py-2 text-right w-20">단가차이</th>
-                  <th className="px-2 py-2 text-right w-16">차이율</th>
-                  <th className="px-2 py-2 text-right w-28">금액차이</th>
-                  <th className="px-2 py-2 text-center w-20">상태</th>
+                  <SortableTh sortKey="poNumber"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-32">구매오더번호</SortableTh>
+                  <SortableTh sortKey="orderDate"       currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-center w-24">발주일자</SortableTh>
+                  <SortableTh sortKey="supplierCode"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-24">구매처코드</SortableTh>
+                  <SortableTh sortKey="supplierName"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-36">구매처명</SortableTh>
+                  <SortableTh sortKey="itemCode"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-28">품목번호</SortableTh>
+                  <SortableTh sortKey="itemName"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left">품목명</SortableTh>
+                  <SortableTh sortKey="vehicleModel"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-28">모델</SortableTh>
+                  <SortableTh sortKey="quantity"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-16">발주수량</SortableTh>
+                  <SortableTh sortKey="poUnitPrice"     currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-24">발주단가</SortableTh>
+                  <SortableTh sortKey="currentUnitPrice"currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-24">최신단가</SortableTh>
+                  <SortableTh sortKey="priceApplyDate"  currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-center w-24">단가적용일</SortableTh>
+                  <SortableTh sortKey="diff"            currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-20">단가차이</SortableTh>
+                  <SortableTh sortKey="diffRate"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-16">차이율</SortableTh>
+                  <SortableTh sortKey="amountDiff"      currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-28">금액차이</SortableTh>
+                  <SortableTh sortKey="status"          currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-center w-20">상태</SortableTh>
                 </tr>
               </thead>
               <tbody>
@@ -443,7 +446,7 @@ export default function PriceVerificationPage() {
                 ) : items.length === 0 ? (
                   <tr><td colSpan={17} className="py-12 text-center text-muted-foreground text-xs">단가 불일치 내역이 없습니다.</td></tr>
                 ) : (
-                  items.map((item, i) => {
+                  sortedPVItems.map((item, i) => {
                     const key = rowKey(item);
                     const isChecked = selected.has(key);
                     const rowBg = isChecked

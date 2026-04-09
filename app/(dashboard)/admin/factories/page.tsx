@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,7 @@ const EMPTY_DRAFT: Omit<FactoryRow, "FactoryCode"> & { FactoryCode: string } = {
 
 export default function AdminFactoriesPage() {
   const [rows, setRows] = useCachedState<FactoryRow[]>("admin/factories/rows", []);
+  const { sortedItems: sortedFactories, sortKey: factSortKey, sortDir: factSortDir, toggleSort: factToggleSort } = useSortableGrid(rows);
   const [loading, setLoading] = useState(false);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
@@ -149,10 +152,10 @@ export default function AdminFactoriesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">공장코드</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">공장명</th>
-              <th className="px-4 py-3 text-center font-medium text-muted-foreground w-20">순서</th>
-              <th className="px-4 py-3 text-center font-medium text-muted-foreground w-20">상태</th>
+              <SortableTh sortKey="FactoryCode" currentKey={factSortKey as string|null} sortDir={factSortDir} onSort={(k) => factToggleSort(k as keyof FactoryRow)} className="px-4 py-3 text-left font-medium text-muted-foreground">공장코드</SortableTh>
+              <SortableTh sortKey="FactoryName" currentKey={factSortKey as string|null} sortDir={factSortDir} onSort={(k) => factToggleSort(k as keyof FactoryRow)} className="px-4 py-3 text-left font-medium text-muted-foreground">공장명</SortableTh>
+              <SortableTh sortKey="SortOrder"   currentKey={factSortKey as string|null} sortDir={factSortDir} onSort={(k) => factToggleSort(k as keyof FactoryRow)} className="px-4 py-3 text-center font-medium text-muted-foreground w-20">순서</SortableTh>
+              <SortableTh sortKey="IsActive"    currentKey={factSortKey as string|null} sortDir={factSortDir} onSort={(k) => factToggleSort(k as keyof FactoryRow)} className="px-4 py-3 text-center font-medium text-muted-foreground w-20">상태</SortableTh>
               <th className="px-4 py-3 w-24" />
             </tr>
           </thead>
@@ -172,7 +175,7 @@ export default function AdminFactoriesPage() {
                 </td>
               </tr>
             )}
-            {rows.map((row) => (
+            {sortedFactories.map((row) => (
               <tr key={row.FactoryCode} className="border-b last:border-0 hover:bg-muted/30">
                 <td className="px-4 py-3 font-mono font-medium">{row.FactoryCode}</td>
                 <td className="px-4 py-3">{row.FactoryName}</td>

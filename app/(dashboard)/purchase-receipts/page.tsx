@@ -17,6 +17,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/lib/utils";
 import { Search, RotateCcw, Save, PackageCheck, X, Printer, FileText, ChevronDown } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { SortableTh } from "@/components/ui/sortable-th";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -448,6 +450,7 @@ export default function PurchaseReceiptsPage() {
   const [flatRows, setFlatRows]             = useCachedState<FlatSpecRow[]>("receipt-process/flatRows", []);
   const [loadingFlat, setLoadingFlat]       = useState(false);
   const [history, setHistory]               = useCachedState<HistoryEntry[]>("receipt-process/history", []);
+  const { sortedItems: sortedHistory, sortKey: histEntrySortKey, sortDir: histEntrySortDir, toggleSort: toggleHistEntrySort } = useSortableGrid(history);
   const [historyItemCode, setHistoryItemCode] = useCachedState<string | null>("receipt-process/historyItemCode", null);
   const [returnSlip, setReturnSlip]         = useState<ReturnSlip | null>(null);
   const [notifyModal, setNotifyModal] = useState<{ open: boolean; title: string; message: string } | null>(null);
@@ -456,6 +459,9 @@ export default function PurchaseReceiptsPage() {
   const [stripedRows, setStripedRows] = useState(true);
   const [histGridSettingsOpen, setHistGridSettingsOpen] = useState(false);
   const [histGridSettingsTab, setHistGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
+
+  // ── 이력선택 탭 정렬 ────────────────────────────────────────────────────────
+  const { sortedItems: sortedHistoryItems, sortKey: historySortKey, sortDir: historySortDir, toggleSort: toggleHistorySort } = useSortableGrid(historyItems);
 
   useEffect(() => {
     if (!notifyModal?.open) return;
@@ -516,6 +522,9 @@ export default function PurchaseReceiptsPage() {
       return true;
     });
   }, [flatRows, searchDateFrom, searchDateTo, rItemCode, rSupplierCode, rModel, rIncludeComplete]);
+
+  // ── 등록작업 탭 정렬 ────────────────────────────────────────────────────────
+  const { sortedItems: sortedFlatRows, sortKey: registerSortKey, sortDir: registerSortDir, toggleSort: toggleRegisterSort } = useSortableGrid(filteredFlatRows);
 
   const groupedRows = useMemo<PoGroup[]>(() => {
     const groups: PoGroup[] = [];
@@ -1170,21 +1179,21 @@ export default function PurchaseReceiptsPage() {
                   <table className="w-full text-xs">
                     <thead className="sticky top-0 bg-muted/80 border-b">
                       <tr>
-                        <th className="px-2 py-2 text-left w-32">구매오더번호</th>
-                        <th className="px-2 py-2 text-center w-12">순번</th>
-                        <th className="px-2 py-2 text-center w-14">구분</th>
-                        <th className="px-2 py-2 text-center w-24">입고일자</th>
-                        <th className="px-2 py-2 text-left w-32">품목번호</th>
-                        <th className="px-2 py-2 text-left">품목명</th>
-                        <th className="px-2 py-2 text-center w-20">창고</th>
-                        <th className="px-2 py-2 text-left w-24">저장위치</th>
-                        <th className="px-2 py-2 text-center w-14">단위</th>
-                        <th className="px-2 py-2 text-left w-28">모델</th>
-                        <th className="px-2 py-2 text-right w-16">입고량</th>
-                        <th className="px-2 py-2 text-right w-20">입고단가</th>
-                        <th className="px-2 py-2 text-right w-24">입고금액</th>
-                        <th className="px-2 py-2 text-left w-20">거래처코드</th>
-                        <th className="px-2 py-2 text-left w-28">거래처명</th>
+                        <SortableTh sortKey="poNumber"       currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-32">구매오더번호</SortableTh>
+                        <SortableTh sortKey="specNo"         currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-14">순번</SortableTh>
+                        <SortableTh sortKey="type"           currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-14">구분</SortableTh>
+                        <SortableTh sortKey="receiptDate"    currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-28">입고일자</SortableTh>
+                        <SortableTh sortKey="itemCode"       currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-36">품목번호</SortableTh>
+                        <SortableTh sortKey="itemName"       currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left">품목명</SortableTh>
+                        <SortableTh sortKey="warehouse"      currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-20">창고</SortableTh>
+                        <SortableTh sortKey="storageLocation"currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-24">저장위치</SortableTh>
+                        <SortableTh sortKey="unit"           currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-14">단위</SortableTh>
+                        <SortableTh sortKey="vehicleModel"   currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-28">모델</SortableTh>
+                        <SortableTh sortKey="qty"            currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-right w-16">입고량</SortableTh>
+                        <SortableTh sortKey="unitPrice"      currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-right w-20">입고단가</SortableTh>
+                        <SortableTh sortKey="receiptAmount"  currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-right w-24">입고금액</SortableTh>
+                        <SortableTh sortKey="supplierCode"   currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-20">거래처코드</SortableTh>
+                        <SortableTh sortKey="supplierName"   currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-28">거래처명</SortableTh>
                       </tr>
                     </thead>
                     <tbody>
@@ -1199,7 +1208,7 @@ export default function PurchaseReceiptsPage() {
                           </td>
                         </tr>
                       ) : (
-                        historyItems.map((h, i) => {
+                        sortedHistoryItems.map((h, i) => {
                           const isEditing = editingHistoryId === h.id;
                           const rowBase = h.type === "반품"
                             ? "bg-red-50/40 dark:bg-red-500/10"
@@ -1618,17 +1627,17 @@ export default function PurchaseReceiptsPage() {
                       <table className="w-full text-xs">
                         <thead className="sticky top-0 bg-muted/80 border-b z-10">
                           <tr>
-                            <th className="px-2 py-2 text-left w-32">발주번호</th>
-                            <th className="px-2 py-2 text-center w-12">순번</th>
-                            <th className="px-2 py-2 text-left w-36">품목번호</th>
-                            <th className="px-2 py-2 text-left">품목명</th>
-                            <th className="px-2 py-2 text-center w-24">창고</th>
-                            <th className="px-2 py-2 text-left w-28">저장위치</th>
-                            <th className="px-2 py-2 text-center w-14">단위</th>
-                            <th className="px-2 py-2 text-left w-28">모델</th>
-                            <th className="px-2 py-2 text-right w-16">발주량</th>
-                            <th className="px-2 py-2 text-right w-16">입고량</th>
-                            <th className="px-2 py-2 text-right w-16">입고잔량</th>
+                            <SortableTh sortKey="poNumber"       currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-32">발주번호</SortableTh>
+                            <SortableTh sortKey="seq"            currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-center w-14">순번</SortableTh>
+                            <SortableTh sortKey="itemCode"       currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-36">품목번호</SortableTh>
+                            <SortableTh sortKey="itemName"       currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left">품목명</SortableTh>
+                            <SortableTh sortKey="warehouse"      currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-center w-24">창고</SortableTh>
+                            <SortableTh sortKey="storageLocation"currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-28">저장위치</SortableTh>
+                            <SortableTh sortKey="unit"           currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-center w-14">단위</SortableTh>
+                            <SortableTh sortKey="vehicleModel"   currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-28">모델</SortableTh>
+                            <SortableTh sortKey="orderedQty"     currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-16">발주량</SortableTh>
+                            <SortableTh sortKey="receivedQty"    currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-16">입고량</SortableTh>
+                            <SortableTh sortKey="pendingQty"     currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-20">입고잔량</SortableTh>
                             <th className="px-2 py-2 text-center w-20 bg-amber-50 dark:bg-amber-500/15">입고수량</th>
                             <th className="px-2 py-2 text-center w-20 bg-red-50 dark:bg-red-500/10">반품수량</th>
                             <th className="px-2 py-2 text-center w-32 bg-amber-50 dark:bg-amber-500/15">입고일자</th>
@@ -1638,7 +1647,7 @@ export default function PurchaseReceiptsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredFlatRows.map((row) => {
+                          {sortedFlatRows.map((row) => {
                             const isComplete = row.pendingQty === 0;
                             return (
                               <tr key={row.uid} className={`border-b last:border-0 ${isComplete ? "bg-green-50/60 dark:bg-green-500/10" : ""}`}>
@@ -1720,24 +1729,24 @@ export default function PurchaseReceiptsPage() {
                           <table className="w-full text-xs">
                             <thead className="sticky top-0 bg-muted/60 border-b">
                               <tr>
-                                <th className="px-2 py-1.5 text-center w-14">구분</th>
-                                <th className="px-2 py-1.5 text-left w-32">발주번호</th>
-                                <th className="px-2 py-1.5 text-center w-10">순번</th>
-                                <th className="px-2 py-1.5 text-left w-32">처리일시</th>
-                                <th className="px-2 py-1.5 text-left w-36">품목번호</th>
-                                <th className="px-2 py-1.5 text-left">품목명</th>
-                                <th className="px-2 py-1.5 text-center w-24">창고</th>
-                                <th className="px-2 py-1.5 text-left w-28">저장위치</th>
-                                <th className="px-2 py-1.5 text-center w-14">단위</th>
-                                <th className="px-2 py-1.5 text-left w-28">모델</th>
-                                <th className="px-2 py-1.5 text-right w-16">수량</th>
-                                <th className="px-2 py-1.5 text-center w-24">입고일자</th>
-                                <th className="px-2 py-1.5 text-left w-24">LOT번호</th>
+                                <SortableTh sortKey="type"        currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-14">구분</SortableTh>
+                                <SortableTh sortKey="poNumber"    currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-32">발주번호</SortableTh>
+                                <SortableTh sortKey="seq"         currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-14">순번</SortableTh>
+                                <SortableTh sortKey="processedAt" currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-32">처리일시</SortableTh>
+                                <SortableTh sortKey="itemCode"    currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-36">품목번호</SortableTh>
+                                <SortableTh sortKey="itemName"    currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left">품목명</SortableTh>
+                                <SortableTh sortKey="warehouse"   currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-24">창고</SortableTh>
+                                <SortableTh sortKey="storageLocation" currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-28">저장위치</SortableTh>
+                                <SortableTh sortKey="unit"        currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-14">단위</SortableTh>
+                                <SortableTh sortKey="vehicleModel"currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-28">모델</SortableTh>
+                                <SortableTh sortKey="qty"         currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-right w-16">수량</SortableTh>
+                                <SortableTh sortKey="receiptDate" currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-24">입고일자</SortableTh>
+                                <SortableTh sortKey="lotNo"       currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-24">LOT번호</SortableTh>
                                 <th className="px-2 py-1.5 text-left w-24">비고</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {history.map((h, i) => (
+                              {sortedHistory.map((h, i) => (
                                 <tr key={h.id}
                                   className={`border-b last:border-0 cursor-pointer hover:bg-primary/5 ${h.type === "반품" ? "bg-red-50/40 dark:bg-red-500/10" : i % 2 === 1 ? "bg-slate-50/60 dark:bg-muted/20" : ""}`}
                                   onClick={() => setHistoryItemCode(h.itemCode)}
@@ -1917,7 +1926,7 @@ export default function PurchaseReceiptsPage() {
                   <tr>
                     <th className="px-3 py-2 text-center w-14">구분</th>
                     <th className="px-3 py-2 text-left w-32">발주번호</th>
-                    <th className="px-3 py-2 text-center w-12">순번</th>
+                    <th className="px-3 py-2 text-center w-14">순번</th>
                     <th className="px-3 py-2 text-left w-36">처리일시</th>
                     <th className="px-3 py-2 text-center w-24">창고</th>
                     <th className="px-3 py-2 text-left w-28">저장위치</th>

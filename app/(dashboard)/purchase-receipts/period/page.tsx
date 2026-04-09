@@ -14,6 +14,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { SortableTh } from "@/components/ui/sortable-th";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -260,6 +262,8 @@ export default function ReceiptPeriodPage() {
     }
     return Array.from(aggMap.values());
   }, [processedItems]);
+
+  const { sortedItems: sortedSupplierAgg, sortKey: aggSortKey, sortDir: aggSortDir, toggleSort: aggToggleSort } = useSortableGrid(supplierAgg);
 
   // ── 총계 ──────────────────────────────────────────────────────────────────
   const grandTotalQty = useMemo(() => {
@@ -766,12 +770,12 @@ export default function ReceiptPeriodPage() {
                   )}
                   {viewType === "업체집계" && (
                     <tr>
-                      <th className={`${thCls} min-w-[180px]`}>거래처번호</th>
+                      <SortableTh sortKey="supplierCode"  currentKey={aggSortKey as string|null} sortDir={aggSortDir} onSort={(k) => aggToggleSort(k as keyof SupplierAggRow)} className={`${thCls} min-w-[180px]`}>거래처번호</SortableTh>
                       <th className={`${thCls} w-28`}>납품수량</th>
                       <th className={`${thCls} w-24`}>불량수량</th>
                       <th className={`${thCls} w-28`}>불량률(ppm)</th>
-                      <th className={`${thCls} w-28`}>입고수량</th>
-                      <th className={`${thCls} w-36 border-r-0`}>입고금액</th>
+                      <SortableTh sortKey="qty"           currentKey={aggSortKey as string|null} sortDir={aggSortDir} onSort={(k) => aggToggleSort(k as keyof SupplierAggRow)} className={`${thCls} w-28`}>입고수량</SortableTh>
+                      <SortableTh sortKey="receiptAmount" currentKey={aggSortKey as string|null} sortDir={aggSortDir} onSort={(k) => aggToggleSort(k as keyof SupplierAggRow)} className={`${thCls} w-36 border-r-0`}>입고금액</SortableTh>
                     </tr>
                   )}
                 </thead>
@@ -962,7 +966,7 @@ export default function ReceiptPeriodPage() {
                       {/* ── 업체집계 ────────────────────────────────────────── */}
                       {viewType === "업체집계" && (
                         <>
-                          {supplierAgg.map((row) => (
+                          {sortedSupplierAgg.map((row) => (
                             <tr key={row.supplierCode} className="border-b hover:bg-muted/20">
                               <td className={`${tdCls} text-[11px]`}>
                                 <span className="font-mono">{row.supplierCode}</span>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -72,6 +74,7 @@ const EMPTY_MAIL_PW: MailPwDraft = { emailPassword: "", show: false };
 
 export default function AdminUsersPage() {
   const [rows, setRows] = useCachedState<UserRow[]>("admin/users/rows", []);
+  const { sortedItems: sortedUsers, sortKey: userSortKey, sortDir: userSortDir, toggleSort: userToggleSort } = useSortableGrid(rows);
   const [factories, setFactories] = useCachedState<FactoryOption[]>("admin/users/factories", []);
   const [positionOptions, setPositionOptions] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -296,15 +299,15 @@ export default function AdminUsersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">아이디</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">사용자명</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">사번</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">직책</th>
+              <SortableTh sortKey="Username"   currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">아이디</SortableTh>
+              <SortableTh sortKey="UserId"     currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">사용자명</SortableTh>
+              <SortableTh sortKey="EmployeeNo" currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">사번</SortableTh>
+              <SortableTh sortKey="Position"   currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">직책</SortableTh>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">전화번호</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">이메일</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">입사일자</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">소속 공장</th>
-              <th className="px-4 py-3 text-center font-medium text-muted-foreground w-20 whitespace-nowrap">상태</th>
+              <SortableTh sortKey="Email"      currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">이메일</SortableTh>
+              <SortableTh sortKey="HireDate"   currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">입사일자</SortableTh>
+              <SortableTh sortKey="FactoryName"currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">소속 공장</SortableTh>
+              <SortableTh sortKey="IsActive"   currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-center font-medium text-muted-foreground w-20 whitespace-nowrap">상태</SortableTh>
               <th className="px-4 py-3 w-32 text-right pr-4 font-medium text-muted-foreground text-xs whitespace-nowrap">관리</th>
             </tr>
           </thead>
@@ -324,7 +327,7 @@ export default function AdminUsersPage() {
                 </td>
               </tr>
             )}
-            {rows.map((row) => (
+            {sortedUsers.map((row) => (
               <tr key={row.Id} className="border-b last:border-0 hover:bg-muted/30">
                 <td className="px-4 py-3 font-medium whitespace-nowrap">{row.Username}</td>
                 <td className="px-4 py-3 whitespace-nowrap">{row.UserId ?? <span className="text-xs opacity-40">-</span>}</td>

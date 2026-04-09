@@ -82,13 +82,36 @@ function DateInput({ value = "", onChange, onKeyDown, className, disabled, readO
     emit(year, month, v);
   };
 
+  const handleYearKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowRight" && e.currentTarget.selectionEnd === e.currentTarget.value.length) {
+      e.preventDefault();
+      monthRef.current?.focus(); monthRef.current?.select();
+      return;
+    }
+    onKeyDown?.(e);
+  };
+
   const handleMonthKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && month === "") { yearRef.current?.focus(); yearRef.current?.select(); }
+    if (e.key === "Backspace" && month === "") {
+      yearRef.current?.focus(); yearRef.current?.select();
+    } else if (e.key === "ArrowLeft" && e.currentTarget.selectionStart === 0) {
+      e.preventDefault();
+      yearRef.current?.focus(); yearRef.current?.select();
+    } else if (e.key === "ArrowRight" && e.currentTarget.selectionEnd === e.currentTarget.value.length) {
+      e.preventDefault();
+      dayRef.current?.focus(); dayRef.current?.select();
+    }
   };
 
   const handleDayKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && day === "") { monthRef.current?.focus(); monthRef.current?.select(); }
-    else if (e.key === "Enter") onKeyDown?.(e);
+    if (e.key === "Backspace" && day === "") {
+      monthRef.current?.focus(); monthRef.current?.select();
+    } else if (e.key === "ArrowLeft" && e.currentTarget.selectionStart === 0) {
+      e.preventDefault();
+      monthRef.current?.focus(); monthRef.current?.select();
+    } else if (e.key === "Enter") {
+      onKeyDown?.(e);
+    }
   };
 
   return (
@@ -108,7 +131,7 @@ function DateInput({ value = "", onChange, onKeyDown, className, disabled, readO
         maxLength={4}
         value={year}
         onChange={handleYearChange}
-        onKeyDown={onKeyDown}
+        onKeyDown={handleYearKeyDown}
         onClick={(e) => (e.target as HTMLInputElement).select()}
         disabled={disabled}
         readOnly={readOnly}
