@@ -17,6 +17,7 @@ import { Search, RotateCcw, Plus, Save, Trash2, CheckSquare, X } from "lucide-re
 import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { SortableTh } from "@/components/ui/sortable-th";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
@@ -161,6 +162,12 @@ export default function PurchaseInputPage() {
 
   const supplierCodeRef    = useRef<HTMLInputElement>(null);
   const supplierDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listDateFromRef = useRef<HTMLInputElement>(null);
+  const listDateToRef   = useRef<HTMLInputElement>(null);
+  const unItemModelRef  = useRef<HTMLInputElement>(null);
+  const unSearchBtnRef  = useRef<HTMLButtonElement>(null);
+
+  useSupplierAutoFill(listSearch.supplierCode, setListSupplierName);
 
   // ── 로그인 사용자 / 사용자 목록 로드 ─────────────────────────────────────────
   useEffect(() => {
@@ -200,7 +207,7 @@ export default function PurchaseInputPage() {
         if (!data.ok) return;
         const s = new Set<string>();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data.items.forEach((x: any) => { if (x.VehicleModel) s.add(x.VehicleModel as string); });
+        data.items.forEach((x: any) => { if (x.VehicleModel) s.add((x.VehicleModel as string).toUpperCase()); });
         setModelList(Array.from(s).sort());
       })
       .catch(() => {});
@@ -462,7 +469,7 @@ export default function PurchaseInputPage() {
               onChange={(e) => { setListSearch((p) => ({ ...p, supplierCode: e.target.value })); setListSupplierName(""); }}
               placeholder="구매처번호"
               className="h-7 text-xs w-24 shrink-0"
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsListSupplierOpen(true); } }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (listSearch.supplierCode.trim()) setIsListSupplierOpen(true); else listDateFromRef.current?.focus(); } }}
             />
             <Button type="button" size="icon" variant="outline" className="h-7 w-7 shrink-0"
               onClick={() => setIsListSupplierOpen(true)}>
@@ -481,11 +488,14 @@ export default function PurchaseInputPage() {
           </div>
           {/* 2행: 일자 범위 */}
           <div className="flex gap-1 items-center mb-1">
-            <DateInput value={listSearch.dateFrom}
+            <DateInput ref={listDateFromRef}
+              value={listSearch.dateFrom}
               onChange={(e) => setListSearch((p) => ({ ...p, dateFrom: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); listDateToRef.current?.focus(); } }}
               className="h-7 text-xs flex-1" />
             <span className="text-xs text-muted-foreground shrink-0">~</span>
-            <DateInput value={listSearch.dateTo}
+            <DateInput ref={listDateToRef}
+              value={listSearch.dateTo}
               onChange={(e) => setListSearch((p) => ({ ...p, dateTo: e.target.value }))}
               className="h-7 text-xs flex-1" />
           </div>
@@ -870,7 +880,7 @@ export default function PurchaseInputPage() {
                       <div className="flex gap-1">
                         <Input value={unItemCode}
                           onChange={(e) => { setUnItemCode(e.target.value); setUnItemName(""); }}
-                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsUnItemOpen(true); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (unItemCode.trim()) setIsUnItemOpen(true); else unItemModelRef.current?.focus(); } }}
                           placeholder="품목번호"
                           className="h-7 text-xs w-32" />
                         <Button type="button" variant="outline" size="icon" className="h-7 w-7 shrink-0"
@@ -885,9 +895,10 @@ export default function PurchaseInputPage() {
                     <div className="flex flex-col gap-1 shrink-0">
                       <label className="text-xs font-medium text-muted-foreground">모델(차종)</label>
                       <div className="flex gap-1">
-                        <Input value={unSearch.model}
+                        <Input ref={unItemModelRef}
+                          value={unSearch.model}
                           onChange={(e) => setUnSearch((p) => ({ ...p, model: e.target.value }))}
-                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setUnModelSearch(unSearch.model); setUnModelIdx(-1); setIsUnModelOpen(true); } }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (unSearch.model.trim()) { setUnModelSearch(unSearch.model); setUnModelIdx(-1); setIsUnModelOpen(true); } else unSearchBtnRef.current?.focus(); } }}
                           placeholder="모델"
                           className="h-7 text-xs w-28" />
                         <Button type="button" variant="outline" size="icon" className="h-7 w-7 shrink-0"
@@ -904,7 +915,7 @@ export default function PurchaseInputPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button type="button" size="sm" className="h-7 px-3" onClick={loadUnreceived}
+                    <Button ref={unSearchBtnRef} type="button" size="sm" className="h-7 px-3" onClick={loadUnreceived}
                       disabled={!header.supplierCode}>
                       <Search className="mr-1 h-3 w-3" />
                       조회
@@ -962,7 +973,7 @@ export default function PurchaseInputPage() {
                         <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">
                           {header.supplierCode ? "조회 버튼을 눌러 미매입 입고자료를 불러오세요." : "구매처를 먼저 입력하세요."}
                         </td></tr>
-                      ) : sortedUnItems.map((item) => (
+                      ) : sortedUnItems.map((item, idx) => (
                         <tr key={item.id}
                           className={cn("border-b hover:bg-muted/20",
                             selectedUnIds.has(item.id) && "bg-primary/5")}>
@@ -985,7 +996,16 @@ export default function PurchaseInputPage() {
                             <input
                               type="number"
                               value={item.inputQty}
+                              data-un-row={idx}
                               onChange={(e) => updateInputQty(item.id, Number(e.target.value))}
+                              onKeyDown={(e) => {
+                                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                                  e.preventDefault();
+                                  const next = idx + (e.key === "ArrowDown" ? 1 : -1);
+                                  const el = document.querySelector<HTMLInputElement>(`[data-un-row="${next}"]`);
+                                  if (el) { el.focus(); el.select(); }
+                                }
+                              }}
                               className="w-full text-right tabular-nums text-red-600 dark:text-red-400 font-semibold bg-yellow-50/60 dark:bg-yellow-500/10 border border-border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-primary"
                             />
                           </td>
@@ -1113,6 +1133,7 @@ export default function PurchaseInputPage() {
       <ItemSelectModal
         open={isUnItemOpen}
         onOpenChange={setIsUnItemOpen}
+        initialSearch={unItemCode}
         onSelect={(item) => {
           setUnItemCode(item.itemCode);
           setUnItemName(item.itemName);

@@ -346,7 +346,7 @@ export default function CreatePurchaseOrderPage() {
 
   const distinctModels = useMemo(() => {
     const s = new Set<string>();
-    itemMaster.forEach((i) => { if (i.model) s.add(i.model); });
+    itemMaster.forEach((i) => { if (i.model) s.add(i.model.toUpperCase()); });
     return Array.from(s).sort();
   }, [itemMaster]);
 
@@ -954,50 +954,50 @@ export default function CreatePurchaseOrderPage() {
 </table>
 
 <!-- 공급받는자 / 공급자 -->
-<table style="margin-top:0;border:${B};">
+<table style="margin-top:0;border:${B};table-layout:fixed;width:100%;">
   <colgroup>
     <col style="width:16px;"><col style="width:48px;"><col style="width:calc(50% - 64px);">
-    <col style="width:16px;"><col style="width:48px;"><col>
+    <col style="width:16px;"><col style="width:48px;"><col style="width:calc(50% - 64px);">
   </colgroup>
   <tr>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.companyName}</td>
+    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.companyName}</td>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
-    <td style="border-bottom:${B};padding:2px 6px;">${basicForm.supplierName}</td>
+    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${basicForm.supplierName}</td>
   </tr>
   <tr>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.representative}&nbsp;(인)</td>
+    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.representative}&nbsp;(인)</td>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
-    <td style="border-bottom:${B};padding:2px 6px;">${purchaserRecord?.representativeName || ""}&nbsp;&nbsp;구매처 번호 : ${basicForm.supplierId}</td>
+    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.representativeName || ""}&nbsp;&nbsp;구매처 번호 : ${basicForm.supplierId}</td>
   </tr>
   <tr>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">받</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.address}</td>
+    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.address}</td>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
-    <td style="border-bottom:${B};padding:2px 6px;">${purchaserRecord?.address || ""}</td>
+    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.address || ""}</td>
   </tr>
   <tr>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">는</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.tel}</td>
+    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.tel}</td>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
-    <td style="border-bottom:${B};padding:2px 6px;">${purchaserRecord?.phoneNo || ""}</td>
+    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.phoneNo || ""}</td>
   </tr>
   <tr>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
     <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
-    <td style="border-right:${B};padding:2px 6px;">${recipient.fax}</td>
+    <td style="border-right:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.fax}</td>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
     <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
-    <td style="padding:2px 6px;">${purchaserRecord?.faxNo || ""}</td>
+    <td style="padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.faxNo || ""}</td>
   </tr>
 </table>
 

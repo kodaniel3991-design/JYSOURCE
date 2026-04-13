@@ -17,6 +17,7 @@ import type { PurchaseOrderSummary } from "@/types/purchase";
 import { FileText, MoreHorizontal, PackageCheck, RotateCcw, Search, X } from "lucide-react";
 import { SupplierSelectPopup } from "@/components/common/supplier-select-popup";
 import { ItemSelectModal } from "@/components/common/item-select-modal";
+import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { ReceiptProcessSheet } from "@/components/purchase-orders/receipt-process-sheet";
 import type { POStatus } from "@/types/purchase";
 import { MasterListGrid } from "@/components/common/master-list-grid";
@@ -54,6 +55,8 @@ export default function PurchaseOrdersPage() {
   const [search, setSearch] = useCachedState<string>("po-list/search", "");
   const [supplierCode, setSupplierCode] = useCachedState<string>("po-list/supplierCode", "");
   const [supplierName, setSupplierName] = useCachedState<string>("po-list/supplierName", "");
+
+  useSupplierAutoFill(supplierCode, setSupplierName);
   const [status, setStatus] = useCachedState<string>("po-list/status", "");
   const defaults = todayDefaults();
   const [fromDate, setFromDate] = useCachedState<string>("po-list/fromDate", defaults.first);
@@ -95,7 +98,7 @@ export default function PurchaseOrdersPage() {
         if (!data.ok) return;
         const s = new Set<string>();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data.items.forEach((x: any) => { if (x.VehicleModel) s.add(x.VehicleModel); });
+        data.items.forEach((x: any) => { if (x.VehicleModel) s.add((x.VehicleModel as string).toUpperCase()); });
         setModelList(Array.from(s).sort());
       })
       .catch(() => {});
@@ -545,7 +548,7 @@ export default function PurchaseOrdersPage() {
                   onChange={(e) => { setItemCode(e.target.value); setItemName(""); }}
                   placeholder="품목번호"
                   className="h-8 text-xs w-32"
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsItemModalOpen(true); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (itemCode.trim()) setIsItemModalOpen(true); else refModel.current?.focus(); } }}
                 />
                 <Button type="button" variant="outline" size="icon"
                   className="h-8 w-7 shrink-0" onClick={() => setIsItemModalOpen(true)}>
@@ -672,12 +675,14 @@ export default function PurchaseOrdersPage() {
       <SupplierSelectPopup
         open={isSupplierPopupOpen}
         onOpenChange={setIsSupplierPopupOpen}
+        initialSearch={supplierCode}
         onSelect={(code, name) => { setSupplierCode(code); setSupplierName(name); setIsSupplierPopupOpen(false); }}
       />
       {/* 품목 선택 모달 */}
       <ItemSelectModal
         open={isItemModalOpen}
         onOpenChange={setIsItemModalOpen}
+        initialSearch={itemCode}
         onSelect={(item) => { setItemCode(item.itemCode); setItemName(item.itemName); }}
       />
 

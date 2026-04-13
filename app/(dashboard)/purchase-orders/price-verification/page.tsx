@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
@@ -51,6 +52,8 @@ export default function PriceVerificationPage() {
   const [supplierCode,  setSupplierCode]  = useCachedState("price-verify/supplierCode",  "");
   const [supplierName,  setSupplierName]  = useCachedState("price-verify/supplierName",  "");
   const [model,         setModel]         = useCachedState("price-verify/model",         "");
+
+  useSupplierAutoFill(supplierCode, setSupplierName);
 
   // ── 모달/팝업 ────────────────────────────────────────────────────────────────
   const [isItemModalOpen,     setIsItemModalOpen]     = useState(false);
@@ -163,7 +166,7 @@ export default function PriceVerificationPage() {
         if (!data.ok) return;
         const s = new Set<string>();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data.items.forEach((x: any) => { if (x.VehicleModel) s.add(x.VehicleModel); });
+        data.items.forEach((x: any) => { if (x.VehicleModel) s.add((x.VehicleModel as string).toUpperCase()); });
         setModelList(Array.from(s).sort());
       })
       .catch(() => {});
@@ -262,7 +265,7 @@ export default function PriceVerificationPage() {
                   onChange={(e) => { setItemCode(e.target.value); setItemName(""); }}
                   placeholder="품목번호"
                   className="h-7 text-xs w-40"
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsItemModalOpen(true); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (itemCode.trim()) setIsItemModalOpen(true); else refSupplierCode.current?.focus(); } }}
                 />
                 <Button type="button" variant="outline" size="icon"
                   className="h-7 w-7 shrink-0" onClick={() => setIsItemModalOpen(true)}>
@@ -283,7 +286,7 @@ export default function PriceVerificationPage() {
                   onChange={(e) => { setSupplierCode(e.target.value); setSupplierName(""); }}
                   placeholder="코드"
                   className="h-7 text-xs w-40"
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsSupplierPopupOpen(true); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (supplierCode.trim()) setIsSupplierPopupOpen(true); else refModel.current?.focus(); } }}
                 />
                 <Button type="button" variant="outline" size="icon"
                   className="h-7 w-7 shrink-0" onClick={() => setIsSupplierPopupOpen(true)}>
@@ -307,7 +310,7 @@ export default function PriceVerificationPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      setModelSubSearch(model); setModelSubIdx(-1); setIsModelPopupOpen(true);
+                      if (model.trim()) { setModelSubSearch(model); setModelSubIdx(-1); setIsModelPopupOpen(true); } else refSearchBtn.current?.focus();
                     }
                   }}
                 />
@@ -544,6 +547,7 @@ export default function PriceVerificationPage() {
       <ItemSelectModal
         open={isItemModalOpen}
         onOpenChange={setIsItemModalOpen}
+        initialSearch={itemCode}
         onSelect={(item) => {
           setItemCode(item.itemCode ?? "");
           setItemName(item.itemName ?? "");
@@ -556,6 +560,7 @@ export default function PriceVerificationPage() {
       <SupplierSelectPopup
         open={isSupplierPopupOpen}
         onOpenChange={setIsSupplierPopupOpen}
+        initialSearch={supplierCode}
         onSelect={(code, name) => {
           setSupplierCode(code ?? "");
           setSupplierName(name ?? "");

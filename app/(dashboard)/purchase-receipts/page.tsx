@@ -19,6 +19,7 @@ import { Search, RotateCcw, Save, PackageCheck, X, Printer, FileText, ChevronDow
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { SortableTh } from "@/components/ui/sortable-th";
+import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -268,6 +269,8 @@ export default function PurchaseReceiptsPage() {
   const [hSupplierCode, setHSupplierCode] = useCachedState("receipt-process/hSupplierCode", "");
   const [hSupplierName, setHSupplierName] = useCachedState("receipt-process/hSupplierName", "");
   const [hModel, setHModel]               = useCachedState("receipt-process/hModel",        "");
+
+  useSupplierAutoFill(hSupplierCode, setHSupplierName);
   const [hType, setHType]                 = useCachedState("receipt-process/hType",         "");
 
   const [isItemModalOpen, setIsItemModalOpen]         = useState(false);
@@ -296,7 +299,7 @@ export default function PurchaseReceiptsPage() {
         if (!data.ok) return;
         const s = new Set<string>();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data.items.forEach((x: any) => { if (x.VehicleModel) s.add(x.VehicleModel); });
+        data.items.forEach((x: any) => { if (x.VehicleModel) s.add((x.VehicleModel as string).toUpperCase()); });
         setModelList(Array.from(s).sort());
       })
       .catch(() => {});
@@ -422,6 +425,8 @@ export default function PurchaseReceiptsPage() {
   const [rSupplierCode, setRSupplierCode]   = useCachedState("receipt-process/rSupplierCode",    "");
   const [rSupplierName, setRSupplierName]   = useCachedState("receipt-process/rSupplierName",    "");
   const [rModel, setRModel]                 = useCachedState("receipt-process/rModel",           "");
+
+  useSupplierAutoFill(rSupplierCode, setRSupplierName);
   const [rIncludeComplete, setRIncludeComplete] = useCachedState("receipt-process/rIncludeComplete", false);
 
   const [rIsItemModalOpen, setRIsItemModalOpen]         = useState(false);
@@ -634,6 +639,50 @@ export default function PurchaseReceiptsPage() {
 
   const updateRow = <K extends keyof SpecRow>(uid: string, field: K, value: SpecRow[K]) => {
     setFlatRows((prev) => prev.map((r) => (r.uid === uid ? { ...r, [field]: value } : r)));
+  };
+
+  // ── 입고일자 일괄변경 ────────────────────────────────────────────────────────
+  const [bulkDate, setBulkDate] = useState(todayStr);
+  const applyBulkDate = () => {
+    if (!bulkDate) return;
+    setFlatRows((prev) => prev.map((r) => ({ ...r, receiptDate: bulkDate })));
+  };
+
+  // ── 그리드 셀 방향키 내비게이션 ──────────────────────────────────────────────
+  const navigateGridCell = (
+    currentUid: string,
+    colAttr: string,
+    direction: "up" | "down"
+  ) => {
+    const rows = sortedFlatRows;
+    const idx = rows.findIndex((r) => r.uid === currentUid);
+    const nextIdx = direction === "down" ? idx + 1 : idx - 1;
+    if (nextIdx < 0 || nextIdx >= rows.length) return;
+    const nextUid = rows[nextIdx].uid;
+    const el = document.querySelector<HTMLInputElement>(
+      `[data-grid-uid="${nextUid}"][data-grid-col="${colAttr}"]`
+    );
+    el?.focus();
+    el?.select();
+  };
+
+  // Enter 시 다음 셀로 이동 (inputQty → returnQty → receiptDate → lotNo → note → 다음 행 inputQty)
+  const GRID_COL_SEQUENCE = ["inputQty", "returnQty", "receiptDate", "lotNo", "note"] as const;
+  const navigateGridCellNext = (currentUid: string, currentCol: string) => {
+    const colIdx = GRID_COL_SEQUENCE.indexOf(currentCol as typeof GRID_COL_SEQUENCE[number]);
+    if (colIdx >= 0 && colIdx < GRID_COL_SEQUENCE.length - 1) {
+      const nextCol = GRID_COL_SEQUENCE[colIdx + 1];
+      const el = document.querySelector<HTMLInputElement>(`[data-grid-uid="${currentUid}"][data-grid-col="${nextCol}"]`);
+      if (el) { el.focus(); el.select(); return; }
+    }
+    // 마지막 컬럼이거나 다음 컬럼 없으면 다음 행 첫 번째 컬럼으로
+    const rows = sortedFlatRows;
+    const idx = rows.findIndex((r) => r.uid === currentUid);
+    if (idx >= 0 && idx < rows.length - 1) {
+      const nextUid = rows[idx + 1].uid;
+      const el = document.querySelector<HTMLInputElement>(`[data-grid-uid="${nextUid}"][data-grid-col="${GRID_COL_SEQUENCE[0]}"]`);
+      el?.focus(); el?.select();
+    }
   };
 
   const handlePrint = () => {
@@ -980,7 +1029,7 @@ export default function PurchaseReceiptsPage() {
                         placeholder="품목번호"
                         className="h-7 text-xs w-40"
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); setIsItemModalOpen(true); }
+                          if (e.key === "Enter") { e.preventDefault(); if (hItemCode.trim()) setIsItemModalOpen(true); else refSupplierCode.current?.focus(); }
                         }}
                       />
                       <Button type="button" variant="outline" size="icon"
@@ -1003,7 +1052,7 @@ export default function PurchaseReceiptsPage() {
                         placeholder="코드"
                         className="h-7 text-xs w-40"
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); setIsSupplierPopupOpen(true); }
+                          if (e.key === "Enter") { e.preventDefault(); if (hSupplierCode.trim()) setIsSupplierPopupOpen(true); else refModel.current?.focus(); }
                         }}
                       />
                       <Button type="button" variant="outline" size="icon"
@@ -1028,7 +1077,8 @@ export default function PurchaseReceiptsPage() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            setModelSubSearch(hModel); setModelSubIdx(-1); setIsModelPopupOpen(true);
+                            if (hModel.trim()) { setModelSubSearch(hModel); setModelSubIdx(-1); setIsModelPopupOpen(true); }
+                            else refWarehouse.current?.focus();
                           }
                         }}
                       />
@@ -1405,7 +1455,7 @@ export default function PurchaseReceiptsPage() {
                         placeholder="품목번호"
                         className="h-7 text-xs w-40"
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); setRIsItemModalOpen(true); }
+                          if (e.key === "Enter") { e.preventDefault(); if (rItemCode.trim()) setRIsItemModalOpen(true); else rRefSupplierCode.current?.focus(); }
                         }}
                       />
                       <Button type="button" variant="outline" size="icon"
@@ -1428,7 +1478,7 @@ export default function PurchaseReceiptsPage() {
                         placeholder="코드"
                         className="h-7 text-xs w-40"
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); setRIsSupplierPopupOpen(true); }
+                          if (e.key === "Enter") { e.preventDefault(); if (rSupplierCode.trim()) setRIsSupplierPopupOpen(true); else rRefModel.current?.focus(); }
                         }}
                       />
                       <Button type="button" variant="outline" size="icon"
@@ -1453,7 +1503,7 @@ export default function PurchaseReceiptsPage() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            setRModelSubSearch(rModel); setRModelSubIdx(-1); setRIsModelPopupOpen(true);
+                            if (rModel.trim()) { setRModelSubSearch(rModel); setRModelSubIdx(-1); setRIsModelPopupOpen(true); } else rRefSearchBtn.current?.focus();
                           } else if (e.key === "Tab") {
                             rRefSearchBtn.current?.focus();
                           }
@@ -1589,6 +1639,20 @@ export default function PurchaseReceiptsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* 입고일자 일괄변경 */}
+                    <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-600/30">
+                      <span className="text-[11px] text-muted-foreground shrink-0">입고일자</span>
+                      <DateInput
+                        value={bulkDate}
+                        onChange={(e) => setBulkDate(e.target.value)}
+                        className="h-6 text-xs w-[130px] bg-transparent border-0 focus-within:ring-0 px-0"
+                      />
+                      <Button type="button" size="sm" variant="outline"
+                        onClick={applyBulkDate}
+                        className="h-6 px-2 text-[11px] border-amber-300 dark:border-amber-600/40 hover:bg-amber-100 dark:hover:bg-amber-500/20">
+                        일괄적용
+                      </Button>
+                    </div>
                     <Button type="button" variant="outline" size="sm" onClick={handleReset}
                       className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary text-xs h-8">
                       <RotateCcw className="mr-1.5 h-3.5 w-3.5" />초기화
@@ -1670,23 +1734,40 @@ export default function PurchaseReceiptsPage() {
                                 </td>
                                 <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10">
                                   <Input inputMode="numeric"
+                                    data-grid-uid={row.uid}
+                                    data-grid-col="inputQty"
                                     value={row.inputQty > 0 ? row.inputQty.toLocaleString("ko-KR") : ""}
                                     placeholder="0"
                                     onChange={(e) => updateRow(row.uid, "inputQty", Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "ArrowDown") { e.preventDefault(); navigateGridCell(row.uid, "inputQty", "down"); }
+                                      else if (e.key === "ArrowUp") { e.preventDefault(); navigateGridCell(row.uid, "inputQty", "up"); }
+                                      else if (e.key === "Enter") { e.preventDefault(); navigateGridCellNext(row.uid, "inputQty"); }
+                                    }}
                                     className="h-6 w-full text-xs text-right px-1 dark:bg-amber-500/10 dark:border-amber-600/30"
                                   />
                                 </td>
                                 <td className="px-1 py-1 bg-red-50 dark:bg-red-500/10">
                                   <Input inputMode="numeric" disabled={row.receivedQty === 0}
+                                    data-grid-uid={row.uid}
+                                    data-grid-col="returnQty"
                                     value={row.returnQty > 0 ? row.returnQty.toLocaleString("ko-KR") : ""}
                                     placeholder="0"
                                     onChange={(e) => updateRow(row.uid, "returnQty", Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "ArrowDown") { e.preventDefault(); navigateGridCell(row.uid, "returnQty", "down"); }
+                                      else if (e.key === "ArrowUp") { e.preventDefault(); navigateGridCell(row.uid, "returnQty", "up"); }
+                                      else if (e.key === "Enter") { e.preventDefault(); navigateGridCellNext(row.uid, "returnQty"); }
+                                    }}
                                     className="h-6 w-full text-xs text-right px-1 disabled:opacity-40 dark:bg-red-500/10 dark:border-red-600/30"
                                   />
                                 </td>
                                 <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10">
                                   <DateInput value={row.receiptDate}
                                     onChange={(e) => updateRow(row.uid, "receiptDate", e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); navigateGridCellNext(row.uid, "receiptDate"); } }}
+                                    data-grid-uid={row.uid}
+                                    data-grid-col="receiptDate"
                                     className="h-6 w-full text-xs px-1 dark:bg-amber-500/10 dark:border-amber-600/30 dark:text-foreground"
                                   />
                                 </td>
@@ -1698,13 +1779,19 @@ export default function PurchaseReceiptsPage() {
                                 </td>
                                 <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10">
                                   <Input value={row.lotNo} placeholder="LOT"
+                                    data-grid-uid={row.uid}
+                                    data-grid-col="lotNo"
                                     onChange={(e) => updateRow(row.uid, "lotNo", e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); navigateGridCellNext(row.uid, "lotNo"); } }}
                                     className="h-6 w-full text-xs px-1 dark:bg-amber-500/10 dark:border-amber-600/30"
                                   />
                                 </td>
                                 <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10">
                                   <Input value={row.note}
+                                    data-grid-uid={row.uid}
+                                    data-grid-col="note"
                                     onChange={(e) => updateRow(row.uid, "note", e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); navigateGridCellNext(row.uid, "note"); } }}
                                     className="h-6 w-full text-xs px-1 dark:bg-amber-500/10 dark:border-amber-600/30"
                                   />
                                 </td>

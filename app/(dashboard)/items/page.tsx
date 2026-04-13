@@ -1643,9 +1643,9 @@ export default function ItemsPage() {
               onChange={(v) => handleFilterChange("supplierName", v)}
             />
             <Field
-              label="품목상태구분"
-              value={filters.itemStatusCategory}
-              onChange={(v) => handleFilterChange("itemStatusCategory", v)}
+              label="거래처번호"
+              value={filters.supplierCode}
+              onChange={(v) => handleFilterChange("supplierCode", v)}
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1708,9 +1708,9 @@ export default function ItemsPage() {
                   onChange={(v) => handleFilterChange("supplierItemNo", v)}
                 />
                 <Field
-                  label="거래처번호"
-                  value={filters.supplierCode}
-                  onChange={(v) => handleFilterChange("supplierCode", v)}
+                  label="품목상태구분"
+                  value={filters.itemStatusCategory}
+                  onChange={(v) => handleFilterChange("itemStatusCategory", v)}
                 />
                 <Field
                   label="도면번호"

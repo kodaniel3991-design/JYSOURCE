@@ -135,7 +135,7 @@ export default function ReceiptPeriodPage() {
         if (!data.ok) return;
         const s = new Set<string>();
         data.items.forEach((x: Record<string, unknown>) => {
-          if (x.VehicleModel) s.add(x.VehicleModel as string);
+          if (x.VehicleModel) s.add((x.VehicleModel as string).toUpperCase());
         });
         setModelList(Array.from(s).sort());
       })

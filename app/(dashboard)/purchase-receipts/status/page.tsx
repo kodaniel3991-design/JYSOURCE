@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -81,6 +82,8 @@ export default function ReceiptStatusPage() {
   const [supplierName, setSupplierName] = useCachedState("receipt-status/supplierName", "");
   const [model,        setModel]        = useCachedState("receipt-status/model",        "");
 
+  useSupplierAutoFill(supplierCode, setSupplierName);
+
   const [isItemModalOpen,     setIsItemModalOpen]     = useState(false);
   const [isSupplierPopupOpen, setIsSupplierPopupOpen] = useState(false);
   const [isModelPopupOpen,    setIsModelPopupOpen]    = useState(false);
@@ -118,7 +121,7 @@ export default function ReceiptStatusPage() {
         if (!data.ok) return;
         const s = new Set<string>();
         data.items.forEach((x: Record<string, unknown>) => {
-          if (x.VehicleModel) s.add(x.VehicleModel as string);
+          if (x.VehicleModel) s.add((x.VehicleModel as string).toUpperCase());
         });
         setModelList(Array.from(s).sort());
       })
@@ -436,7 +439,7 @@ export default function ReceiptStatusPage() {
                     onChange={(e) => { setItemCode(e.target.value); setItemName(""); }}
                     placeholder="품목번호"
                     className="h-7 text-xs w-40"
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsItemModalOpen(true); } }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (itemCode.trim()) setIsItemModalOpen(true); else refSupplierCode.current?.focus(); } }}
                   />
                   <Button type="button" variant="outline" size="icon" className="h-7 w-7 shrink-0"
                     onClick={() => setIsItemModalOpen(true)}>
@@ -457,7 +460,7 @@ export default function ReceiptStatusPage() {
                     onChange={(e) => { setSupplierCode(e.target.value); setSupplierName(""); }}
                     placeholder="코드"
                     className="h-7 text-xs w-40"
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsSupplierPopupOpen(true); } }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (supplierCode.trim()) setIsSupplierPopupOpen(true); else refModel.current?.focus(); } }}
                   />
                   <Button type="button" variant="outline" size="icon" className="h-7 w-7 shrink-0"
                     onClick={() => setIsSupplierPopupOpen(true)}>
@@ -481,7 +484,7 @@ export default function ReceiptStatusPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        setModelSubSearch(model); setModelSubIdx(-1); setIsModelPopupOpen(true);
+                        if (model.trim()) { setModelSubSearch(model); setModelSubIdx(-1); setIsModelPopupOpen(true); } else refSearchBtn.current?.focus();
                       }
                     }}
                   />
@@ -734,6 +737,7 @@ export default function ReceiptStatusPage() {
         <ItemSelectModal
           open={isItemModalOpen}
           onOpenChange={(open) => { if (!open) setIsItemModalOpen(false); }}
+          initialSearch={itemCode}
           onSelect={(item) => {
             setItemCode(item.itemCode);
             setItemName(item.itemName);
@@ -746,6 +750,7 @@ export default function ReceiptStatusPage() {
         <SupplierSelectPopup
           open={isSupplierPopupOpen}
           onOpenChange={(open) => { if (!open) setIsSupplierPopupOpen(false); }}
+          initialSearch={supplierCode}
           onSelect={(no, name) => {
             setSupplierCode(no);
             setSupplierName(name);

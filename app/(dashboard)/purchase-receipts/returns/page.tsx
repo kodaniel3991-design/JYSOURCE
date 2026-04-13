@@ -121,7 +121,7 @@ export default function PurchaseReturnsPage() {
         if (!data.ok) return;
         const s = new Set<string>();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data.items.forEach((x: any) => { if (x.VehicleModel) s.add(x.VehicleModel); });
+        data.items.forEach((x: any) => { if (x.VehicleModel) s.add((x.VehicleModel as string).toUpperCase()); });
         setModelList(Array.from(s).sort());
       })
       .catch(() => {});

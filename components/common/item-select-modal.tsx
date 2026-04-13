@@ -25,9 +25,11 @@ interface ItemSelectModalProps {
   onSelect: (item: ItemModalItem) => void;
   /** 구매처 단가 필터용 구매처명 (optional) */
   supplierName?: string;
+  /** 팝업 열릴 때 검색창에 미리 채울 초기값 (optional) */
+  initialSearch?: string;
 }
 
-export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName }: ItemSelectModalProps) {
+export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName, initialSearch = "" }: ItemSelectModalProps) {
   const [itemMaster,   setItemMaster]   = useState<ItemModalItem[]>([]);
   const [priceItemCodes, setPriceItemCodes] = useState<Set<string>>(new Set());
 
@@ -72,11 +74,11 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName }: 
   // 팝업 열릴 때 초기화 + 포커스
   useEffect(() => {
     if (!open) return;
-    setItemSearch(""); setItemFilterModel(""); setItemFilterSupplierId(""); setItemFilterSupplierName("");
+    setItemSearch(initialSearch); setItemFilterModel(""); setItemFilterSupplierId(""); setItemFilterSupplierName("");
     setOnlyWithPrice(false); setItemHighlightIdx(-1);
     setIsSupplierSubOpen(false); setIsModelSubOpen(false);
     setTimeout(() => itemSearchRef.current?.focus(), 50);
-  }, [open]);
+  }, [open, initialSearch]);
 
   // 구매처 단가 필터 로드
   useEffect(() => {
@@ -99,7 +101,7 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName }: 
 
   const distinctModels = useMemo(() => {
     const s = new Set<string>();
-    itemMaster.forEach((i) => { if (i.model) s.add(i.model); });
+    itemMaster.forEach((i) => { if (i.model) s.add(i.model.toUpperCase()); });
     return Array.from(s).sort();
   }, [itemMaster]);
 

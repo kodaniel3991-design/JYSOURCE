@@ -12,10 +12,12 @@ interface DateInputProps {
   readOnly?: boolean;
   autoFocus?: boolean;
   id?: string;
+  "data-grid-uid"?: string;
+  "data-grid-col"?: string;
 }
 
 export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
-function DateInput({ value = "", onChange, onKeyDown, className, disabled, readOnly, autoFocus, id }, ref) {
+function DateInput({ value = "", onChange, onKeyDown, className, disabled, readOnly, autoFocus, id, "data-grid-uid": dataGridUid, "data-grid-col": dataGridCol }, ref) {
   const parts = value ? value.split("-") : ["", "", ""];
   const [year, setYear] = useState(parts[0] ?? "");
   const [month, setMonth] = useState(parts[1] ?? "");
@@ -88,6 +90,11 @@ function DateInput({ value = "", onChange, onKeyDown, className, disabled, readO
       monthRef.current?.focus(); monthRef.current?.select();
       return;
     }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      monthRef.current?.focus(); monthRef.current?.select();
+      return;
+    }
     onKeyDown?.(e);
   };
 
@@ -98,6 +105,9 @@ function DateInput({ value = "", onChange, onKeyDown, className, disabled, readO
       e.preventDefault();
       yearRef.current?.focus(); yearRef.current?.select();
     } else if (e.key === "ArrowRight" && e.currentTarget.selectionEnd === e.currentTarget.value.length) {
+      e.preventDefault();
+      dayRef.current?.focus(); dayRef.current?.select();
+    } else if (e.key === "Enter") {
       e.preventDefault();
       dayRef.current?.focus(); dayRef.current?.select();
     }
@@ -137,6 +147,8 @@ function DateInput({ value = "", onChange, onKeyDown, className, disabled, readO
         readOnly={readOnly}
         autoFocus={autoFocus}
         placeholder="YYYY"
+        data-grid-uid={dataGridUid}
+        data-grid-col={dataGridCol}
         className="w-10 bg-transparent text-center outline-none placeholder:text-muted-foreground/40"
       />
       <span className="mx-0.5 select-none text-muted-foreground">-</span>
