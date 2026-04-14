@@ -98,13 +98,16 @@ export async function POST(request: Request) {
 
     const pool = await getDbPool();
 
-    // PoNumber 생성: PO-YYYY-NNNN
+    // PoNumber 생성: PO-YYYY-NNNN (MAX 기반 — COUNT는 삭제된 번호 재사용 및 동시 요청 시 중복 발생)
     const year = new Date().getFullYear();
-    const countResult = await pool.request()
-      .input("Prefix", sql.NVarChar(10), `PO-${year}-%`)
-      .query(`SELECT COUNT(1) AS Cnt FROM dbo.PurchaseOrder WHERE PoNumber LIKE @Prefix`);
-    const seq = Number(countResult.recordset[0].Cnt) + 1;
-    const poNumber = `PO-${year}-${String(seq).padStart(4, "0")}`;
+    const prefix = `PO-${year}-`;
+    const maxResult = await pool.request()
+      .input("Prefix", sql.NVarChar(20), `${prefix}%`)
+      .query(`SELECT MAX(PoNumber) AS MaxNo FROM dbo.PurchaseOrder WHERE PoNumber LIKE @Prefix`);
+    const maxNo: string | null = maxResult.recordset[0].MaxNo;
+    const lastSeq = maxNo ? parseInt(maxNo.slice(prefix.length), 10) : 0;
+    const seq = (isNaN(lastSeq) ? 0 : lastSeq) + 1;
+    const poNumber = `${prefix}${String(seq).padStart(4, "0")}`;
 
     const totalAmount = (items as { amount?: number }[]).reduce((s, i) => s + (i.amount ?? 0), 0);
 
