@@ -317,6 +317,7 @@ export default function PurchaseReceiptsPage() {
   const [historyTotalQty, setHistoryTotalQty]   = useState(0);
   const [historyTotalAmount, setHistoryTotalAmount] = useState(0);
   const [historyLoading, setHistoryLoading]     = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
 
   // ── 이력 인라인 편집 ─────────────────────────────────────────────────────────
   type HistoryEditDraft = { receiptDate: string; qty: string; unitPrice: string };
@@ -1238,6 +1239,7 @@ export default function PurchaseReceiptsPage() {
                         <SortableTh sortKey="specNo"         currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-14">순번</SortableTh>
                         <SortableTh sortKey="type"           currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-14">구분</SortableTh>
                         <SortableTh sortKey="receiptDate"    currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-28">입고일자</SortableTh>
+                        <SortableTh sortKey="processedAt"   currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-36">처리일시</SortableTh>
                         <SortableTh sortKey="itemCode"       currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-36">품목번호</SortableTh>
                         <SortableTh sortKey="itemName"       currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left">품목명</SortableTh>
                         <SortableTh sortKey="warehouse"      currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-20">창고</SortableTh>
@@ -1254,11 +1256,11 @@ export default function PurchaseReceiptsPage() {
                     <tbody>
                       {historyLoading ? (
                         <tr>
-                          <td colSpan={15} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td>
+                          <td colSpan={16} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td>
                         </tr>
                       ) : historyItems.length === 0 ? (
                         <tr>
-                          <td colSpan={15} className="py-10 text-center text-xs text-muted-foreground">
+                          <td colSpan={16} className="py-10 text-center text-xs text-muted-foreground">
                             조회 조건을 입력하고 조회 버튼을 누르세요.
                           </td>
                         </tr>
@@ -1294,6 +1296,7 @@ export default function PurchaseReceiptsPage() {
                                     autoFocus
                                   />
                                 </td>
+                                <td className="px-2 py-1 text-center text-muted-foreground">{h.processedAt || "-"}</td>
                                 <td className="px-2 py-1 font-mono">{h.itemCode}</td>
                                 <td className="px-2 py-1">{h.itemName}</td>
                                 <td className="px-2 py-1 text-center">{h.warehouse}</td>
@@ -1365,7 +1368,12 @@ export default function PurchaseReceiptsPage() {
                           return (
                           <tr
                             key={h.id}
-                            className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${rowBase}`}
+                            className={`border-b last:border-0 cursor-pointer ${
+                              selectedHistoryId === h.id
+                                ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
+                                : `hover:bg-sky-50/60 dark:hover:bg-sky-500/10 ${rowBase}`
+                            }`}
+                            onClick={() => setSelectedHistoryId(h.id === selectedHistoryId ? null : h.id)}
                             onDoubleClick={() => startEditHistory(h)}
                             title="더블클릭하여 수정"
                           >
@@ -1377,6 +1385,7 @@ export default function PurchaseReceiptsPage() {
                               </span>
                             </td>
                             <td className="px-2 py-1 text-center">{h.receiptDate}</td>
+                            <td className="px-2 py-1 text-center text-muted-foreground">{h.processedAt || "-"}</td>
                             <td className="px-2 py-1 font-mono">{h.itemCode}</td>
                             <td className="px-2 py-1">{h.itemName}</td>
                             <td className="px-2 py-1 text-center">{h.warehouse}</td>
