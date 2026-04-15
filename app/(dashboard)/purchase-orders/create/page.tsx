@@ -927,6 +927,10 @@ export default function CreatePurchaseOrderPage() {
 
 <div class="btn-bar">
   <label class="email-label">
+    <input type="checkbox" id="showPriceCheck">
+    금액 표시
+  </label>
+  <label class="email-label">
     <input type="checkbox" id="sendEmailCheck">
     이메일 발송
   </label>
@@ -1026,10 +1030,10 @@ export default function CreatePurchaseOrderPage() {
       ${th("border:" + B + ";padding:3px 4px;width:18%;", "품명")}
       ${th("border:" + B + ";padding:3px 4px;width:10%;", "재질")}
       ${th("border:" + B + ";padding:3px 4px;width:10%;", "규격")}
-      ${th("border:" + B + ";padding:3px 4px;width:13%;", "납품요구일자")}
+      ${th("border:" + B + ";padding:3px 4px;width:10%;", "납품요구일자")}
       ${th("border:" + B + ";padding:3px 4px;text-align:right;width:8%;", "수량")}
-      ${th("border:" + B + ";padding:3px 4px;text-align:right;width:10%;", "단가")}
-      ${th("border:" + B + ";padding:3px 4px;text-align:right;width:12%;", "금액")}
+      <th class="price-cell" style="${G}border:${B};padding:3px 4px;text-align:right;width:10%;">단가</th>
+      <th class="price-cell" style="${G}border:${B};padding:3px 4px;text-align:right;width:12%;">금액</th>
       ${th("border:" + B + ";padding:3px 4px;width:6%;", "단위")}
     </tr>
   </thead>
@@ -1043,38 +1047,34 @@ export default function CreatePurchaseOrderPage() {
       ${td(`border:${B};padding:3px 4px;`, row.specification || "")}
       ${td(`border:${B};padding:3px 4px;`, row.dueDate || "")}
       ${td(`border:${B};padding:3px 4px;text-align:right;`, row.quantity.toLocaleString("ko-KR"))}
-      ${td(`border:${B};padding:3px 4px;text-align:right;`, row.unitPrice.toLocaleString("ko-KR"))}
-      ${td(`border:${B};padding:3px 4px;text-align:right;`, (row.amount ?? 0).toLocaleString("ko-KR"))}
+      <td class="price-cell" style="border:${B};padding:3px 4px;text-align:right;">${row.unitPrice.toLocaleString("ko-KR")}</td>
+      <td class="price-cell" style="border:${B};padding:3px 4px;text-align:right;">${(row.amount ?? 0).toLocaleString("ko-KR")}</td>
       ${td(`border:${B};padding:3px 4px;text-align:center;`, "EA")}
     </tr>`).join("")}
     ${Array.from({ length: EMPTY_ROWS }, () => `
     <tr style="height:19px;">
       <td style="border:${B};"></td><td style="border:${B};"></td><td style="border:${B};"></td>
       <td style="border:${B};"></td><td style="border:${B};"></td><td style="border:${B};"></td>
-      <td style="border:${B};"></td><td style="border:${B};"></td><td style="border:${B};"></td>
+      <td style="border:${B};"></td><td class="price-cell" style="border:${B};"></td><td class="price-cell" style="border:${B};"></td>
       <td style="border:${B};"></td>
     </tr>`).join("")}
+    <tr>
+      <td style="${Y}border:${B};padding:3px 4px;text-align:left;">${filledSpec.length} 건</td>
+      <td style="${Y}border:${B};padding:3px 10px;text-align:left;">** 합 계 **</td>
+      <td style="${Y}border:${B};padding:3px 4px;"></td>
+      <td style="${Y}border:${B};padding:3px 4px;"></td>
+      <td style="${Y}border:${B};padding:3px 4px;"></td>
+      <td style="${Y}border:${B};padding:3px 4px;"></td>
+      <td style="${Y}border:${B};padding:3px 4px;text-align:right;">${totalQty.toLocaleString("ko-KR")}</td>
+      <td class="price-cell" style="${Y}border:${B};padding:3px 4px;text-align:right;">${supply.toLocaleString("ko-KR")}</td>
+      <td class="price-cell" style="${Y}border:${B};padding:3px 4px;text-align:right;font-weight:700;">${total.toLocaleString("ko-KR")}</td>
+      <td style="${Y}border:${B};padding:3px 4px;"></td>
+    </tr>
   </tbody>
 </table>
 
-<!-- 합계 행 -->
-<table style="margin-top:0;">
-  <tr>
-    <td style="${Y}border:${B};padding:3px 4px;text-align:left;width:4%;">${filledSpec.length} 건</td>
-    <td style="${Y}border:${B};padding:3px 10px;text-align:left;width:13%;">** 합 계 **</td>
-    <td style="${Y}border:${B};padding:3px 4px;width:18%;"></td>
-    <td style="${Y}border:${B};padding:3px 4px;width:10%;"></td>
-    <td style="${Y}border:${B};padding:3px 4px;width:10%;"></td>
-    <td style="${Y}border:${B};padding:3px 4px;width:13%;"></td>
-    <td style="${Y}border:${B};padding:3px 4px;text-align:right;width:8%;">${totalQty.toLocaleString("ko-KR")}</td>
-    <td style="${Y}border:${B};padding:3px 4px;text-align:right;width:10%;">${supply.toLocaleString("ko-KR")}</td>
-    <td style="${Y}border:${B};padding:3px 4px;text-align:right;font-weight:700;width:12%;">${total.toLocaleString("ko-KR")}</td>
-    <td style="${Y}border:${B};padding:3px 4px;width:6%;"></td>
-  </tr>
-</table>
-
 <!-- 공급가액/부가세/합계 -->
-<table style="margin-top:0;border:${B};">
+<table class="price-section" style="margin-top:0;border:${B};">
   <tr>
     <td style="${G}border:${B};padding:3px 6px;font-size:9px;width:12%;">공급가액</td>
     <td style="border:${B};padding:3px 6px;width:20%;text-align:right;">${supply.toLocaleString("ko-KR")} 원</td>
@@ -1122,6 +1122,19 @@ export default function CreatePurchaseOrderPage() {
   </tr>
 </table>
 
+<script>
+  function togglePrice(show) {
+    document.querySelectorAll('.price-cell').forEach(function(el) {
+      el.style.display = show ? 'table-cell' : 'none';
+    });
+    var section = document.querySelector('.price-section');
+    if (section) section.style.display = show ? 'table' : 'none';
+  }
+  togglePrice(false);
+  document.getElementById('showPriceCheck').addEventListener('change', function() {
+    togglePrice(this.checked);
+  });
+</script>
 </body></html>`);
     win.document.close();
   };
@@ -2353,6 +2366,7 @@ export default function CreatePurchaseOrderPage() {
             </div>
             <div className="px-5 py-3 flex justify-end border-t border-border">
               <Button
+                autoFocus
                 size="sm"
                 className="h-8 px-6 text-xs"
                 onClick={() => setNotifyModal(null)}
