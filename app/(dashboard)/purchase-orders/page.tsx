@@ -80,6 +80,7 @@ export default function PurchaseOrdersPage() {
   const [page, setPage] = useCachedState<number>("po-list/page", 1);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [receiptSheetOpen, setReceiptSheetOpen] = useState(false);
 
   useEffect(() => { modelSubRowRef.current?.scrollIntoView({ block: "nearest" }); }, [modelSubIdx]);
@@ -747,6 +748,8 @@ export default function PurchaseOrdersPage() {
               columns={visibleColumns as unknown as any}
               data={loading ? [] : paginated}
               keyExtractor={(row) => row.id}
+              selectedRowId={selectedRowId}
+              onRowClick={(row) => setSelectedRowId(row.id === selectedRowId ? null : row.id)}
               pagination={{
                 page,
                 pageSize: PAGE_SIZE,

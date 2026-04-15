@@ -19,7 +19,7 @@ const ROUTE_LABELS: { pattern: RegExp | string; label: string }[] = [
   { pattern: "/purchase-receipts",                          label: "구매입고처리" },
   { pattern: "/purchase-orders/performance/purchase-input", label: "매입 실적 관리" },
   { pattern: "/purchase-orders/performance/receipts",      label: "발주대비 입고현황" },
-  { pattern: "/purchase-orders/performance/closing",       label: "마감현황" },
+  { pattern: "/purchase-orders/performance/closing",       label: "차종별 / 형태별 마감현황" },
   { pattern: /^\/purchase-orders\/[^/]+$/,                 label: "구매오더 상세" },
   { pattern: "/purchase-orders",                           label: "구매오더 현황" },
   { pattern: "/purchase-prices",                           label: "구매단가 관리" },

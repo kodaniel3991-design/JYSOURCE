@@ -58,7 +58,6 @@ const purchaseOrderNavGroup = {
   icon: FileText,
   children: [
     { href: "/purchase-orders/create",                label: "구매오더 관리",    icon: FileText },
-    { href: "/purchase-orders",                       label: "구매오더 현황",    icon: FileText },
     { href: "/purchase-orders/price-verification",    label: "단가변경 교차검증", icon: ArrowLeftRight },
   ],
 };
@@ -80,7 +79,7 @@ const performanceNavGroup = {
   children: [
     { href: "/purchase-orders/performance/purchase-input", label: "매입 실적 관리", icon: Receipt },
     { href: "/purchase-orders/performance/receipts", label: "발주대비 입고현황", icon: FileText },
-    { href: "/purchase-orders/performance/closing", label: "마감현황", icon: FileText },
+    { href: "/purchase-orders/performance/closing", label: "차종별 / 형태별 마감현황", icon: FileText },
   ],
 };
 

@@ -72,6 +72,7 @@ export default function ClosingStatusPage() {
   // 데이터
   const [rawItems, setRawItems]   = useCachedState<RawItem[]>("closing/rawItems", []);
   const [loading,  setLoading]    = useState(false);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
   // 그리드 설정
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
@@ -333,8 +334,8 @@ export default function ClosingStatusPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="차종별 / 용도별 마감현황"
-        description="회계처리 완료된 매입 실적을 차종 및 용도별로 집계합니다."
+        title="차종별 / 형태별 마감현황"
+        description="입고 완료된 차종 및 형태별로 집계합니다."
       />
 
       <SearchPanel onSearch={loadData} onReset={() => {}}>
@@ -372,7 +373,7 @@ export default function ClosingStatusPage() {
       <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <span className="text-sm font-medium text-muted-foreground">
-            차종별 / 용도별 마감현황
+            차종별 / 형태별 마감현황
             {loading && <span className="ml-2 text-xs text-blue-500">조회 중...</span>}
           </span>
           <DataGridToolbar
@@ -509,6 +510,8 @@ export default function ClosingStatusPage() {
               ]}
               data={displayRows}
               keyExtractor={(row) => row.id}
+              selectedRowId={selectedRowId}
+              onRowClick={(row) => setSelectedRowId(row.id === selectedRowId ? null : row.id)}
               maxHeight="100%"
               emptyMessage="조회 버튼을 눌러 데이터를 불러오세요."
               getRowClassName={(row, index) => {

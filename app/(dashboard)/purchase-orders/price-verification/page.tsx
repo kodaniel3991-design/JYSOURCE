@@ -594,10 +594,11 @@ export default function PriceVerificationPage() {
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") { e.preventDefault(); setModelSubIdx((p) => Math.min(p + 1, filteredModelList.length - 1)); }
                 else if (e.key === "ArrowUp") { e.preventDefault(); setModelSubIdx((p) => Math.max(p - 1, 0)); }
-                else if (e.key === "Enter" && modelSubIdx >= 0) {
-                  const m = filteredModelList[modelSubIdx];
-                  setModel(m); setIsModelPopupOpen(false);
-                  setTimeout(() => refSearchBtn.current?.focus(), 0);
+                else if (e.key === "Enter") {
+                  const m = modelSubIdx >= 0
+                    ? filteredModelList[modelSubIdx]
+                    : filteredModelList.length === 1 ? filteredModelList[0] : null;
+                  if (m) { setModel(m); setIsModelPopupOpen(false); setTimeout(() => refSearchBtn.current?.focus(), 0); }
                 }
               }}
             />

@@ -56,6 +56,7 @@ export default function PurchaseReceiptStatusPage() {
   const [criteria, setCriteria] = useState<SearchParams>(initialParams);
   const [rawRows, setRawRows] = useState<ReceiptStatusRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
@@ -297,6 +298,8 @@ export default function PurchaseReceiptStatusPage() {
               ]}
               data={loading ? [] : displayRows}
               keyExtractor={(row) => row.id}
+              selectedRowId={selectedRowId}
+              onRowClick={(row) => setSelectedRowId(row.id === selectedRowId ? null : row.id)}
               getRowClassName={(row) =>
                 row.rowKind === "total"
                   ? "bg-fuchsia-100 dark:bg-fuchsia-900/60 font-semibold"

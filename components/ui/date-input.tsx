@@ -32,7 +32,7 @@ function DateInput({ value = "", onChange, onKeyDown, className, disabled, readO
   // ref.focus() → 연도 input에 포커스
   useImperativeHandle(ref, () => ({
     ...({} as HTMLInputElement),
-    focus: () => yearRef.current?.focus(),
+    focus: () => { yearRef.current?.focus(); yearRef.current?.select(); },
   }));
 
   // 외부에서 value가 바뀐 경우에만 내부 상태 동기화 (자신이 emit한 값은 무시)

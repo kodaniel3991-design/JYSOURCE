@@ -162,8 +162,13 @@ export default function PurchaseInputPage() {
 
   const supplierCodeRef    = useRef<HTMLInputElement>(null);
   const supplierDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const summaryRef      = useRef<HTMLInputElement>(null);
+  const inputDateRef    = useRef<HTMLInputElement>(null);
+  const saveButtonRef   = useRef<HTMLButtonElement>(null);
   const listDateFromRef = useRef<HTMLInputElement>(null);
   const listDateToRef   = useRef<HTMLInputElement>(null);
+  const unDateToRef     = useRef<HTMLInputElement>(null);
+  const unItemCodeRef   = useRef<HTMLInputElement>(null);
   const unItemModelRef  = useRef<HTMLInputElement>(null);
   const unSearchBtnRef  = useRef<HTMLButtonElement>(null);
 
@@ -523,8 +528,10 @@ export default function PurchaseInputPage() {
                   key={item.id}
                   onClick={() => handleSelectRow(item)}
                   className={cn(
-                    "border-b cursor-pointer hover:bg-muted/40",
-                    selectedId === item.id && "bg-primary/10 font-medium"
+                    "border-b cursor-pointer",
+                    selectedId === item.id
+                      ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40 font-medium"
+                      : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
                   )}
                 >
                   <td className="px-2 py-1 text-right border-r border-border tabular-nums">{item.inputNo}</td>
@@ -568,7 +575,7 @@ export default function PurchaseInputPage() {
               {isNew ? "신규 등록" : selectedId ? `매입번호 ${header.inputNo}` : "항목을 선택하거나 신규를 누르세요"}
             </span>
             <div className="ml-auto flex gap-2">
-              <Button type="button" size="sm" className="h-7 px-3" onClick={handleSaveHeader}
+              <Button ref={saveButtonRef} type="button" size="sm" className="h-7 px-3" onClick={handleSaveHeader}
                 disabled={!isEditable || saving || isFormLocked}>
                 <Save className="mr-1 h-3 w-3" />
                 저장
@@ -620,23 +627,35 @@ export default function PurchaseInputPage() {
                     onKeyDown={(e) => {
                       if (isFormLocked) return;
                       if (e.key === "Enter") {
+                        e.preventDefault();
                         if (supplierDebounceRef.current) clearTimeout(supplierDebounceRef.current);
                         const v = header.supplierCode.trim();
-                        if (!v) return;
+                        if (!v) {
+                          // 비어있으면 적요로 포커스
+                          summaryRef.current?.focus();
+                          return;
+                        }
+                        // 값이 있으면 구매처 목록 조회 후 매칭
                         fetch(apiPath("/api/purchasers"))
                           .then((r) => r.json())
                           .then((data) => {
-                            if (data?.ok && Array.isArray(data.items)) {
-                              const match = data.items.find(
-                                (item: Record<string, string>) =>
-                                  (item.PurchaserNo ?? "").toLowerCase() === v.toLowerCase()
-                              );
-                              if (match) {
-                                setHeader((p) => ({ ...p, supplierCode: match.PurchaserNo, supplierName: match.PurchaserName }));
-                              }
+                            if (!data?.ok || !Array.isArray(data.items)) return;
+                            const kw = v.toLowerCase();
+                            const matches = data.items.filter(
+                              (item: Record<string, string>) =>
+                                (item.PurchaserNo ?? "").toLowerCase().includes(kw) ||
+                                (item.PurchaserName ?? "").toLowerCase().includes(kw)
+                            );
+                            if (matches.length === 1) {
+                              // 1건 매칭 → 바로 세팅 후 적요로 포커스
+                              setHeader((p) => ({ ...p, supplierCode: matches[0].PurchaserNo, supplierName: matches[0].PurchaserName }));
+                              setTimeout(() => summaryRef.current?.focus(), 0);
+                            } else {
+                              // 0건 또는 복수 → 팝업 오픈
+                              setIsSupplierOpen(true);
                             }
                           })
-                          .catch(() => {});
+                          .catch(() => { setIsSupplierOpen(true); });
                       }
                     }}
                     className={cn(REQ, isFormLocked && "opacity-60 cursor-not-allowed")}
@@ -653,9 +672,10 @@ export default function PurchaseInputPage() {
                 {/* 매입일자 */}
                 <div className="grid grid-cols-[110px_1fr] gap-1 items-center">
                   <Label className={FLD}>매입일자 <span className="text-destructive ml-0.5">*</span></Label>
-                  <DateInput value={header.inputDate}
+                  <DateInput ref={inputDateRef} value={header.inputDate}
                     readOnly={isFormLocked}
                     onChange={(e) => { if (!isFormLocked) hd("inputDate", e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveButtonRef.current?.focus(); } }}
                     className={cn(REQ, isFormLocked && "opacity-60 cursor-not-allowed")} />
                 </div>
                 {/* 매입실적상태 */}
@@ -673,8 +693,9 @@ export default function PurchaseInputPage() {
                 {/* 적 요 */}
                 <div className="grid grid-cols-[110px_1fr] gap-1 items-center">
                   <Label className={FLD}>적&nbsp;&nbsp;&nbsp;요</Label>
-                  <Input value={header.summary} readOnly={isFormLocked}
+                  <Input ref={summaryRef} value={header.summary} readOnly={isFormLocked}
                     onChange={(e) => { if (!isFormLocked) hd("summary", e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); inputDateRef.current?.focus(); } }}
                     className={cn("h-8 text-xs", isFormLocked && "opacity-60 cursor-not-allowed")} />
                 </div>
                 {/* 부서코드 */}
@@ -784,7 +805,7 @@ export default function PurchaseInputPage() {
                         <SortableTh sortKey="inputAmount"    currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">매입금액</SortableTh>
                         <SortableTh sortKey="convertedAmount"currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">환전매입금액</SortableTh>
                         <SortableTh sortKey="taxAmount"      currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-22">부가세액</SortableTh>
-                        <SortableTh sortKey="totalWithTax"   currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">부가세포함금액</SortableTh>
+                        <SortableTh sortKey="totalWithTax"   currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-28">부가세포함금액</SortableTh>
                         <SortableTh sortKey="receiptNo"      currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-36">입고번호</SortableTh>
                         <SortableTh sortKey="purchaseOrderNo"currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-28">구매오더</SortableTh>
                         <th className="px-2 py-1.5 text-left border-b border-border">적요</th>
@@ -867,10 +888,12 @@ export default function PurchaseInputPage() {
                       <div className="flex gap-1 items-center">
                         <DateInput value={unSearch.dateFrom}
                           onChange={(e) => setUnSearch((p) => ({ ...p, dateFrom: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); unDateToRef.current?.focus(); } }}
                           className="h-7 text-xs w-[120px]" />
                         <span className="text-xs text-muted-foreground">~</span>
-                        <DateInput value={unSearch.dateTo}
+                        <DateInput ref={unDateToRef} value={unSearch.dateTo}
                           onChange={(e) => setUnSearch((p) => ({ ...p, dateTo: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); unItemCodeRef.current?.focus(); } }}
                           className="h-7 text-xs w-[120px]" />
                       </div>
                     </div>
@@ -878,7 +901,7 @@ export default function PurchaseInputPage() {
                     <div className="flex flex-col gap-1 shrink-0">
                       <label className="text-xs font-medium text-muted-foreground">품목번호</label>
                       <div className="flex gap-1">
-                        <Input value={unItemCode}
+                        <Input ref={unItemCodeRef} value={unItemCode}
                           onChange={(e) => { setUnItemCode(e.target.value); setUnItemName(""); }}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (unItemCode.trim()) setIsUnItemOpen(true); else unItemModelRef.current?.focus(); } }}
                           placeholder="품목번호"
@@ -1053,6 +1076,7 @@ export default function PurchaseInputPage() {
         initialSearchCode={header.supplierCode}
         onSelect={(item) => {
           setHeader((p) => ({ ...p, supplierCode: String(item.PurchaserNo), supplierName: String(item.PurchaserName) }));
+          setTimeout(() => summaryRef.current?.focus(), 0);
         }}
       />
 

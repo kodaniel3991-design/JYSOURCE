@@ -176,7 +176,15 @@ export default function AdminFactoriesPage() {
               </tr>
             )}
             {sortedFactories.map((row) => (
-              <tr key={row.FactoryCode} className="border-b last:border-0 hover:bg-muted/30">
+              <tr
+                key={row.FactoryCode}
+                onClick={() => openEdit(row)}
+                className={`border-b last:border-0 cursor-pointer ${
+                  editTarget?.FactoryCode === row.FactoryCode
+                    ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
+                    : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
+                }`}
+              >
                 <td className="px-4 py-3 font-mono font-medium">{row.FactoryCode}</td>
                 <td className="px-4 py-3">{row.FactoryName}</td>
                 <td className="px-4 py-3 text-center text-muted-foreground">{row.SortOrder}</td>

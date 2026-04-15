@@ -328,7 +328,15 @@ export default function AdminUsersPage() {
               </tr>
             )}
             {sortedUsers.map((row) => (
-              <tr key={row.Id} className="border-b last:border-0 hover:bg-muted/30">
+              <tr
+                key={row.Id}
+                onClick={() => openEdit(row)}
+                className={`border-b last:border-0 cursor-pointer ${
+                  editTarget?.Id === row.Id
+                    ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
+                    : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
+                }`}
+              >
                 <td className="px-4 py-3 font-medium whitespace-nowrap">{row.Username}</td>
                 <td className="px-4 py-3 whitespace-nowrap">{row.UserId ?? <span className="text-xs opacity-40">-</span>}</td>
                 <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.EmployeeNo ?? <span className="text-xs opacity-40">-</span>}</td>

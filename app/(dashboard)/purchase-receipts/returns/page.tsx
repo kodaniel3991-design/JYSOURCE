@@ -772,9 +772,9 @@ export default function PurchaseReturnsPage() {
                           onClick={() => handleRowClick(h)}
                           className={`border-b last:border-0 cursor-pointer ${
                             isSelected
-                              ? "bg-red-100 dark:bg-red-500/20"
-                              : (stripedRows && i % 2 === 1) ? "bg-slate-50/60 dark:bg-muted/20 hover:bg-red-50/40 dark:hover:bg-red-500/10"
-                              : "hover:bg-red-50/40 dark:hover:bg-red-500/10"
+                              ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
+                              : (stripedRows && i % 2 === 1) ? "bg-slate-50/60 dark:bg-muted/20 hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
+                              : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
                           }`}
                         >
                           <td className="px-2 py-1 font-mono text-[11px] text-primary">{h.poNumber}</td>

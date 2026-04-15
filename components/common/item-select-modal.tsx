@@ -209,9 +209,11 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName, in
                   if (itemHighlightIdx >= 0) {
                     const t = filteredItems[itemHighlightIdx];
                     if (t) handleSelect(t);
-                  } else if (itemFilterSupplierName) {
+                  } else if (!itemFilterSupplierId.trim() || itemFilterSupplierName) {
+                    // 비어있거나 이미 매칭됐으면 모델로 패스
                     modelInputRef.current?.focus();
                   } else {
+                    // 값은 있지만 아직 매칭 안 됐으면 팝업
                     setIsSupplierSubOpen(true);
                   }
                 }
@@ -244,7 +246,11 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName, in
                   if (itemHighlightIdx >= 0) {
                     const t = filteredItems[itemHighlightIdx];
                     if (t) handleSelect(t);
+                  } else if (!itemFilterModel.trim()) {
+                    // 비어있으면 품목검색으로 패스
+                    itemSearchRef.current?.focus();
                   } else {
+                    // 값 있으면 팝업
                     setModelSubSearch(itemFilterModel);
                     setIsModelSubOpen(true);
                   }

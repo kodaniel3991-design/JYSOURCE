@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(wc -l \"d:\\\\JYS\\\\app\\\\\\(dashboard\\)\\\\purchase-orders\\\\create\\\\page.tsx\")"
+      "Bash(wc -l \"d:\\\\JYS\\\\app\\\\\\(dashboard\\)\\\\purchase-orders\\\\create\\\\page.tsx\")",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(cmd /c \"cd d:\\\\JYS && node_modules\\\\.bin\\\\tsc --noEmit 2>&1\")",
+      "Bash(cmd /c \"node_modules\\\\.bin\\\\tsc --noEmit 2>&1\")",
+      "Bash(cmd /c \"cd /d d:\\\\JYS && node_modules\\\\.bin\\\\tsc --noEmit\")",
+      "Bash(findstr /i \"error TS\")"
     ]
   }
 }

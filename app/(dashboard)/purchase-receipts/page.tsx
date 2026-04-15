@@ -643,45 +643,50 @@ export default function PurchaseReceiptsPage() {
 
   // ── 입고일자 일괄변경 ────────────────────────────────────────────────────────
   const [bulkDate, setBulkDate] = useState(todayStr);
+  const [focusedRowUid, setFocusedRowUid] = useState<string | null>(null);
   const applyBulkDate = () => {
     if (!bulkDate) return;
     setFlatRows((prev) => prev.map((r) => ({ ...r, receiptDate: bulkDate })));
   };
 
-  // ── 그리드 셀 방향키 내비게이션 ──────────────────────────────────────────────
+  // ── 그리드 셀 방향키 내비게이션 (비활성화 셀은 건너뜀) ────────────────────────
   const navigateGridCell = (
     currentUid: string,
     colAttr: string,
     direction: "up" | "down"
   ) => {
     const rows = sortedFlatRows;
-    const idx = rows.findIndex((r) => r.uid === currentUid);
-    const nextIdx = direction === "down" ? idx + 1 : idx - 1;
-    if (nextIdx < 0 || nextIdx >= rows.length) return;
-    const nextUid = rows[nextIdx].uid;
-    const el = document.querySelector<HTMLInputElement>(
-      `[data-grid-uid="${nextUid}"][data-grid-col="${colAttr}"]`
-    );
-    el?.focus();
-    el?.select();
+    let nextIdx = rows.findIndex((r) => r.uid === currentUid);
+    const step = direction === "down" ? 1 : -1;
+    nextIdx += step;
+    while (nextIdx >= 0 && nextIdx < rows.length) {
+      const nextUid = rows[nextIdx].uid;
+      const el = document.querySelector<HTMLInputElement>(
+        `[data-grid-uid="${nextUid}"][data-grid-col="${colAttr}"]`
+      );
+      if (el && !el.disabled) { el.focus(); el.select(); return; }
+      nextIdx += step;
+    }
   };
 
-  // Enter 시 다음 셀로 이동 (inputQty → returnQty → receiptDate → lotNo → note → 다음 행 inputQty)
+  // Enter 시 다음 셀로 이동 (inputQty → returnQty → receiptDate → lotNo → note → 다음 행 inputQty, 비활성화 셀 건너뜀)
   const GRID_COL_SEQUENCE = ["inputQty", "returnQty", "receiptDate", "lotNo", "note"] as const;
   const navigateGridCellNext = (currentUid: string, currentCol: string) => {
-    const colIdx = GRID_COL_SEQUENCE.indexOf(currentCol as typeof GRID_COL_SEQUENCE[number]);
-    if (colIdx >= 0 && colIdx < GRID_COL_SEQUENCE.length - 1) {
+    let colIdx = GRID_COL_SEQUENCE.indexOf(currentCol as typeof GRID_COL_SEQUENCE[number]);
+    // 같은 행에서 다음 활성화된 컬럼 탐색
+    while (colIdx >= 0 && colIdx < GRID_COL_SEQUENCE.length - 1) {
       const nextCol = GRID_COL_SEQUENCE[colIdx + 1];
       const el = document.querySelector<HTMLInputElement>(`[data-grid-uid="${currentUid}"][data-grid-col="${nextCol}"]`);
-      if (el) { el.focus(); el.select(); return; }
+      if (el && !el.disabled) { el.focus(); el.select(); return; }
+      colIdx++;
     }
-    // 마지막 컬럼이거나 다음 컬럼 없으면 다음 행 첫 번째 컬럼으로
+    // 다음 행 첫 번째 컬럼으로
     const rows = sortedFlatRows;
     const idx = rows.findIndex((r) => r.uid === currentUid);
     if (idx >= 0 && idx < rows.length - 1) {
       const nextUid = rows[idx + 1].uid;
       const el = document.querySelector<HTMLInputElement>(`[data-grid-uid="${nextUid}"][data-grid-col="${GRID_COL_SEQUENCE[0]}"]`);
-      el?.focus(); el?.select();
+      if (el && !el.disabled) { el.focus(); el.select(); }
     }
   };
 
@@ -1714,7 +1719,7 @@ export default function PurchaseReceiptsPage() {
                           {sortedFlatRows.map((row) => {
                             const isComplete = row.pendingQty === 0;
                             return (
-                              <tr key={row.uid} className={`border-b last:border-0 ${isComplete ? "bg-green-50/60 dark:bg-green-500/10" : ""}`}>
+                              <tr key={row.uid} className={`border-b last:border-0 ${focusedRowUid === row.uid ? "bg-blue-50 dark:bg-blue-500/15 ring-1 ring-inset ring-blue-300 dark:ring-blue-500/40" : isComplete ? "bg-green-50/60 dark:bg-green-500/10" : ""}`}>
                                 <td className="px-2 py-1 font-mono text-[11px] text-primary">{row.poNumber}</td>
                                 <td className="px-2 py-1 text-center text-muted-foreground">{row.seq}</td>
                                 <td className="px-2 py-1 font-mono">{row.itemCode}</td>
@@ -1739,6 +1744,8 @@ export default function PurchaseReceiptsPage() {
                                     value={row.inputQty > 0 ? row.inputQty.toLocaleString("ko-KR") : ""}
                                     placeholder="0"
                                     onChange={(e) => updateRow(row.uid, "inputQty", Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                                    onFocus={() => setFocusedRowUid(row.uid)}
+                                    onBlur={() => setFocusedRowUid(null)}
                                     onKeyDown={(e) => {
                                       if (e.key === "ArrowDown") { e.preventDefault(); navigateGridCell(row.uid, "inputQty", "down"); }
                                       else if (e.key === "ArrowUp") { e.preventDefault(); navigateGridCell(row.uid, "inputQty", "up"); }
@@ -1754,6 +1761,8 @@ export default function PurchaseReceiptsPage() {
                                     value={row.returnQty > 0 ? row.returnQty.toLocaleString("ko-KR") : ""}
                                     placeholder="0"
                                     onChange={(e) => updateRow(row.uid, "returnQty", Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                                    onFocus={() => setFocusedRowUid(row.uid)}
+                                    onBlur={() => setFocusedRowUid(null)}
                                     onKeyDown={(e) => {
                                       if (e.key === "ArrowDown") { e.preventDefault(); navigateGridCell(row.uid, "returnQty", "down"); }
                                       else if (e.key === "ArrowUp") { e.preventDefault(); navigateGridCell(row.uid, "returnQty", "up"); }
@@ -1762,7 +1771,9 @@ export default function PurchaseReceiptsPage() {
                                     className="h-6 w-full text-xs text-right px-1 disabled:opacity-40 dark:bg-red-500/10 dark:border-red-600/30"
                                   />
                                 </td>
-                                <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10">
+                                <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10"
+                                  onFocus={() => setFocusedRowUid(row.uid)}
+                                  onBlur={() => setFocusedRowUid(null)}>
                                   <DateInput value={row.receiptDate}
                                     onChange={(e) => updateRow(row.uid, "receiptDate", e.target.value)}
                                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); navigateGridCellNext(row.uid, "receiptDate"); } }}
@@ -1782,6 +1793,8 @@ export default function PurchaseReceiptsPage() {
                                     data-grid-uid={row.uid}
                                     data-grid-col="lotNo"
                                     onChange={(e) => updateRow(row.uid, "lotNo", e.target.value)}
+                                    onFocus={() => setFocusedRowUid(row.uid)}
+                                    onBlur={() => setFocusedRowUid(null)}
                                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); navigateGridCellNext(row.uid, "lotNo"); } }}
                                     className="h-6 w-full text-xs px-1 dark:bg-amber-500/10 dark:border-amber-600/30"
                                   />
@@ -1791,6 +1804,8 @@ export default function PurchaseReceiptsPage() {
                                     data-grid-uid={row.uid}
                                     data-grid-col="note"
                                     onChange={(e) => updateRow(row.uid, "note", e.target.value)}
+                                    onFocus={() => setFocusedRowUid(row.uid)}
+                                    onBlur={() => setFocusedRowUid(null)}
                                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); navigateGridCellNext(row.uid, "note"); } }}
                                     className="h-6 w-full text-xs px-1 dark:bg-amber-500/10 dark:border-amber-600/30"
                                   />

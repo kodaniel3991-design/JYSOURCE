@@ -17,34 +17,47 @@ export async function GET(request: Request) {
       .input("BusinessPlace", sql.NVarChar(20), factory)
       .query(`
         SELECT
-          pi.SupplierCode,
-          pi.SupplierName,
-          pii.ItemCode,
-          pii.ItemName,
-          ISNULL(NULLIF(im.VehicleModel, ''), '(미지정)') AS VehicleModel,
+          po.SupplierCode,
+          po.SupplierName,
+          rh.ItemCode,
+          ISNULL(rh.ItemName, im.ItemName)                           AS ItemName,
+          ISNULL(NULLIF(im.VehicleModel, ''), N'(미지정)')           AS VehicleModel,
           ISNULL(NULLIF(itc.ItemTypeName, ''),
-            ISNULL(NULLIF(im.Form, ''), '(미지정)'))       AS Form,
-          pii.InputQty,
-          pii.InputAmount,
-          pii.TaxAmount,
-          pii.TotalWithTax,
-          CONVERT(NVARCHAR(10), pi.InputDate, 23) AS InputDate
-        FROM dbo.PurchaseInput pi
-        JOIN dbo.PurchaseInputItem pii
-          ON pii.PurchaseInputId = pi.Id
+            ISNULL(NULLIF(im.Form, ''), N'(미지정)'))                AS Form,
+          rh.Qty                                                     AS InputQty,
+          ROUND(rh.Qty * ISNULL(poi.UnitPrice, 0), 0)               AS InputAmount,
+          ROUND(rh.Qty * ISNULL(poi.UnitPrice, 0) * 0.1, 0)         AS TaxAmount,
+          ROUND(rh.Qty * ISNULL(poi.UnitPrice, 0) * 1.1, 0)         AS TotalWithTax,
+          CONVERT(NVARCHAR(10), rh.ReceiptDate, 23)                  AS InputDate
+        FROM dbo.ReceiptHistory rh
+        JOIN dbo.PurchaseOrder po
+          ON po.Id = rh.PurchaseOrderId
+        LEFT JOIN dbo.PurchaseOrderItem poi
+          ON poi.PurchaseOrderId = rh.PurchaseOrderId
+          AND (
+            (rh.SeqNo IS NOT NULL AND poi.SpecNo = rh.SeqNo)
+            OR
+            (rh.SeqNo IS NULL
+              AND poi.ItemCode = rh.ItemCode
+              AND poi.SpecNo = (
+                SELECT MIN(SpecNo) FROM dbo.PurchaseOrderItem
+                WHERE PurchaseOrderId = rh.PurchaseOrderId AND ItemCode = rh.ItemCode
+              )
+            )
+          )
         LEFT JOIN dbo.ItemMaster im
-          ON im.ItemNo = pii.ItemCode
+          ON im.ItemNo = rh.ItemCode
         LEFT JOIN dbo.ItemTypeCode itc
           ON itc.ItemTypeCode = im.Form
-        WHERE pi.Status = '회계처리'
-          AND (@BusinessPlace IS NULL OR pi.BusinessPlace = @BusinessPlace)
-          AND (@DateFrom IS NULL OR pi.InputDate >= @DateFrom)
-          AND (@DateTo   IS NULL OR pi.InputDate <= @DateTo)
+        WHERE rh.Type = N'입고'
+          AND (@BusinessPlace IS NULL OR po.BusinessPlace = @BusinessPlace)
+          AND (@DateFrom      IS NULL OR rh.ReceiptDate  >= @DateFrom)
+          AND (@DateTo        IS NULL OR rh.ReceiptDate  <= @DateTo)
         ORDER BY
-          ISNULL(NULLIF(im.VehicleModel, ''), '(미지정)'),
-          ISNULL(NULLIF(itc.ItemTypeName, ''), ISNULL(NULLIF(im.Form, ''), '(미지정)')),
-          pi.SupplierCode,
-          pii.ItemCode
+          ISNULL(NULLIF(im.VehicleModel, ''), N'(미지정)'),
+          ISNULL(NULLIF(itc.ItemTypeName, ''), ISNULL(NULLIF(im.Form, ''), N'(미지정)')),
+          po.SupplierCode,
+          rh.ItemCode
       `);
 
     const items = result.recordset.map((r: Record<string, unknown>) => ({

@@ -33,6 +33,8 @@ type SupplierSummaryRow = {
 export default function PurchasePerformancePage() {
   const [list, setList] = useCachedState<PurchaseOrderSummary[]>("perf/list", []);
   const [loading, setLoading] = useState(!getPageState("perf/list"));
+  const [selectedPoId,       setSelectedPoId]       = useState<string | null>(null);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
   const [stripedRows, setStripedRows] = useState(true);
@@ -278,6 +280,8 @@ export default function PurchasePerformancePage() {
               ]}
               data={loading ? [] : filtered}
               keyExtractor={(row) => row.id}
+              selectedRowId={selectedPoId}
+              onRowClick={(row) => setSelectedPoId(row.id === selectedPoId ? null : row.id)}
               maxHeight="100%"
               emptyMessage={loading ? "조회 중..." : "조건에 맞는 구매실적이 없습니다."}
             />
@@ -320,6 +324,8 @@ export default function PurchasePerformancePage() {
               ]}
               data={loading ? [] : supplierSummary}
               keyExtractor={(row) => row.supplierId}
+              selectedRowId={selectedSupplierId}
+              onRowClick={(row) => setSelectedSupplierId(row.supplierId === selectedSupplierId ? null : row.supplierId)}
               maxHeight="100%"
               emptyMessage={loading ? "조회 중..." : "조건에 맞는 업체별 실적이 없습니다."}
             />

@@ -109,6 +109,7 @@ export default function ReceiptPeriodPage() {
 
   const [items,   setItems]   = useCachedState<HistoryItem[]>("receipt-period/items", []);
   const [loading, setLoading] = useState(false);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
   const [stripedRows, setStripedRows] = useState(true);
@@ -809,7 +810,11 @@ export default function ReceiptPeriodPage() {
                                   : "text-blue-600 dark:text-blue-400";
 
                                 return (
-                                  <tr key={item.id} className="border-b hover:bg-muted/20">
+                                  <tr
+                                    key={item.id}
+                                    onClick={() => setSelectedKey(item.id === selectedKey ? null : item.id)}
+                                    className={`border-b cursor-pointer ${item.id === selectedKey ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40" : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"}`}
+                                  >
                                     {showSup && (
                                       <td rowSpan={supplierRowSpan}
                                         className={`${tdCls} align-top text-[11px]`}>
@@ -899,7 +904,11 @@ export default function ReceiptPeriodPage() {
                                 : "text-blue-600 dark:text-blue-400";
 
                               return (
-                                <tr key={`${group.supplierCode}-${row.itemCode}`} className="border-b hover:bg-muted/20">
+                                <tr
+                                  key={`${group.supplierCode}-${row.itemCode}`}
+                                  onClick={() => { const k = `${group.supplierCode}-${row.itemCode}`; setSelectedKey(k === selectedKey ? null : k); }}
+                                  className={`border-b cursor-pointer ${ `${group.supplierCode}-${row.itemCode}` === selectedKey ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40" : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"}`}
+                                >
                                   {ri === 0 && (
                                     <td rowSpan={group.rows.length}
                                       className={`${tdCls} align-top text-[11px]`}>
@@ -967,7 +976,11 @@ export default function ReceiptPeriodPage() {
                       {viewType === "업체집계" && (
                         <>
                           {sortedSupplierAgg.map((row) => (
-                            <tr key={row.supplierCode} className="border-b hover:bg-muted/20">
+                            <tr
+                              key={row.supplierCode}
+                              onClick={() => setSelectedKey(row.supplierCode === selectedKey ? null : row.supplierCode)}
+                              className={`border-b cursor-pointer ${row.supplierCode === selectedKey ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40" : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"}`}
+                            >
                               <td className={`${tdCls} text-[11px]`}>
                                 <span className="font-mono">{row.supplierCode}</span>
                                 <span className="text-muted-foreground"> - {row.supplierName}</span>
