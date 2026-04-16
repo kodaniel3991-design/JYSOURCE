@@ -51,7 +51,6 @@ const defaultDraft: PurchasePriceDraft = {
   outsourcingMethod: "",
   outsourcingReceiptItemCode: "",
   workOrderNo: "",
-  plant: "",
   validDate: "",
   validDateAdjust: false,
   currencyCode: "KRW",
@@ -224,7 +223,6 @@ export function PurchasePriceSheet({
       outsourcingMethod: draft.outsourcingMethod?.trim(),
       outsourcingReceiptItemCode: draft.outsourcingReceiptItemCode?.trim(),
       workOrderNo: draft.workOrderNo?.trim(),
-      plant: draft.plant?.trim(),
       validDate: draft.validDate?.trim(),
       validDateAdjust: !!draft.validDateAdjust,
       currencyCode: (draft.currencyCode ?? draft.currency ?? "KRW").trim() || "KRW",
@@ -421,10 +419,6 @@ export function PurchasePriceSheet({
                     <div className="min-h-[3.25rem] flex flex-col justify-end gap-1">
                       <Label className="text-[12px] text-slate-600">작지번호</Label>
                       <Input value={draft.workOrderNo ?? ""} onChange={(e) => setDraft((p) => ({ ...p, workOrderNo: e.target.value }))} className="h-8 text-xs" />
-                    </div>
-                    <div className="min-h-[3.25rem] flex flex-col justify-end gap-1">
-                      <Label className="text-[12px] text-slate-600">사업장</Label>
-                      <Input value={draft.plant ?? ""} onChange={(e) => setDraft((p) => ({ ...p, plant: e.target.value }))} className="h-8 text-xs" />
                     </div>
                     <div className="min-h-[3.25rem] flex flex-col justify-end gap-1">
                       <Label className="text-[12px] text-slate-600">유효일자</Label>

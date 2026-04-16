@@ -32,8 +32,12 @@ export interface PurchasePriceRecord {
   outsourcingReceiptItemCode?: string;
   /** 16. 작지번호 */
   workOrderNo?: string;
-  /** 17. 사업장 */
-  plant?: string;
+  /** 17. 사업장 (ItemMaster.BusinessUnit) */
+  businessUnit?: string;
+  /** 17-2. 창고 (ItemMaster.Warehouse) */
+  warehouse?: string;
+  /** 17-3. 저장위치 (ItemMaster.StorageLocation) */
+  storageLocation?: string;
   /** 18. 유효일자 */
   validDate?: string;
   /** 19. 유효일자 조정 */

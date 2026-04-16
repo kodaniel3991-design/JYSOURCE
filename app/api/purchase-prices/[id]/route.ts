@@ -40,7 +40,7 @@ export async function PUT(
   try {
     const body = await request.json();
     const {
-      itemCode, itemName, itemSpec, supplierName, plant,
+      itemCode, itemName, itemSpec, supplierName,
       applyDate, expireDate, unitPrice, devUnitPrice, discountRate,
       currency, currencyCode, remarks, editReason,
     } = body;
@@ -74,7 +74,6 @@ export async function PUT(
       .input("ItemName",      sql.NVarChar(200), itemName?.trim() ?? "")
       .input("ItemSpec",      sql.NVarChar(200), itemSpec?.trim() || null)
       .input("SupplierName",  sql.NVarChar(200), supplierName.trim())
-      .input("Plant",         sql.NVarChar(100), plant?.trim() || null)
       .input("ApplyDate",     sql.Date,          newApplyDate)
       .input("ExpireDate",    sql.Date,          newExpireDate)
       .input("UnitPrice",     sql.Decimal(18,4), newUnitPrice)
@@ -88,7 +87,6 @@ export async function PUT(
           ItemName     = @ItemName,
           ItemSpec     = @ItemSpec,
           SupplierName = @SupplierName,
-          Plant        = @Plant,
           ApplyDate    = @ApplyDate,
           ExpireDate   = @ExpireDate,
           UnitPrice    = @UnitPrice,

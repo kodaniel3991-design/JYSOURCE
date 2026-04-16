@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { getDbPool, sql } from "@/lib/db";
 import type { PurchasePriceRecord } from "@/types/purchase-price";
 
+const codeLabel = (code: string | null, name: string | null): string | undefined => {
+  if (!code) return undefined;
+  return name ? `${code} - ${name}` : code;
+};
+
 function rowToRecord(r: {
   Id: number;
   ItemCode: string;
@@ -9,7 +14,6 @@ function rowToRecord(r: {
   ItemSpec: string | null;
   SupplierName: string;
   SupplierCode: string | null;
-  Plant: string | null;
   ApplyDate: Date | string;
   ExpireDate: Date | string | null;
   UnitPrice: number;
@@ -17,6 +21,12 @@ function rowToRecord(r: {
   DiscountRate: number | null;
   Currency: string | null;
   Remarks: string | null;
+  BusinessUnit: string | null;
+  BusinessUnitName: string | null;
+  Warehouse: string | null;
+  WarehouseName: string | null;
+  StorageLocation: string | null;
+  StorageLocationName: string | null;
 }): PurchasePriceRecord {
   const toDateStr = (v: Date | string | null) => {
     if (v == null) return "";
@@ -36,7 +46,9 @@ function rowToRecord(r: {
     currency: r.Currency ?? "KRW",
     currencyCode: r.Currency ?? "KRW",
     remarks: r.Remarks ?? undefined,
-    plant: r.Plant ?? undefined,
+    businessUnit: codeLabel(r.BusinessUnit, r.BusinessUnitName),
+    warehouse: codeLabel(r.Warehouse, r.WarehouseName),
+    storageLocation: codeLabel(r.StorageLocation, r.StorageLocationName),
     devUnitPrice: r.DevUnitPrice != null ? Number(r.DevUnitPrice) : undefined,
     discountRate: r.DiscountRate != null ? Number(r.DiscountRate) : undefined,
   };
@@ -47,14 +59,24 @@ export async function GET() {
     const pool = await getDbPool();
     const result = await pool.request().query(`
       SELECT
-        pp.Id, pp.ItemCode, pp.ItemName, pp.ItemSpec, pp.SupplierName, pp.Plant,
+        pp.Id, pp.ItemCode, pp.ItemName, pp.ItemSpec, pp.SupplierName,
         pp.ApplyDate, pp.ExpireDate, pp.UnitPrice, pp.DevUnitPrice, pp.DiscountRate,
         pp.Currency, pp.Remarks,
         ISNULL(
           (SELECT TOP 1 PurchaserNo FROM dbo.Purchaser WHERE PurchaserName = pp.SupplierName),
           ''
-        ) AS SupplierCode
+        ) AS SupplierCode,
+        im.BusinessUnit, f.FactoryName    AS BusinessUnitName,
+        im.Warehouse,    wh.Name          AS WarehouseName,
+        im.StorageLocation,
+        sl.Name                           AS StorageLocationName
       FROM dbo.PurchasePrice pp
+      LEFT JOIN dbo.ItemMaster  im ON im.ItemNo       = pp.ItemCode
+      LEFT JOIN dbo.Factory     f  ON f.FactoryCode   = im.BusinessUnit
+      LEFT JOIN dbo.CommonCode  wh ON wh.Category     = 'warehouse'
+                                  AND wh.Code         = im.Warehouse
+      LEFT JOIN dbo.CommonCode  sl ON sl.Category     = CONCAT('storage-location-', im.Warehouse)
+                                  AND sl.Code         = im.StorageLocation
       ORDER BY pp.UpdatedAt DESC, pp.Id DESC
     `);
 
@@ -67,7 +89,6 @@ export async function GET() {
           ItemSpec: r.ItemSpec as string | null,
           SupplierName: r.SupplierName as string,
           SupplierCode: r.SupplierCode as string | null,
-          Plant: r.Plant as string | null,
           ApplyDate: r.ApplyDate as Date | string,
           ExpireDate: r.ExpireDate as Date | string | null,
           UnitPrice: r.UnitPrice as number,
@@ -75,6 +96,12 @@ export async function GET() {
           DiscountRate: r.DiscountRate as number | null,
           Currency: r.Currency as string | null,
           Remarks: r.Remarks as string | null,
+          BusinessUnit: r.BusinessUnit as string | null,
+          BusinessUnitName: r.BusinessUnitName as string | null,
+          Warehouse: r.Warehouse as string | null,
+          WarehouseName: r.WarehouseName as string | null,
+          StorageLocation: r.StorageLocation as string | null,
+          StorageLocationName: r.StorageLocationName as string | null,
         })
     );
 
@@ -92,7 +119,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      itemCode, itemName, itemSpec, supplierName, plant,
+      itemCode, itemName, itemSpec, supplierName,
       applyDate, expireDate, unitPrice, devUnitPrice, discountRate,
       currency, currencyCode, remarks,
     } = body;
@@ -107,7 +134,6 @@ export async function POST(request: Request) {
       .input("ItemName",     sql.NVarChar(200), itemName?.trim() ?? "")
       .input("ItemSpec",     sql.NVarChar(200), itemSpec?.trim() || null)
       .input("SupplierName", sql.NVarChar(200), supplierName.trim())
-      .input("Plant",        sql.NVarChar(100), plant?.trim() || null)
       .input("ApplyDate",    sql.Date,          applyDate)
       .input("ExpireDate",   sql.Date,          expireDate || null)
       .input("UnitPrice",    sql.Decimal(18,4), Number(unitPrice))
@@ -117,11 +143,11 @@ export async function POST(request: Request) {
       .input("Remarks",      sql.NVarChar(500), remarks?.trim() || null)
       .query(`
         INSERT INTO dbo.PurchasePrice
-          (ItemCode, ItemName, ItemSpec, SupplierName, Plant, ApplyDate, ExpireDate,
+          (ItemCode, ItemName, ItemSpec, SupplierName, ApplyDate, ExpireDate,
            UnitPrice, DevUnitPrice, DiscountRate, Currency, Remarks)
         OUTPUT INSERTED.Id
         VALUES
-          (@ItemCode, @ItemName, @ItemSpec, @SupplierName, @Plant, @ApplyDate, @ExpireDate,
+          (@ItemCode, @ItemName, @ItemSpec, @SupplierName, @ApplyDate, @ExpireDate,
            @UnitPrice, @DevUnitPrice, @DiscountRate, @Currency, @Remarks)
       `);
 

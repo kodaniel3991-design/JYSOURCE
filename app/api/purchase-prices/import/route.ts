@@ -7,7 +7,6 @@ type IncomingPurchasePrice = {
   itemName: string;
   itemSpec?: string;
   supplierName: string;
-  plant?: string;
   applyDate: string;
   expireDate: string;
   unitPrice: number;
@@ -63,7 +62,6 @@ export async function POST(request: Request) {
         req.input("ItemName", sql.NVarChar(200), p.itemName.trim());
         req.input("ItemSpec", sql.NVarChar(200), (p.itemSpec ?? "").trim() || null);
         req.input("SupplierName", sql.NVarChar(200), p.supplierName.trim());
-        req.input("Plant", sql.NVarChar(100), (p.plant ?? "").trim() || null);
         req.input("ApplyDate", sql.Date, applyDate);
         req.input("ExpireDate", sql.Date, expireDate);
         req.input("UnitPrice", sql.Decimal(18, 4), unitPrice);
@@ -74,11 +72,11 @@ export async function POST(request: Request) {
 
         await req.query(`
           INSERT INTO dbo.PurchasePrice (
-            ItemCode, ItemName, ItemSpec, SupplierName, Plant, ApplyDate, ExpireDate,
+            ItemCode, ItemName, ItemSpec, SupplierName, ApplyDate, ExpireDate,
             UnitPrice, DevUnitPrice, DiscountRate, Currency, Remarks
           )
           VALUES (
-            @ItemCode, @ItemName, @ItemSpec, @SupplierName, @Plant, @ApplyDate, @ExpireDate,
+            @ItemCode, @ItemName, @ItemSpec, @SupplierName, @ApplyDate, @ExpireDate,
             @UnitPrice, @DevUnitPrice, @DiscountRate, @Currency, @Remarks
           )
         `);

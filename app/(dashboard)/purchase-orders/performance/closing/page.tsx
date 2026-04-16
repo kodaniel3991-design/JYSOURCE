@@ -133,10 +133,11 @@ export default function ClosingStatusPage() {
     }>();
 
     rawItems.forEach((item) => {
-      const key = `${item.vehicleModel}||${item.form}||${item.supplierCode}`;
+      const model = item.vehicleModel.toUpperCase();
+      const key = `${model}||${item.form}||${item.supplierCode}`;
       if (!supplierGroupMap.has(key)) {
         supplierGroupMap.set(key, {
-          first: item,
+          first: { ...item, vehicleModel: model },
           count: 0,
           inputAmount: 0,
           taxAmount: 0,
@@ -162,10 +163,11 @@ export default function ClosingStatusPage() {
     // ── 2단계: 차종 → 형태 → 업체 순 그룹화 ──────────────────────────────────
     const byModel = new Map<string, Map<string, GroupedItem[]>>();
     groupedItems.forEach((item) => {
-      if (!byModel.has(item.vehicleModel)) byModel.set(item.vehicleModel, new Map());
-      const byForm = byModel.get(item.vehicleModel)!;
+      const model = item.vehicleModel.toUpperCase();
+      if (!byModel.has(model)) byModel.set(model, new Map());
+      const byForm = byModel.get(model)!;
       if (!byForm.has(item.form)) byForm.set(item.form, []);
-      byForm.get(item.form)!.push(item);
+      byForm.get(item.form)!.push({ ...item, vehicleModel: model });
     });
 
     const modelKeys = Array.from(byModel.keys()).sort((a, b) => a.localeCompare(b, "ko-KR"));
@@ -366,7 +368,7 @@ export default function ClosingStatusPage() {
   }, [displayRows]);
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-[calc(100vh-7rem)] flex-col gap-6 overflow-hidden">
       <PageHeader
         title="차종별 / 형태별 마감현황"
         description="입고 완료된 차종 및 형태별로 집계합니다."
@@ -419,7 +421,7 @@ export default function ClosingStatusPage() {
           />
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
-          <div className="min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 flex-col">
             <MasterListGrid<ClosingRow>
               columns={[
                 {
@@ -547,6 +549,7 @@ export default function ClosingStatusPage() {
               selectedRowId={selectedRowId}
               onRowClick={(row) => setSelectedRowId(row.id === selectedRowId ? null : row.id)}
               maxHeight="100%"
+              disablePagination
               emptyMessage="조회 버튼을 눌러 데이터를 불러오세요."
               getRowClassName={(row, index) => {
                 const d = compactView ? "" : "h-10";

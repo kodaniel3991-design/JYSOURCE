@@ -59,6 +59,25 @@ export default function PurchasePricesPage() {
   const [hasSearched, setHasSearched] = useCachedState<boolean>("purchase-prices/hasSearched", false);
   const searchRef = useEnterNavigation();
 
+  const [factoryCode, setFactoryCode] = useCachedState("purchase-prices/factoryCode", "");
+  const [factoryOptions, setFactoryOptions] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(apiPath("/api/auth/me")).then((r) => r.json()),
+      fetch(apiPath("/api/factories")).then((r) => r.json()),
+    ]).then(([me, fd]) => {
+      const opts: { value: string; label: string }[] = [{ value: "", label: "전체" }];
+      if (fd.ok && Array.isArray(fd.factories)) {
+        fd.factories.forEach((f: { FactoryCode: string; FactoryName: string }) => {
+          opts.push({ value: f.FactoryCode, label: `${f.FactoryCode} - ${f.FactoryName}` });
+        });
+      }
+      setFactoryOptions(opts);
+      if (!factoryCode && me.ok && me.factory) setFactoryCode(me.factory);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const handleSearch = useCallback(async () => {
@@ -105,7 +124,7 @@ export default function PurchasePricesPage() {
     "supplierCode", "supplierName", "applyDate", "unitPrice", "isTempPrice",
     "warehouseCode", "storageLocationCode", "orderRate", "priceNotUsed",
     "outsourcingOrderIssue", "outsourcingMethod", "outsourcingReceiptItemCode",
-    "workOrderNo", "plant", "validDate", "validDateAdjust", "currencyCode",
+    "workOrderNo", "businessUnit", "warehouse", "storageLocation", "validDate", "validDateAdjust", "currencyCode",
   ]);
   const [changeLogs, setChangeLogs] = useState<PurchasePriceChangeLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -143,6 +162,8 @@ export default function PurchasePricesPage() {
 
   const filteredList = useMemo(() => {
     const result = rows.filter((row) => {
+      if (factoryCode && !(row.businessUnit ?? "").startsWith(factoryCode))
+        return false;
       if (filters.itemCode && !row.itemCode.includes(filters.itemCode))
         return false;
       if (
@@ -177,7 +198,7 @@ export default function PurchasePricesPage() {
     });
 
     return sorted;
-  }, [filters, rows, sortKey, sortDir]);
+  }, [filters, rows, sortKey, sortDir, factoryCode]);
 
 
   const columns = useMemo<MasterListGridColumn<PurchasePriceRecord>[]>(
@@ -272,7 +293,9 @@ export default function PurchasePricesPage() {
       { key: "outsourcingMethod", header: "외주방법 / 사급구분", minWidth: 120, maxWidth: 140 },
       { key: "outsourcingReceiptItemCode", header: "외주입고품목번호", minWidth: 130, maxWidth: 150 },
       { key: "workOrderNo", header: "작지번호", minWidth: 100, maxWidth: 120 },
-      { key: "plant", header: "사업장", minWidth: 100, maxWidth: 120 },
+      { key: "businessUnit", header: "사업장", minWidth: 100, maxWidth: 120 },
+      { key: "warehouse", header: "창고", minWidth: 100, maxWidth: 120 },
+      { key: "storageLocation", header: "저장위치", minWidth: 100, maxWidth: 120 },
       { key: "validDate", header: "유효일자", minWidth: 100, maxWidth: 110 },
       {
         key: "validDateAdjust",
@@ -339,6 +362,8 @@ export default function PurchasePricesPage() {
       "외주입고품목번호",
       "작지번호",
       "사업장",
+      "창고",
+      "저장위치",
       "유효일자",
       "유효일자 조정",
       "통화코드",
@@ -363,7 +388,9 @@ export default function PurchasePricesPage() {
           r.outsourcingMethod ?? "",
           r.outsourcingReceiptItemCode ?? "",
           r.workOrderNo ?? "",
-          r.plant ?? "",
+          r.businessUnit ?? "",
+          r.warehouse ?? "",
+          r.storageLocation ?? "",
           r.validDate ?? "",
           r.validDateAdjust ? "Y" : "N",
           r.currencyCode ?? r.currency ?? "",
@@ -455,8 +482,6 @@ export default function PurchasePricesPage() {
 
         const itemSpecIdx = findIndex(["규격", "itemspec", "품목규격"]);
         const itemMaterialIdx = findIndex(["품목재질명", "itemmaterialname"]);
-        const plantIdx = findIndex(["창고", "plant", "사업장", "창고코드"]);
-        const storageIdx = findIndex(["저장위치", "저장위치코드"]);
         const currencyIdx = findIndex(["통화", "currency", "통화코드"]);
         const remarksIdx = findIndex(["참고", "remarks", "비고"]);
         const devUnitPriceIdx = findIndex(["개발단가", "devunitprice"]);
@@ -489,7 +514,6 @@ export default function PurchasePricesPage() {
           itemName: string;
           itemSpec?: string;
           supplierName: string;
-          plant?: string;
           applyDate: string;
           expireDate: string;
           unitPrice: number;
@@ -528,7 +552,6 @@ export default function PurchasePricesPage() {
             itemName,
             itemSpec: getString(row, itemSpecIdx) || undefined,
             supplierName,
-            plant: getString(row, plantIdx) || getString(row, storageIdx) || undefined,
             applyDate: applyD.toISOString().slice(0, 10),
             expireDate: expireD.toISOString().slice(0, 10),
             unitPrice: unitPriceVal,
@@ -658,6 +681,16 @@ export default function PurchasePricesPage() {
         totalCountLabel={`총 ${filteredList.length.toLocaleString("ko-KR")}건이 조회되었습니다.`}
       >
         <div ref={searchRef} className="flex flex-wrap gap-4">
+          {/* 사업장 */}
+          <div className="flex flex-col gap-1 shrink-0">
+            <Label className="text-xs font-medium text-muted-foreground">사업장</Label>
+            <Select
+              options={factoryOptions}
+              value={factoryCode}
+              onChange={(v) => setFactoryCode(v)}
+              className="h-8 text-xs w-48"
+            />
+          </div>
           {/* 품목번호 */}
           <div className="flex flex-col gap-1 shrink-0">
             <Label className="text-xs font-medium text-muted-foreground">품목번호</Label>

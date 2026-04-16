@@ -699,6 +699,10 @@ export default function ItemsPage() {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useCachedState<boolean>("items/hasSearched", false);
 
+  // 사업장 필터
+  const [factoryCode, setFactoryCode] = useCachedState("items/factoryCode", "");
+  const [factoryOptions, setFactoryOptions] = useState<{ value: string; label: string }[]>([]);
+
   // 코드→명칭 lookup 데이터
   const [itemTypeCodeMap, setItemTypeCodeMap] = useState<Record<string, string>>({});
   const [itemTypeMap, setItemTypeMap] = useState<Record<string, string>>({});
@@ -709,13 +713,23 @@ export default function ItemsPage() {
 
   useEffect(() => {
     Promise.all([
+      fetch(apiPath("/api/auth/me")).then((r) => r.json()),
+      fetch(apiPath("/api/factories")).then((r) => r.json()),
       fetch(apiPath("/api/item-type-codes")).then((r) => r.json()),
       fetch(apiPath("/api/item-types")).then((r) => r.json()),
       fetch(apiPath("/api/model-codes")).then((r) => r.json()),
       fetch(apiPath("/api/common-codes?category=warehouse")).then((r) => r.json()),
       fetch(apiPath("/api/common-codes?category=plant")).then((r) => r.json()),
       fetch(apiPath("/api/storage-locations")).then((r) => r.json()),
-    ]).then(([formData, typeData, modelData, whData, plantData, slData]) => {
+    ]).then(([me, fd, formData, typeData, modelData, whData, plantData, slData]) => {
+      const opts: { value: string; label: string }[] = [{ value: "", label: "전체" }];
+      if (fd.ok && Array.isArray(fd.factories)) {
+        fd.factories.forEach((f: { FactoryCode: string; FactoryName: string }) => {
+          opts.push({ value: f.FactoryCode, label: `${f.FactoryCode} - ${f.FactoryName}` });
+        });
+      }
+      setFactoryOptions(opts);
+      if (!factoryCode && me.ok && me.factory) setFactoryCode(me.factory);
       if (formData.ok)
         setItemTypeCodeMap(Object.fromEntries((formData.items as { ItemTypeCode: string; ItemTypeName: string }[]).map((x) => [x.ItemTypeCode, x.ItemTypeName])));
       if (typeData.ok)
@@ -729,7 +743,7 @@ export default function ItemsPage() {
       if (slData.ok)
         setStorageLocations(slData.items as StorageLocationRecord[]);
     }).catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = useCallback(async () => {
     setLoading(true);
@@ -901,6 +915,7 @@ export default function ItemsPage() {
         (a ?? "").toLowerCase().includes(b.toLowerCase());
       const eq = (a: string | null | undefined, b: string) =>
         (a ?? "") === b;
+      if (factoryCode && !eq(it.businessUnit, factoryCode)) return false;
       if (f.itemNo && !inc(it.itemNo, f.itemNo)) return false;
       if (f.itemName && !inc(it.itemName, f.itemName)) return false;
       if (f.supplierName && !inc(it.supplierName, f.supplierName)) return false;
@@ -921,7 +936,7 @@ export default function ItemsPage() {
       if (f.itemUsageClassificationCode && !eq(it.itemUsageClassificationCode, f.itemUsageClassificationCode)) return false;
       return true;
     });
-  }, [filters, rows]);
+  }, [filters, rows, factoryCode]);
 
   const sortedItems = useMemo(() => {
     const copy = [...filteredItems];
@@ -1625,8 +1640,17 @@ export default function ItemsPage() {
           </p>
         </CardHeader>
         <CardContent className="text-xs">
-          {/* 기본 검색: 품목번호, 품목명, 거래처, 품목상황 */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* 기본 검색: 사업장, 품목번호, 품목명, 거래처, 거래처번호 */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="space-y-1">
+              <Label className="text-[14px] text-slate-600">사업장</Label>
+              <Select
+                options={factoryOptions}
+                value={factoryCode}
+                onChange={(v) => setFactoryCode(v)}
+                className="h-8 text-xs w-full"
+              />
+            </div>
             <Field
               label="품목번호"
               value={filters.itemNo}
