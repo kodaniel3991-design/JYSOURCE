@@ -18,6 +18,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Maximize2, Minimize2 } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
 
 // ── 날짜 헬퍼 ─────────────────────────────────────────────────────────────────
@@ -75,6 +76,18 @@ export default function ClosingStatusPage() {
   const [rawItems, setRawItems]   = useCachedState<RawItem[]>("closing/rawItems", []);
   const [loading,  setLoading]    = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+
+  // 그리드 확장
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isExpanded]);
 
   // 그리드 설정
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
@@ -407,19 +420,36 @@ export default function ClosingStatusPage() {
         </div>
       </SearchPanel>
 
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <Card className={isExpanded
+        ? "fixed inset-0 z-50 flex flex-col overflow-hidden rounded-none border-0 shadow-2xl"
+        : "flex min-h-0 flex-1 flex-col overflow-hidden"
+      }>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <span className="text-sm font-medium text-muted-foreground">
             차종별 / 형태별 마감현황
             {loading && <span className="ml-2 text-xs text-blue-500">조회 중...</span>}
           </span>
-          <DataGridToolbar
-            active={gridSettingsOpen ? gridSettingsTab : undefined}
-            onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
-            onSort={() => { setGridSettingsTab("sort"); setGridSettingsOpen(true); }}
-            onColumns={() => { setGridSettingsTab("columns"); setGridSettingsOpen(true); }}
-            onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
-          />
+          <div className="flex items-center gap-1">
+            <DataGridToolbar
+              active={gridSettingsOpen ? gridSettingsTab : undefined}
+              onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
+              onSort={() => { setGridSettingsTab("sort"); setGridSettingsOpen(true); }}
+              onColumns={() => { setGridSettingsTab("columns"); setGridSettingsOpen(true); }}
+              onView={() => { setGridSettingsTab("view"); setGridSettingsOpen(true); setStripedRows((v) => !v); }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setIsExpanded((v) => !v)}
+              title={isExpanded ? "축소 (ESC)" : "확장"}
+            >
+              {isExpanded
+                ? <Minimize2 className="h-4 w-4" />
+                : <Maximize2 className="h-4 w-4" />
+              }
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
           <div className="flex min-h-0 flex-1 flex-col">
