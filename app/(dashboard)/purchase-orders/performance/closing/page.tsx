@@ -171,12 +171,16 @@ export default function ClosingStatusPage() {
     const modelKeys = Array.from(byModel.keys()).sort((a, b) => a.localeCompare(b, "ko-KR"));
     const result: ClosingRow[] = [];
     let grandTotal = 0;
+    let grandInputAmount = 0;
+    let grandTaxAmount = 0;
     let rowSeq = 0;
 
     for (const modelCode of modelKeys) {
       const byForm = byModel.get(modelCode)!;
       const formKeys = Array.from(byForm.keys()).sort((a, b) => a.localeCompare(b, "ko-KR"));
       let modelTotal = 0;
+      let modelInputAmount = 0;
+      let modelTaxAmount = 0;
       let isFirstFormSubtotal = true;
 
       let isFirstRowInModel = true;
@@ -186,13 +190,21 @@ export default function ClosingStatusPage() {
         // 업체코드 기준 정렬
         items.sort((a, b) => a.supplierCode.localeCompare(b.supplierCode));
         let formTotal = 0;
+        let formInputAmount = 0;
+        let formTaxAmount = 0;
 
         items.forEach((item) => {
           const mergeKey = `${modelCode}||${formKey}||${item.supplierCode}`;
           const amt = item.totalWithTax;
-          formTotal  += amt;
-          modelTotal += amt;
-          grandTotal += amt;
+          formTotal        += amt;
+          formInputAmount  += item.inputAmount;
+          formTaxAmount    += item.taxAmount;
+          modelTotal       += amt;
+          modelInputAmount += item.inputAmount;
+          modelTaxAmount   += item.taxAmount;
+          grandTotal       += amt;
+          grandInputAmount += item.inputAmount;
+          grandTaxAmount   += item.taxAmount;
           result.push({
             ...item,
             id: `data-${rowSeq++}`,
@@ -214,6 +226,8 @@ export default function ClosingStatusPage() {
           firstInGroup: false,
           subtotalFormKind: formKey,
           isFirstFormSubtotalForModel: isFirstFormSubtotal,
+          inputAmount: formInputAmount,
+          taxAmount: formTaxAmount,
           totalAmount: formTotal,
         });
         isFirstFormSubtotal = false;
@@ -227,6 +241,8 @@ export default function ClosingStatusPage() {
         rowKind: "subtotal_model",
         mergeKey: `subtotal-model-${modelCode}`,
         firstInGroup: false,
+        inputAmount: modelInputAmount,
+        taxAmount: modelTaxAmount,
         totalAmount: modelTotal,
       });
     }
@@ -236,12 +252,18 @@ export default function ClosingStatusPage() {
     const rep0 = byModel.get(modelKeys[0])!.values().next().value![0];
 
     // ── TOTAL 구역 1: 용도별 합계 (전체 차종 통합, 용도 단위) ────────────────
-    const totalByForm = new Map<string, number>();
+    const totalByForm = new Map<string, { totalWithTax: number; inputAmount: number; taxAmount: number }>();
     groupedItems.forEach((item) => {
-      totalByForm.set(item.form, (totalByForm.get(item.form) ?? 0) + item.totalWithTax);
+      const cur = totalByForm.get(item.form) ?? { totalWithTax: 0, inputAmount: 0, taxAmount: 0 };
+      totalByForm.set(item.form, {
+        totalWithTax: cur.totalWithTax + item.totalWithTax,
+        inputAmount:  cur.inputAmount  + item.inputAmount,
+        taxAmount:    cur.taxAmount    + item.taxAmount,
+      });
     });
     const formTotalKeys = Array.from(totalByForm.keys()).sort((a, b) => a.localeCompare(b, "ko-KR"));
     formTotalKeys.forEach((formKey, idx) => {
+      const t = totalByForm.get(formKey)!;
       result.push({
         ...rep0,
         id: `total-form-${formKey}`,
@@ -249,16 +271,24 @@ export default function ClosingStatusPage() {
         mergeKey: `total-form-${formKey}`,
         firstInGroup: idx === 0,
         subtotalFormKind: formKey,
-        totalAmount: totalByForm.get(formKey)!,
+        inputAmount: t.inputAmount,
+        taxAmount:   t.taxAmount,
+        totalAmount: t.totalWithTax,
       });
     });
 
     // ── TOTAL 구역 2: 차종별 합계 (전체 용도 통합, 차종 단위) ────────────────
-    const totalByModel = new Map<string, number>();
+    const totalByModel = new Map<string, { totalWithTax: number; inputAmount: number; taxAmount: number }>();
     groupedItems.forEach((item) => {
-      totalByModel.set(item.vehicleModel, (totalByModel.get(item.vehicleModel) ?? 0) + item.totalWithTax);
+      const cur = totalByModel.get(item.vehicleModel) ?? { totalWithTax: 0, inputAmount: 0, taxAmount: 0 };
+      totalByModel.set(item.vehicleModel, {
+        totalWithTax: cur.totalWithTax + item.totalWithTax,
+        inputAmount:  cur.inputAmount  + item.inputAmount,
+        taxAmount:    cur.taxAmount    + item.taxAmount,
+      });
     });
     modelKeys.forEach((modelCode, idx) => {
+      const t = totalByModel.get(modelCode)!;
       result.push({
         ...rep0,
         vehicleModel: modelCode,
@@ -266,7 +296,9 @@ export default function ClosingStatusPage() {
         rowKind: "total_model",
         mergeKey: `total-model-${modelCode}`,
         firstInGroup: idx === 0,
-        totalAmount: totalByModel.get(modelCode)!,
+        inputAmount: t.inputAmount,
+        taxAmount:   t.taxAmount,
+        totalAmount: t.totalWithTax,
       });
     });
 
@@ -277,6 +309,8 @@ export default function ClosingStatusPage() {
       rowKind: "total_all",
       mergeKey: "total-all",
       firstInGroup: false,
+      inputAmount: grandInputAmount,
+      taxAmount:   grandTaxAmount,
       totalAmount: grandTotal,
     });
 
@@ -489,7 +523,7 @@ export default function ClosingStatusPage() {
                   minWidth: 130,
                   align: "right",
                   cellClassName: "text-right",
-                  cell: (row) => (row.rowKind === "data" ? formatCurrency(row.inputAmount) : ""),
+                  cell: (row) => formatCurrency(row.inputAmount),
                 },
                 {
                   key: "taxAmount",
@@ -497,7 +531,7 @@ export default function ClosingStatusPage() {
                   minWidth: 110,
                   align: "right",
                   cellClassName: "text-right",
-                  cell: (row) => (row.rowKind === "data" ? formatCurrency(row.taxAmount) : ""),
+                  cell: (row) => formatCurrency(row.taxAmount),
                 },
                 {
                   key: "totalAmount",

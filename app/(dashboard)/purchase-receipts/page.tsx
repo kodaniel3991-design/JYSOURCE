@@ -507,7 +507,9 @@ export default function PurchaseReceiptsPage() {
         if (poCmp !== 0) return poCmp;
         return (a.seq ?? 0) - (b.seq ?? 0);
       });
-      setFlatRows(allRows);
+      setFlatRows(bulkDate
+        ? allRows.map((r) => r.receiptDate !== bulkDate ? { ...r, receiptDate: bulkDate } : r)
+        : allRows);
       setHistory(allHistory);
     } finally {
       setLoadingFlat(false);

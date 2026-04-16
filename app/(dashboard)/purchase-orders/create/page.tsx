@@ -921,6 +921,7 @@ export default function CreatePurchaseOrderPage() {
   .btn-print  { background:#fff; border:1px solid #999; border-radius:3px; }
   .email-label { display:flex; align-items:center; gap:5px; font-size:11px; color:#374151; cursor:pointer; margin-right:4px; }
   .email-label input[type=checkbox] { width:14px; height:14px; cursor:pointer; accent-color:#1d4ed8; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   @media print { .btn-bar { display:none; } }
 </style>
 </head><body>
@@ -977,7 +978,7 @@ export default function CreatePurchaseOrderPage() {
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.representative}&nbsp;(인)</td>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
     <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
-    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.representativeName || ""}&nbsp;&nbsp;구매처 번호 : ${basicForm.supplierId}</td>
+    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.representativeName || ""}</td>
   </tr>
   <tr>
     <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">받</td>
@@ -1115,7 +1116,7 @@ export default function CreatePurchaseOrderPage() {
 <table style="margin-top:0;width:100%;border-collapse:collapse;">
   <tr>
     <td style="border:${B};padding:5px 20px;text-align:center;font-size:10px;">
-      발주담당자 &nbsp;:&nbsp; ${basicForm.buyerName} (${basicForm.buyerCode})
+      발주담당자 &nbsp;:&nbsp; ${basicForm.buyerName}
       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
       구매처견적번호 &nbsp;:&nbsp; ${basicForm.supplierQuotationNo || "-"}
     </td>
