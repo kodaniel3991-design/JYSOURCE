@@ -58,6 +58,8 @@ type ClosingRow = Omit<RawItem, "inputQty"> & {
   isFirstFormSubtotalForModel?: boolean;
   totalAmount: number;
   itemCount?: number;
+  /** 해당 차종의 데이터 행 수 (vehicleModel rowspan용) */
+  modelDataRowCount?: number;
 };
 
 export default function ClosingStatusPage() {
@@ -121,7 +123,7 @@ export default function ClosingStatusPage() {
     // ── 1단계: (차종, 형태, 업체) 기준으로 집계 → 대표품목 외 N건 ──────────────
     type GroupedItem = Omit<RawItem, "itemCode" | "inputQty"> & {
       itemCode: string;
-      itemCount: number; // 해당 그룹의 총 건수
+      itemCount: number;
     };
 
     const supplierGroupMap = new Map<string, {
@@ -153,21 +155,19 @@ export default function ClosingStatusPage() {
 
     const groupedItems: GroupedItem[] = Array.from(supplierGroupMap.values()).map(({ first, count, inputAmount, taxAmount, totalWithTax }) => ({
       ...first,
-      itemName:     count > 1 ? `${first.itemName} 외 ${count - 1}건` : first.itemName,
-      itemCount:    count,
+      itemName:  count > 1 ? `${first.itemName} 외 ${count - 1}건` : first.itemName,
+      itemCount: count,
       inputAmount,
       taxAmount,
       totalWithTax,
     }));
 
-    // ── 2단계: 차종 → 형태 → 업체 순 그룹화 ──────────────────────────────────
-    const byModel = new Map<string, Map<string, GroupedItem[]>>();
+    // ── 2단계: 차종별 평탄 그룹화 (형태 중첩 없이) ──────────────────────────
+    const byModel = new Map<string, GroupedItem[]>();
     groupedItems.forEach((item) => {
       const model = item.vehicleModel.toUpperCase();
-      if (!byModel.has(model)) byModel.set(model, new Map());
-      const byForm = byModel.get(model)!;
-      if (!byForm.has(item.form)) byForm.set(item.form, []);
-      byForm.get(item.form)!.push({ ...item, vehicleModel: model });
+      if (!byModel.has(model)) byModel.set(model, []);
+      byModel.get(model)!.push({ ...item, vehicleModel: model });
     });
 
     const modelKeys = Array.from(byModel.keys()).sort((a, b) => a.localeCompare(b, "ko-KR"));
@@ -178,67 +178,68 @@ export default function ClosingStatusPage() {
     let rowSeq = 0;
 
     for (const modelCode of modelKeys) {
-      const byForm = byModel.get(modelCode)!;
-      const formKeys = Array.from(byForm.keys()).sort((a, b) => a.localeCompare(b, "ko-KR"));
+      const modelItems = byModel.get(modelCode)!;
+      // 차종 내 업체코드 순 정렬
+      modelItems.sort((a, b) => a.supplierCode.localeCompare(b.supplierCode));
+      const modelDataRowCount = modelItems.length;
+
       let modelTotal = 0;
       let modelInputAmount = 0;
       let modelTaxAmount = 0;
-      let isFirstFormSubtotal = true;
 
-      let isFirstRowInModel = true;
+      // 형태별 소계 누적 (Map 순서 = 입력 순서 유지)
+      const formSubtotals = new Map<string, {
+        inputAmount: number; taxAmount: number; totalWithTax: number; rep: GroupedItem;
+      }>();
 
-      for (const formKey of formKeys) {
-        const items = byForm.get(formKey)!;
-        // 업체코드 기준 정렬
-        items.sort((a, b) => a.supplierCode.localeCompare(b.supplierCode));
-        let formTotal = 0;
-        let formInputAmount = 0;
-        let formTaxAmount = 0;
+      // 데이터 행
+      modelItems.forEach((item, itemIdx) => {
+        const amt = item.totalWithTax;
+        modelTotal       += amt;
+        modelInputAmount += item.inputAmount;
+        modelTaxAmount   += item.taxAmount;
+        grandTotal       += amt;
+        grandInputAmount += item.inputAmount;
+        grandTaxAmount   += item.taxAmount;
 
-        items.forEach((item) => {
-          const mergeKey = `${modelCode}||${formKey}||${item.supplierCode}`;
-          const amt = item.totalWithTax;
-          formTotal        += amt;
-          formInputAmount  += item.inputAmount;
-          formTaxAmount    += item.taxAmount;
-          modelTotal       += amt;
-          modelInputAmount += item.inputAmount;
-          modelTaxAmount   += item.taxAmount;
-          grandTotal       += amt;
-          grandInputAmount += item.inputAmount;
-          grandTaxAmount   += item.taxAmount;
-          result.push({
-            ...item,
-            id: `data-${rowSeq++}`,
-            rowKind: "data",
-            mergeKey,
-            firstInGroup: isFirstRowInModel, // 차종 내 첫 번째 데이터 행만 true
-            totalAmount: amt,
-          });
-          isFirstRowInModel = false;
-        });
+        if (!formSubtotals.has(item.form)) {
+          formSubtotals.set(item.form, { inputAmount: 0, taxAmount: 0, totalWithTax: 0, rep: item });
+        }
+        const ft = formSubtotals.get(item.form)!;
+        ft.inputAmount  += item.inputAmount;
+        ft.taxAmount    += item.taxAmount;
+        ft.totalWithTax += item.totalWithTax;
 
-        // 형태별 SUB TOTAL
-        const rep = items[0];
         result.push({
-          ...rep,
+          ...item,
+          id: `data-${rowSeq++}`,
+          rowKind: "data",
+          mergeKey: `${modelCode}||${item.form}||${item.supplierCode}`,
+          firstInGroup: itemIdx === 0,
+          modelDataRowCount,
+          totalAmount: amt,
+        });
+      });
+
+      // 형태별 SUB TOTAL (용도별)
+      Array.from(formSubtotals.entries()).forEach(([formKey, ft], idx) => {
+        result.push({
+          ...ft.rep,
           id: `subtotal-form-${modelCode}-${formKey}`,
           rowKind: "subtotal_form",
           mergeKey: `subtotal-form-${modelCode}-${formKey}`,
           firstInGroup: false,
           subtotalFormKind: formKey,
-          isFirstFormSubtotalForModel: isFirstFormSubtotal,
-          inputAmount: formInputAmount,
-          taxAmount: formTaxAmount,
-          totalAmount: formTotal,
+          isFirstFormSubtotalForModel: idx === 0,
+          inputAmount: ft.inputAmount,
+          taxAmount: ft.taxAmount,
+          totalAmount: ft.totalWithTax,
         });
-        isFirstFormSubtotal = false;
-      }
+      });
 
       // 차종별 SUB TOTAL
-      const repModel = byForm.get(formKeys[0])![0];
       result.push({
-        ...repModel,
+        ...modelItems[0],
         id: `subtotal-model-${modelCode}`,
         rowKind: "subtotal_model",
         mergeKey: `subtotal-model-${modelCode}`,
@@ -251,9 +252,9 @@ export default function ClosingStatusPage() {
 
     if (modelKeys.length === 0) return result;
 
-    const rep0 = byModel.get(modelKeys[0])!.values().next().value![0];
+    const rep0 = byModel.get(modelKeys[0])![0];
 
-    // ── TOTAL 구역 1: 용도별 합계 (전체 차종 통합, 용도 단위) ────────────────
+    // ── TOTAL 구역 1: 용도별 합계 ────────────────────────────────────────────
     const totalByForm = new Map<string, { totalWithTax: number; inputAmount: number; taxAmount: number }>();
     groupedItems.forEach((item) => {
       const cur = totalByForm.get(item.form) ?? { totalWithTax: 0, inputAmount: 0, taxAmount: 0 };
@@ -279,7 +280,7 @@ export default function ClosingStatusPage() {
       });
     });
 
-    // ── TOTAL 구역 2: 차종별 합계 (전체 용도 통합, 차종 단위) ────────────────
+    // ── TOTAL 구역 2: 차종별 합계 ────────────────────────────────────────────
     const totalByModel = new Map<string, { totalWithTax: number; inputAmount: number; taxAmount: number }>();
     groupedItems.forEach((item) => {
       const cur = totalByModel.get(item.vehicleModel) ?? { totalWithTax: 0, inputAmount: 0, taxAmount: 0 };
@@ -430,15 +431,18 @@ export default function ClosingStatusPage() {
                   minWidth: 120,
                   cell: (row) => {
                     if (row.rowKind === "data") return row.firstInGroup ? row.vehicleModel : "";
-                    if (row.rowKind === "subtotal_form" && !row.isFirstFormSubtotalForModel) return "";
-                    if (row.rowKind === "subtotal_form" || row.rowKind === "subtotal_model") return "[SUB TOTAL]";
-                    // TOTAL 구역: total_form 첫 행, total_model 첫 행, total_all — 모두 "[ TOTAL ]" (rowSpan으로 병합)
+                    if (row.rowKind === "subtotal_form") return "";
+                    if (row.rowKind === "subtotal_model") return "[SUB TOTAL]";
                     if (row.rowKind === "total_form"  && row.firstInGroup) return "[ TOTAL ]";
                     if (row.rowKind === "total_model" && row.firstInGroup) return "[ TOTAL ]";
                     if (row.rowKind === "total_all") return "[ TOTAL ]";
                     return "";
                   },
                   rowSpan: (row, index, allRows) => {
+                    // 차종 첫 데이터 행: 해당 차종 데이터 행 수만큼 병합
+                    if (row.rowKind === "data" && row.firstInGroup) {
+                      return row.modelDataRowCount ?? 1;
+                    }
                     // total_form 첫 행: 용도별 행 개수만큼 병합
                     if (row.rowKind === "total_form" && row.firstInGroup) {
                       let count = 0;
@@ -466,7 +470,7 @@ export default function ClosingStatusPage() {
                   minWidth: 110,
                   cell: (row) => {
                     if (row.rowKind === "data") return row.supplierCode;
-                    if (row.rowKind === "subtotal_form") return row.isFirstFormSubtotalForModel ? "[ 용도별 ]" : "";
+                    if (row.rowKind === "subtotal_form") return "[ 용도별 ]";
                     if (row.rowKind === "subtotal_model") return "[ 차  종 ]";
                     if (row.rowKind === "total_form"  && row.firstInGroup) return "[ 용도별 ]";
                     if (row.rowKind === "total_model" && row.firstInGroup) return "[ 차  종 ]";

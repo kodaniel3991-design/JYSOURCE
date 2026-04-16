@@ -7,7 +7,6 @@ function row(
   itemSpec: string,
   supplierCode: string,
   supplierName: string,
-  plant: string,
   applyDate: string,
   expireDate: string,
   unitPrice: number,
@@ -20,7 +19,6 @@ function row(
     itemSpec,
     supplierCode,
     supplierName,
-    plant,
     applyDate,
     expireDate,
     unitPrice,
@@ -35,7 +33,7 @@ function row(
 }
 
 export const purchasePrices: PurchasePriceRecord[] = [
-  row("pp-1", "BAT-12V-60AH-01", "BATTERY 12V 60AH", "12V, 60AH, MF BATTERY", "SUP-001", "배터리원", "완성차 1공장", "2026-03-01", "2099-12-31", 58000, {
+  row("pp-1", "BAT-12V-60AH-01", "BATTERY 12V 60AH", "12V, 60AH, MF BATTERY", "SUP-001", "배터리원", "2026-03-01", "2099-12-31", 58000, {
     itemMaterialName: "납축",
     isTempPrice: false,
     warehouseCode: "WH01",
@@ -47,7 +45,7 @@ export const purchasePrices: PurchasePriceRecord[] = [
     workOrderNo: "WO-2026-001",
     validDateAdjust: false,
   }),
-  row("pp-2", "GLS-WND-FR-01", "WINDSHIELD GLASS FRONT", "FRONT WINDSHIELD, LAMINATED", "SUP-002", "글라스텍", "완성차 1공장", "2026-02-15", "2099-12-31", 125000, {
+  row("pp-2", "GLS-WND-FR-01", "WINDSHIELD GLASS FRONT", "FRONT WINDSHIELD, LAMINATED", "SUP-002", "글라스텍", "2026-02-15", "2099-12-31", 125000, {
     itemMaterialName: "강화유리",
     isTempPrice: false,
     warehouseCode: "WH01",
@@ -61,7 +59,7 @@ export const purchasePrices: PurchasePriceRecord[] = [
     validDateAdjust: false,
     discountRate: 3,
   }),
-  row("pp-3", "PAD-FR-BRK-01", "BRAKE PAD FRONT SET", "FRONT DISC BRAKE PAD, LOW-MET", "SUP-003", "브레이크텍", "완성차 1공장", "2026-01-20", "2099-12-31", 42000, {
+  row("pp-3", "PAD-FR-BRK-01", "BRAKE PAD FRONT SET", "FRONT DISC BRAKE PAD, LOW-MET", "SUP-003", "브레이크텍", "2026-01-20", "2099-12-31", 42000, {
     itemMaterialName: "로우메탈",
     isTempPrice: true,
     warehouseCode: "WH02",
@@ -74,7 +72,7 @@ export const purchasePrices: PurchasePriceRecord[] = [
     validDateAdjust: true,
     discountRate: 2.5,
   }),
-  row("pp-4", "NVH-FLR-PAD-01", "NVH FLOOR PAD ASSY", "FR FLOOR NVH PAD, FOAM", "SUP-004", "NVH코리아", "완성차 2공장", "2026-02-01", "2099-12-31", 68000, {
+  row("pp-4", "NVH-FLR-PAD-01", "NVH FLOOR PAD ASSY", "FR FLOOR NVH PAD, FOAM", "SUP-004", "NVH코리아", "2026-02-01", "2099-12-31", 68000, {
     itemMaterialName: "폼",
     warehouseCode: "WH01",
     storageLocationCode: "A-03-01",
@@ -84,7 +82,7 @@ export const purchasePrices: PurchasePriceRecord[] = [
     discountRate: 1.5,
     remarks: "파일럿 단가 적용 후 확정",
   }),
-  row("pp-5", "HAR-ENG-MAIN-01", "ENGINE ROOM MAIN HARNESS", "ENGINE ROOM, MAIN, 48PIN", "SUP-005", "유라코리아", "완성차 1공장", "2026-01-10", "2099-12-31", 145000, {
+  row("pp-5", "HAR-ENG-MAIN-01", "ENGINE ROOM MAIN HARNESS", "ENGINE ROOM, MAIN, 48PIN", "SUP-005", "유라코리아", "2026-01-10", "2099-12-31", 145000, {
     itemMaterialName: "구리/절연체",
     warehouseCode: "WH02",
     storageLocationCode: "D-01-01",
@@ -95,27 +93,27 @@ export const purchasePrices: PurchasePriceRecord[] = [
     workOrderNo: "WO-2026-005",
     discountRate: 4,
   }),
-  row("pp-6", "TRIM-OVC-FR-01", "OVERCARPET FR RH C/BEIGE", "FR RH, CARPET, C-BEIGE", "SUP-006", "현대모듈", "완성차 1공장", "2026-03-05", "2099-12-31", 31500, {
+  row("pp-6", "TRIM-OVC-FR-01", "OVERCARPET FR RH C/BEIGE", "FR RH, CARPET, C-BEIGE", "SUP-006", "현대모듈", "2026-03-05", "2099-12-31", 31500, {
     itemMaterialName: "카펫",
     warehouseCode: "WH01",
     orderRate: 98.8,
     workOrderNo: "WO-2026-006",
     discountRate: 1.2,
   }),
-  row("pp-7", "TRIM-OVC-RR-01", "OVERCARPET RR LH BLACK", "RR LH, CARPET, BLACK", "SUP-006", "현대모듈", "완성차 1공장", "2026-03-05", "2099-12-31", 29800, {
+  row("pp-7", "TRIM-OVC-RR-01", "OVERCARPET RR LH BLACK", "RR LH, CARPET, BLACK", "SUP-006", "현대모듈", "2026-03-05", "2099-12-31", 29800, {
     itemMaterialName: "카펫",
     warehouseCode: "WH01",
     storageLocationCode: "A-05-02",
     orderRate: 98.8,
     discountRate: 1.2,
   }),
-  row("pp-8", "EXH-GASKET-01", "GASKET EXHAUST MANIFOLD", "EXH MANIFOLD, METAL GASKET", "SUP-007", "FTG코리아", "엔진 1공장", "2026-02-20", "2099-12-31", 8200, {
+  row("pp-8", "EXH-GASKET-01", "GASKET EXHAUST MANIFOLD", "EXH MANIFOLD, METAL GASKET", "SUP-007", "FTG코리아", "2026-02-20", "2099-12-31", 8200, {
     itemMaterialName: "스테인리스",
     warehouseCode: "WH03",
     orderRate: 100,
     workOrderNo: "WO-2026-008",
   }),
-  row("pp-9", "LAMP-HL-LH-01", "HEAD LAMP ASSY LH", "LH, HALOGEN HEAD LAMP", "SUP-008", "라이트론", "완성차 2공장", "2026-01-25", "2099-12-31", 185000, {
+  row("pp-9", "LAMP-HL-LH-01", "HEAD LAMP ASSY LH", "LH, HALOGEN HEAD LAMP", "SUP-008", "라이트론", "2026-01-25", "2099-12-31", 185000, {
     itemMaterialName: "PC/유리",
     isTempPrice: false,
     warehouseCode: "WH01",
@@ -126,14 +124,14 @@ export const purchasePrices: PurchasePriceRecord[] = [
     workOrderNo: "WO-2026-009",
     discountRate: 3,
   }),
-  row("pp-10", "CAST-BLK-AL-01", "ALUMINUM CASTING BLOCK", "AL CASTING, BLOCK, T6", "SUP-009", "현대캐스팅", "주조 1공장", "2026-02-10", "2099-12-31", 192000, {
+  row("pp-10", "CAST-BLK-AL-01", "ALUMINUM CASTING BLOCK", "AL CASTING, BLOCK, T6", "SUP-009", "현대캐스팅", "2026-02-10", "2099-12-31", 192000, {
     itemMaterialName: "알루미늄",
     warehouseCode: "WH03",
     orderRate: 98,
     workOrderNo: "WO-2026-010",
     discountRate: 2,
   }),
-  row("pp-11", "GEAR-PINION-01", "기어 피니언 세트", "PINION GEAR SET, HEAT TREATED", "SUP-010", "한국정밀기어", "변속기 1공장", "2026-01-05", "2099-12-31", 88000, {
+  row("pp-11", "GEAR-PINION-01", "기어 피니언 세트", "PINION GEAR SET, HEAT TREATED", "SUP-010", "한국정밀기어", "2026-01-05", "2099-12-31", 88000, {
     itemMaterialName: "합금강",
     warehouseCode: "WH02",
     storageLocationCode: "F-02-01",
@@ -141,7 +139,7 @@ export const purchasePrices: PurchasePriceRecord[] = [
     workOrderNo: "WO-2026-011",
     discountRate: 1.8,
   }),
-  row("pp-12", "BEARING-6205-01", "BALL BEARING 6205", "BALL BEARING 6205, ZZ", "SUP-011", "대우베어링", "동력전달 1공장", "2026-02-01", "2099-12-31", 8700, {
+  row("pp-12", "BEARING-6205-01", "BALL BEARING 6205", "BALL BEARING 6205, ZZ", "SUP-011", "대우베어링", "2026-02-01", "2099-12-31", 8700, {
     itemMaterialName: "베어링강",
     warehouseCode: "WH02",
     orderRate: 99.5,
@@ -149,21 +147,21 @@ export const purchasePrices: PurchasePriceRecord[] = [
     workOrderNo: "WO-2026-012",
     discountRate: 0.5,
   }),
-  row("pp-13", "STEEL-SHAFT-HT-01", "고장력 스틸 샤프트", "HIGH TENSILE STEEL SHAFT", "SUP-012", "일본스틸코리아", "동력전달 2공장", "2026-01-18", "2099-12-31", 132000, {
+  row("pp-13", "STEEL-SHAFT-HT-01", "고장력 스틸 샤프트", "HIGH TENSILE STEEL SHAFT", "SUP-012", "일본스틸코리아", "2026-01-18", "2099-12-31", 132000, {
     itemMaterialName: "고장력강",
     warehouseCode: "WH03",
     orderRate: 97.8,
     workOrderNo: "WO-2026-013",
     discountRate: 2.2,
   }),
-  row("pp-14", "MOLD-INJ-TRIM-01", "MOLD INJECTION TRIM PAD", "TRIM PAD, INJECTION, PP", "SUP-013", "외장부품(주)", "완성차 2공장", "2026-03-02", "2099-12-31", 25500, {
+  row("pp-14", "MOLD-INJ-TRIM-01", "MOLD INJECTION TRIM PAD", "TRIM PAD, INJECTION, PP", "SUP-013", "외장부품(주)", "2026-03-02", "2099-12-31", 25500, {
     itemMaterialName: "PP",
     warehouseCode: "WH01",
     orderRate: 99,
     workOrderNo: "WO-2026-014",
     discountRate: 1,
   }),
-  row("pp-15", "COIL-SPRING-RR-01", "REAR COIL SPRING", "RR COIL SPRING, SEDAN", "SUP-014", "스텍산업", "섀시 1공장", "2026-02-22", "2099-12-31", 38500, {
+  row("pp-15", "COIL-SPRING-RR-01", "REAR COIL SPRING", "RR COIL SPRING, SEDAN", "SUP-014", "스텍산업", "2026-02-22", "2099-12-31", 38500, {
     itemMaterialName: "강재",
     warehouseCode: "WH02",
     storageLocationCode: "G-01-01",
