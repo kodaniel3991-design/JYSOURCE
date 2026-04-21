@@ -13,6 +13,91 @@ async function ensureUnitPriceColumn() {
   `);
 }
 
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  const id = Number(params.id);
+  if (!id) return NextResponse.json({ ok: false, message: "잘못된 ID" }, { status: 400 });
+
+  try {
+    const pool = await getDbPool();
+
+    // 매입확정(회계처리) 상태이면 삭제 불가
+    const lockCheck = await pool.request()
+      .input("Id", sql.Int, id)
+      .query(`
+        SELECT COUNT(1) AS Cnt
+        FROM dbo.PurchaseInputItem pii
+        WHERE pii.ReceiptHistoryId = @Id
+      `);
+    if (Number(lockCheck.recordset[0].Cnt) > 0)
+      return NextResponse.json({ ok: false, message: "매입실적처리된 입고이력은 삭제할 수 없습니다." }, { status: 423 });
+
+    // 기존 값 조회 (ReceivedQty 복원용)
+    const prev = await pool.request()
+      .input("Id", sql.Int, id)
+      .query(`
+        SELECT Qty, PurchaseOrderId, ItemCode, Type, SeqNo
+        FROM dbo.ReceiptHistory WHERE Id = @Id
+      `);
+    if (!prev.recordset.length)
+      return NextResponse.json({ ok: false, message: "이력을 찾을 수 없습니다." }, { status: 404 });
+
+    const { Qty, PurchaseOrderId, ItemCode, Type, SeqNo } = prev.recordset[0];
+    const qty = Number(Qty ?? 0);
+    const purchaseOrderId = Number(PurchaseOrderId);
+    const itemCode = String(ItemCode);
+    const seqNo = SeqNo != null ? Number(SeqNo) : null;
+
+    // 이력 삭제
+    await pool.request()
+      .input("Id", sql.Int, id)
+      .query(`DELETE FROM dbo.ReceiptHistory WHERE Id = @Id`);
+
+    // PurchaseOrderItem.ReceivedQty 복원
+    // 입고 삭제 → ReceivedQty 감소 / 반품 삭제 → ReceivedQty 증가
+    const qtyDiff = Type === "반품" ? qty : -qty;
+    const req = pool.request()
+      .input("PurchaseOrderId", sql.Int,            purchaseOrderId)
+      .input("ItemCode",        sql.NVarChar(50),   itemCode)
+      .input("QtyDiff",         sql.Decimal(18, 3), qtyDiff);
+
+    if (seqNo != null) {
+      // SeqNo가 있으면 정확한 발주 품목 행만 업데이트
+      req.input("SeqNo", sql.Int, seqNo);
+      await req.query(`
+        UPDATE dbo.PurchaseOrderItem
+        SET ReceivedQty = CASE
+          WHEN ReceivedQty + @QtyDiff < 0 THEN 0
+          ELSE ReceivedQty + @QtyDiff
+        END
+        WHERE PurchaseOrderId = @PurchaseOrderId AND SpecNo = @SeqNo
+      `);
+    } else {
+      // SeqNo 없으면 ItemCode로 매핑 (가장 낮은 SpecNo 행)
+      await req.query(`
+        UPDATE dbo.PurchaseOrderItem
+        SET ReceivedQty = CASE
+          WHEN ReceivedQty + @QtyDiff < 0 THEN 0
+          ELSE ReceivedQty + @QtyDiff
+        END
+        WHERE PurchaseOrderId = @PurchaseOrderId
+          AND ItemCode = @ItemCode
+          AND SpecNo = (
+            SELECT MIN(SpecNo) FROM dbo.PurchaseOrderItem
+            WHERE PurchaseOrderId = @PurchaseOrderId AND ItemCode = @ItemCode
+          )
+      `);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[purchase-receipts/history][DELETE]", err);
+    return NextResponse.json({ ok: false, message: "삭제 중 오류가 발생했습니다." }, { status: 500 });
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }

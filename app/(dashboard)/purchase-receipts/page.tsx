@@ -328,6 +328,8 @@ export default function PurchaseReceiptsPage() {
   const editUnitPriceRef = useRef<HTMLInputElement>(null);
   const editSaveBtnRef   = useRef<HTMLButtonElement>(null);
   const [historySaving,    setHistorySaving]    = useState(false);
+  const [historyDeleting,  setHistoryDeleting]  = useState(false);
+  const [deleteConfirmId,  setDeleteConfirmId]  = useState<string | null>(null);
 
   const startEditHistory = (h: HistorySearchItem) => {
     setEditingHistoryId(h.id);
@@ -339,6 +341,26 @@ export default function PurchaseReceiptsPage() {
   };
 
   const cancelEditHistory = () => setEditingHistoryId(null);
+
+  const deleteHistory = async (id: string) => {
+    if (historyDeleting) return;
+    setHistoryDeleting(true);
+    try {
+      const res = await fetch(apiPath(`/api/purchase-receipts/history/${id}`), { method: "DELETE" });
+      const data = await res.json();
+      if (!data.ok) { setNotifyModal({ open: true, title: "삭제 실패", message: data.message ?? "삭제 실패" }); return; }
+      const deleted = historyItems.find((h) => h.id === id);
+      setHistoryItems((prev) => prev.filter((h) => h.id !== id));
+      setHistoryTotalQty((prev) => prev - (deleted?.qty ?? 0));
+      setHistoryTotalAmount((prev) => prev - (deleted?.receiptAmount ?? 0));
+      setSelectedHistoryId(null);
+    } catch {
+      setNotifyModal({ open: true, title: "오류", message: "삭제 중 오류가 발생했습니다." });
+    } finally {
+      setHistoryDeleting(false);
+      setDeleteConfirmId(null);
+    }
+  };
 
   const saveEditHistory = async () => {
     if (!editingHistoryId || historySaving) return;
@@ -565,12 +587,17 @@ export default function PurchaseReceiptsPage() {
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
+  const [isReceiving, setIsReceiving] = useState(false);
+  const [isReturning, setIsReturning] = useState(false);
+
   const handleReceipt = async () => {
+    if (isReceiving) return;
     const targets = flatRows.filter((r) => r.inputQty > 0);
     if (targets.length === 0) { setNotifyModal({ open: true, title: "알림", message: "입고수량이 1 이상인 품목이 없습니다." }); return; }
     const byPo = new Map<string, FlatSpecRow[]>();
     targets.forEach((r) => { if (!byPo.has(r.poId)) byPo.set(r.poId, []); byPo.get(r.poId)!.push(r); });
     const receiptNos: string[] = [];
+    setIsReceiving(true);
     try {
       for (const [poId, rows] of Array.from(byPo.entries())) {
         const res = await fetch(apiPath(`/api/purchase-receipts/${poId}/receive`), {
@@ -588,6 +615,8 @@ export default function PurchaseReceiptsPage() {
       loadAllPending();
     } catch {
       setNotifyModal({ open: true, title: "오류", message: "입고처리 중 오류가 발생했습니다." });
+    } finally {
+      setIsReceiving(false);
     }
   };
 
@@ -596,6 +625,7 @@ export default function PurchaseReceiptsPage() {
   };
 
   const handleReturn = async () => {
+    if (isReturning) return;
     const targets = flatRows.filter((r) => r.returnQty > 0);
     if (targets.length === 0) { setNotifyModal({ open: true, title: "알림", message: "반품수량이 1 이상인 품목이 없습니다." }); return; }
     for (const r of targets) {
@@ -608,6 +638,7 @@ export default function PurchaseReceiptsPage() {
     targets.forEach((r) => { if (!byPo.has(r.poId)) byPo.set(r.poId, []); byPo.get(r.poId)!.push(r); });
     const now = new Date();
     let lastSlip: ReturnSlip | null = null;
+    setIsReturning(true);
     try {
       for (const [poId, rows] of Array.from(byPo.entries())) {
         const po = poList.find((p) => p.id === poId);
@@ -637,6 +668,8 @@ export default function PurchaseReceiptsPage() {
       loadAllPending();
     } catch {
       setNotifyModal({ open: true, title: "오류", message: "반품처리 중 오류가 발생했습니다." });
+    } finally {
+      setIsReturning(false);
     }
   };
 
@@ -1226,7 +1259,22 @@ export default function PurchaseReceiptsPage() {
 
             {/* 데이터 그리드 */}
             <Card className="flex-1 flex flex-col min-h-0">
-              <CardHeader className="px-3 py-2 pb-2 shrink-0 border-b flex flex-row items-center justify-end">
+              <CardHeader className="px-3 py-2 pb-2 shrink-0 border-b flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {selectedHistoryId && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={historyDeleting}
+                      onClick={() => setDeleteConfirmId(selectedHistoryId)}
+                      className="h-7 px-3 text-xs text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-red-700/50 dark:hover:bg-red-500/10"
+                    >
+                      <X className="mr-1 h-3 w-3" />
+                      {historyDeleting ? "삭제중..." : "선택 삭제"}
+                    </Button>
+                  )}
+                </div>
                 <DataGridToolbar
                   active={histGridSettingsOpen ? histGridSettingsTab : undefined}
                   onExport={() => { setHistGridSettingsTab("export"); setHistGridSettingsOpen(true); }}
@@ -1673,12 +1721,12 @@ export default function PurchaseReceiptsPage() {
                       className="text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary text-xs h-8">
                       <RotateCcw className="mr-1.5 h-3.5 w-3.5" />초기화
                     </Button>
-                    <Button type="button" size="sm" onClick={handleReceipt} className="text-xs h-8">
-                      <Save className="mr-1.5 h-3.5 w-3.5" />입고처리
+                    <Button type="button" size="sm" onClick={handleReceipt} disabled={isReceiving || isReturning} className="text-xs h-8">
+                      <Save className="mr-1.5 h-3.5 w-3.5" />{isReceiving ? "처리중..." : "입고처리"}
                     </Button>
-                    <Button type="button" size="sm" onClick={handleReturn}
+                    <Button type="button" size="sm" onClick={handleReturn} disabled={isReceiving || isReturning}
                       className="text-xs h-8 bg-red-600 hover:bg-red-700 text-white">
-                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" />반품처리
+                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" />{isReturning ? "처리중..." : "반품처리"}
                     </Button>
                     <div className="ml-2 border-l pl-2">
                       <DataGridToolbar
@@ -2089,6 +2137,30 @@ export default function PurchaseReceiptsPage() {
     )}
 
       {/* 알림 모달 */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
+          <div className="bg-background border border-border rounded-lg shadow-xl w-[360px] overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <p className="text-sm font-semibold text-red-600">입고이력 삭제</p>
+            </div>
+            <div className="px-5 py-5">
+              <p className="text-sm text-foreground">선택한 입고/반품 이력을 삭제하시겠습니까?</p>
+              <p className="mt-1 text-xs text-muted-foreground">삭제 시 발주 잔량이 복원됩니다.</p>
+            </div>
+            <div className="px-5 py-3 flex justify-end gap-2 border-t border-border">
+              <Button size="sm" variant="outline" className="h-8 px-4 text-xs"
+                onClick={() => setDeleteConfirmId(null)}>
+                취소
+              </Button>
+              <Button size="sm" className="h-8 px-4 text-xs bg-red-600 hover:bg-red-700 text-white"
+                disabled={historyDeleting}
+                onClick={() => deleteHistory(deleteConfirmId)}>
+                {historyDeleting ? "삭제중..." : "삭제"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {notifyModal?.open && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
           <div className="bg-background border border-border rounded-lg shadow-xl w-[360px] p-0 overflow-hidden">
