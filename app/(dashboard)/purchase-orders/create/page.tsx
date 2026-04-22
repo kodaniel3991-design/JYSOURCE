@@ -29,8 +29,13 @@ import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash2, Search, RotateCcw, Save, X, Send, FileDown, Copy, Clipboard } from "lucide-react";
+import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { FieldError } from "@/components/ui/field-error";
 import { apiPath } from "@/lib/api-path";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const firstOfMonthStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`; };
 
 const statusOptions: SelectOption[] = (["draft", "approved", "issued"] as const).map(
   (v) => ({ value: v, label: poStatusLabels[v] })
@@ -102,6 +107,13 @@ type ItemMaster = {
 export default function CreatePurchaseOrderPage() {
   const [activeTab, setActiveTab] = useCachedState<"basic" | "spec">("po-create/activeTab", "basic");
   const [basicInfoList, setBasicInfoList] = useCachedState<BasicInfoListItem[]>("po-create/basicInfoList", []);
+  const [listSearch, setListSearch] = useCachedState("po-create/listSearch", {
+    supplierCode: "",
+    dateFrom: firstOfMonthStr(),
+    dateTo: todayStr(),
+  });
+  const [listSupplierName, setListSupplierName] = useCachedState("po-create/listSupplierName", "");
+  const [isListSupplierOpen, setIsListSupplierOpen] = useState(false);
   const [selectedBasicId, setSelectedBasicId] = useCachedState<string | null>("po-create/selectedBasicId", null);
   const [isFormActive, setIsFormActive] = useCachedState<boolean>("po-create/isFormActive", false);
   const [errors, setErrors] = useState<Partial<Record<keyof POBasicFormData, string>>>({});
@@ -157,6 +169,8 @@ export default function CreatePurchaseOrderPage() {
   const [purchasers, setPurchasers] = useState<PurchaserRecord[]>([]);
   const [isPurchaserPopupOpen, setIsPurchaserPopupOpen] = useState(false);
   const [isUserPopupOpen, setIsUserPopupOpen] = useState(false);
+  const listDateFromRef = useRef<HTMLInputElement>(null);
+  const listDateToRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const buyerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemSupplierDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -203,9 +217,15 @@ export default function CreatePurchaseOrderPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [notifyModal?.open]);
 
+  useSupplierAutoFill(listSearch.supplierCode, setListSupplierName);
+
   // 구매오더 목록 로드
   const loadBasicInfoList = () => {
-    fetch(apiPath("/api/purchase-orders"))
+    const p = new URLSearchParams();
+    if (listSearch.supplierCode) p.set("supplierCode", listSearch.supplierCode);
+    if (listSearch.dateFrom)     p.set("dateFrom",     listSearch.dateFrom);
+    if (listSearch.dateTo)       p.set("dateTo",       listSearch.dateTo);
+    fetch(apiPath(`/api/purchase-orders?${p}`))
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
@@ -1211,9 +1231,48 @@ export default function CreatePurchaseOrderPage() {
         <Card className="w-[472px] shrink-0 flex flex-col overflow-hidden">
           <CardHeader className="border-b py-3">
             <h2 className="text-base font-semibold">기본정보 등록 리스트</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              오더를 선택하면 오른쪽에서 수정할 수 있습니다.
-            </p>
+            {/* 1행: 구매처번호 + 팝업 + 구매처명 + 초기화 */}
+            <div className="flex gap-1 mt-2">
+              <Input
+                value={listSearch.supplierCode}
+                onChange={(e) => { setListSearch((p) => ({ ...p, supplierCode: e.target.value })); setListSupplierName(""); }}
+                placeholder="구매처번호"
+                className="h-7 text-xs w-24 shrink-0"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (listSearch.supplierCode.trim()) setIsListSupplierOpen(true); else listDateFromRef.current?.focus(); } }}
+              />
+              <Button type="button" size="icon" variant="outline" className="h-7 w-7 shrink-0"
+                onClick={() => setIsListSupplierOpen(true)}>
+                <Search className="h-3 w-3" />
+              </Button>
+              <Input
+                value={listSupplierName}
+                readOnly
+                placeholder="구매처명"
+                className="h-7 text-xs flex-1 bg-muted text-muted-foreground"
+              />
+              <Button type="button" size="icon" variant="outline" className="h-7 w-7 shrink-0"
+                onClick={() => { setListSearch({ supplierCode: "", dateFrom: firstOfMonthStr(), dateTo: todayStr() }); setListSupplierName(""); }}>
+                <RotateCcw className="h-3 w-3" />
+              </Button>
+            </div>
+            {/* 2행: 발주일자 범위 + 조회 버튼 */}
+            <div className="flex gap-1 items-center mt-1">
+              <DateInput ref={listDateFromRef}
+                value={listSearch.dateFrom}
+                onChange={(e) => setListSearch((p) => ({ ...p, dateFrom: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); listDateToRef.current?.focus(); } }}
+                className="h-7 text-xs flex-1" />
+              <span className="text-xs text-muted-foreground shrink-0">~</span>
+              <DateInput ref={listDateToRef}
+                value={listSearch.dateTo}
+                onChange={(e) => setListSearch((p) => ({ ...p, dateTo: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); loadBasicInfoList(); } }}
+                className="h-7 text-xs flex-1" />
+              <Button type="button" size="sm" className="h-7 px-3 shrink-0" onClick={loadBasicInfoList}>
+                <Search className="mr-1 h-3 w-3" />
+                조회
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="flex-1 min-h-0 min-w-0 p-0 overflow-hidden">
             <div ref={listContentRef} className="h-full overflow-x-hidden overflow-y-auto">
@@ -1871,6 +1930,25 @@ export default function CreatePurchaseOrderPage() {
             supplierId: String(item.PurchaserNo),
             supplierName: String(item.PurchaserName),
           }));
+        }}
+      />
+
+      {/* 구매처 팝업 (좌측 목록 검색) */}
+      <SearchPopup<{ Id: string; PurchaserNo: string; PurchaserName: string; [key: string]: unknown }>
+        open={isListSupplierOpen}
+        onOpenChange={setIsListSupplierOpen}
+        title="구매처"
+        apiUrl={apiPath("/api/purchasers")}
+        columns={[
+          { key: "PurchaserNo", header: "구매처번호", width: 120 },
+          { key: "PurchaserName", header: "구매처명" },
+        ]}
+        searchKeys={["PurchaserNo", "PurchaserName"]}
+        keyExtractor={(item) => String(item.Id)}
+        initialSearchCode={listSearch.supplierCode}
+        onSelect={(item) => {
+          setListSearch((p) => ({ ...p, supplierCode: String(item.PurchaserNo) }));
+          setListSupplierName(String(item.PurchaserName));
         }}
       />
 
