@@ -207,6 +207,7 @@ export default function CreatePurchaseOrderPage() {
   const [copying, setCopying] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; message: string; onConfirm: () => void } | null>(null);
   const [pasteModal, setPasteModal] = useState<{ open: boolean; text: string } | null>(null);
+  const [bulkDueDate, setBulkDueDate] = useState(todayStr());
 
   useEffect(() => {
     if (!notifyModal?.open) return;
@@ -447,7 +448,10 @@ export default function CreatePurchaseOrderPage() {
           ...basicForm,
           orderDate: copyModal.orderDate || basicForm.orderDate,
           orderStatus: "draft",
-          items: specItems,
+          items: specItems.map((item) => ({
+            ...item,
+            dueDate: copyModal.orderDate || basicForm.orderDate,
+          })),
         }),
       });
       const copyData = await copyRes.json();
@@ -1199,6 +1203,11 @@ export default function CreatePurchaseOrderPage() {
     }
   };
 
+  const applyBulkDueDate = () => {
+    if (!bulkDueDate) return;
+    setSpecItems((prev) => prev.map((r) => ({ ...r, dueDate: bulkDueDate })));
+  };
+
   const handleExport = () => {
     const filled = specItems.filter((r) => r.itemCode);
     if (filled.length === 0) return;
@@ -1741,6 +1750,20 @@ export default function CreatePurchaseOrderPage() {
                   품목 추가
                 </Button>
                 <span className="flex-1" />
+                {/* 입고예정일자 일괄적용 */}
+                <div className="flex items-center gap-1 border rounded-md px-2 py-1 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-600/30">
+                  <span className="text-[11px] text-muted-foreground shrink-0">입고예정일자</span>
+                  <DateInput
+                    value={bulkDueDate}
+                    onChange={(e) => setBulkDueDate(e.target.value)}
+                    className="h-6 text-xs w-[130px] bg-transparent border-0 focus-within:ring-0 px-0"
+                  />
+                  <Button type="button" size="sm" variant="outline"
+                    onClick={applyBulkDueDate}
+                    className="h-6 px-2 text-[11px] border-amber-300 dark:border-amber-600/40 hover:bg-amber-100 dark:hover:bg-amber-500/20">
+                    일괄적용
+                  </Button>
+                </div>
                 <DataGridToolbar
                   active={gridSettingsOpen ? gridSettingsTab : undefined}
                   onExport={() => { setGridSettingsTab("export"); setGridSettingsOpen(true); }}
@@ -1850,6 +1873,14 @@ export default function CreatePurchaseOrderPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setTimeout(() => dueDateInputRefs.current[index]?.focus(), 0);
+                              } else if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setTimeout(() => quantityInputRefs.current[index + 1]?.focus(), 0);
+                              } else if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (index > 0) setTimeout(() => quantityInputRefs.current[index - 1]?.focus(), 0);
                               }
                             }}
                             className={`h-6 w-14 text-xs text-right px-1 ${row.itemCode && !row.quantity ? "ring-1 ring-red-400 border-red-400" : ""}`}
