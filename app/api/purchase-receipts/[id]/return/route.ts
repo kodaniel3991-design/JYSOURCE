@@ -75,26 +75,6 @@ export async function POST(
     const processedAt = new Date();
 
     for (const it of targets) {
-      // ReceivedQty 감소 (SpecNo 있으면 행 특정, 없으면 ItemCode fallback)
-      const updateReq = pool.request()
-        .input("PurchaseOrderId", sql.Int, poId)
-        .input("ItemCode", sql.NVarChar(50), it.itemCode)
-        .input("ReturnQty", sql.Decimal(18, 3), it.returnQty);
-      if (it.specNo != null) {
-        updateReq.input("SpecNo", sql.Int, it.specNo);
-        await updateReq.query(`
-          UPDATE dbo.PurchaseOrderItem
-          SET ReceivedQty = CASE WHEN ReceivedQty - @ReturnQty < 0 THEN 0 ELSE ReceivedQty - @ReturnQty END
-          WHERE PurchaseOrderId = @PurchaseOrderId AND SpecNo = @SpecNo
-        `);
-      } else {
-        await updateReq.query(`
-          UPDATE dbo.PurchaseOrderItem
-          SET ReceivedQty = CASE WHEN ReceivedQty - @ReturnQty < 0 THEN 0 ELSE ReceivedQty - @ReturnQty END
-          WHERE PurchaseOrderId = @PurchaseOrderId AND ItemCode = @ItemCode
-        `);
-      }
-
       // 이력 삽입
       await pool.request()
         .input("PurchaseOrderId",  sql.Int,           poId)
@@ -117,13 +97,21 @@ export async function POST(
         `);
     }
 
-    // 오더 상태 재계산
+    // 오더 상태 재계산 — ReceiptHistory 순 합계 기준
     const checkResult = await pool.request()
       .input("PurchaseOrderId", sql.Int, poId)
       .query(`
-        SELECT SUM(Quantity) AS TotalQty, SUM(ReceivedQty) AS TotalReceived
-        FROM dbo.PurchaseOrderItem
-        WHERE PurchaseOrderId = @PurchaseOrderId
+        SELECT
+          SUM(poi.Quantity) AS TotalQty,
+          ISNULL(SUM(rh_agg.ReceivedQty), 0) AS TotalReceived
+        FROM dbo.PurchaseOrderItem poi
+        LEFT JOIN (
+          SELECT SeqNo, SUM(CASE WHEN Type = N'입고' THEN Qty ELSE -Qty END) AS ReceivedQty
+          FROM dbo.ReceiptHistory
+          WHERE PurchaseOrderId = @PurchaseOrderId
+          GROUP BY SeqNo
+        ) rh_agg ON rh_agg.SeqNo = poi.SpecNo
+        WHERE poi.PurchaseOrderId = @PurchaseOrderId
       `);
     const totalQty = Number(checkResult.recordset[0].TotalQty ?? 0);
     const totalReceived = Number(checkResult.recordset[0].TotalReceived ?? 0);

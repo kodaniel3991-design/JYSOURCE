@@ -171,6 +171,8 @@ export default function CreatePurchaseOrderPage() {
   const [isUserPopupOpen, setIsUserPopupOpen] = useState(false);
   const listDateFromRef = useRef<HTMLInputElement>(null);
   const listDateToRef = useRef<HTMLInputElement>(null);
+  const copyDateInputRef = useRef<HTMLInputElement>(null);
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const buyerDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemSupplierDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,6 +219,10 @@ export default function CreatePurchaseOrderPage() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [notifyModal?.open]);
+
+  useEffect(() => {
+    if (copyModal?.open) setTimeout(() => copyDateInputRef.current?.focus(), 0);
+  }, [copyModal?.open]);
 
   useSupplierAutoFill(listSearch.supplierCode, setListSupplierName);
 
@@ -1876,11 +1882,11 @@ export default function CreatePurchaseOrderPage() {
                               } else if (e.key === "ArrowDown") {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                setTimeout(() => quantityInputRefs.current[index + 1]?.focus(), 0);
+                                setTimeout(() => { const el = quantityInputRefs.current[index + 1]; el?.focus(); el?.select(); }, 0);
                               } else if (e.key === "ArrowUp") {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (index > 0) setTimeout(() => quantityInputRefs.current[index - 1]?.focus(), 0);
+                                if (index > 0) setTimeout(() => { const el = quantityInputRefs.current[index - 1]; el?.focus(); el?.select(); }, 0);
                               }
                             }}
                             className={`h-6 w-14 text-xs text-right px-1 ${row.itemCode && !row.quantity ? "ring-1 ring-red-400 border-red-400" : ""}`}
@@ -2390,8 +2396,10 @@ export default function CreatePurchaseOrderPage() {
             <div className="mb-4 space-y-1">
               <label className="text-xs font-medium text-muted-foreground">발주일자</label>
               <DateInput
+                ref={copyDateInputRef}
                 value={copyModal.orderDate}
                 onChange={(e) => setCopyModal((prev) => prev ? { ...prev, orderDate: e.target.value } : prev)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); copyButtonRef.current?.focus(); } }}
                 className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
               />
             </div>
@@ -2399,7 +2407,7 @@ export default function CreatePurchaseOrderPage() {
               <Button size="sm" variant="outline" onClick={() => setCopyModal(null)} disabled={copying}>
                 취소
               </Button>
-              <Button size="sm" onClick={handleCopyConfirm} disabled={copying}>
+              <Button ref={copyButtonRef} size="sm" onClick={handleCopyConfirm} disabled={copying}>
                 {copying ? "복사 중..." : "복사"}
               </Button>
             </div>

@@ -45,13 +45,15 @@ const TODAY_STR      = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pa
 
 export default function PriceVerificationPage() {
   // ── 검색 조건 ────────────────────────────────────────────────────────────────
-  const [dateFrom,      setDateFrom]      = useCachedState("price-verify/dateFrom",      FIRST_OF_MONTH);
-  const [dateTo,        setDateTo]        = useCachedState("price-verify/dateTo",        TODAY_STR);
-  const [itemCode,      setItemCode]      = useCachedState("price-verify/itemCode",      "");
-  const [itemName,      setItemName]      = useCachedState("price-verify/itemName",      "");
-  const [supplierCode,  setSupplierCode]  = useCachedState("price-verify/supplierCode",  "");
-  const [supplierName,  setSupplierName]  = useCachedState("price-verify/supplierName",  "");
-  const [model,         setModel]         = useCachedState("price-verify/model",         "");
+  const [dateFrom,           setDateFrom]           = useCachedState("price-verify/dateFrom",           FIRST_OF_MONTH);
+  const [dateTo,             setDateTo]             = useCachedState("price-verify/dateTo",             TODAY_STR);
+  const [priceApplyDateFrom, setPriceApplyDateFrom] = useCachedState("price-verify/priceApplyDateFrom", "");
+  const [priceApplyDateTo,   setPriceApplyDateTo]   = useCachedState("price-verify/priceApplyDateTo",   "");
+  const [itemCode,           setItemCode]           = useCachedState("price-verify/itemCode",           "");
+  const [itemName,           setItemName]           = useCachedState("price-verify/itemName",           "");
+  const [supplierCode,       setSupplierCode]       = useCachedState("price-verify/supplierCode",       "");
+  const [supplierName,       setSupplierName]       = useCachedState("price-verify/supplierName",       "");
+  const [model,              setModel]              = useCachedState("price-verify/model",              "");
 
   useSupplierAutoFill(supplierCode, setSupplierName);
 
@@ -151,12 +153,14 @@ export default function PriceVerificationPage() {
   };
 
   // ── Enter 네비게이션 refs ────────────────────────────────────────────────────
-  const refDateFrom     = useRef<HTMLInputElement>(null);
-  const refDateTo       = useRef<HTMLInputElement>(null);
-  const refItemCode     = useRef<HTMLInputElement>(null);
-  const refSupplierCode = useRef<HTMLInputElement>(null);
-  const refModel        = useRef<HTMLInputElement>(null);
-  const refSearchBtn    = useRef<HTMLButtonElement>(null);
+  const refDateFrom          = useRef<HTMLInputElement>(null);
+  const refDateTo            = useRef<HTMLInputElement>(null);
+  const refPriceApplyDateFrom = useRef<HTMLInputElement>(null);
+  const refPriceApplyDateTo   = useRef<HTMLInputElement>(null);
+  const refItemCode          = useRef<HTMLInputElement>(null);
+  const refSupplierCode      = useRef<HTMLInputElement>(null);
+  const refModel             = useRef<HTMLInputElement>(null);
+  const refSearchBtn         = useRef<HTMLButtonElement>(null);
 
   // 모델 목록 로드 (최초 1회)
   useEffect(() => {
@@ -186,6 +190,8 @@ export default function PriceVerificationPage() {
     setLoading(true);
     setError(null);
     const params = new URLSearchParams({ startDate: dateFrom, endDate: dateTo });
+    if (priceApplyDateFrom.trim()) params.set("priceApplyDateFrom", priceApplyDateFrom.trim());
+    if (priceApplyDateTo.trim())   params.set("priceApplyDateTo",   priceApplyDateTo.trim());
     if (supplierCode.trim()) params.set("supplierCode", supplierCode.trim());
     if (supplierName.trim()) params.set("supplierName", supplierName.trim());
     if (itemCode.trim())     params.set("itemCode",     itemCode.trim());
@@ -204,6 +210,7 @@ export default function PriceVerificationPage() {
 
   const handleReset = () => {
     setDateFrom(FIRST_OF_MONTH); setDateTo(TODAY_STR);
+    setPriceApplyDateFrom(""); setPriceApplyDateTo("");
     setItemCode(""); setItemName("");
     setSupplierCode(""); setSupplierName("");
     setModel("");
@@ -249,6 +256,28 @@ export default function PriceVerificationPage() {
                   ref={refDateTo}
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refPriceApplyDateFrom.current?.focus(); } }}
+                  className="h-7 text-xs w-[130px]"
+                />
+              </div>
+            </div>
+
+            {/* 단가적용일 */}
+            <div className="flex flex-col gap-1 shrink-0">
+              <label className="text-xs font-medium text-muted-foreground">단가적용일</label>
+              <div className="flex gap-1 items-center">
+                <DateInput
+                  ref={refPriceApplyDateFrom}
+                  value={priceApplyDateFrom}
+                  onChange={(e) => setPriceApplyDateFrom(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refPriceApplyDateTo.current?.focus(); } }}
+                  className="h-7 text-xs w-[130px]"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">~</span>
+                <DateInput
+                  ref={refPriceApplyDateTo}
+                  value={priceApplyDateTo}
+                  onChange={(e) => setPriceApplyDateTo(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); refItemCode.current?.focus(); } }}
                   className="h-7 text-xs w-[130px]"
                 />
@@ -422,14 +451,14 @@ export default function PriceVerificationPage() {
                     )}
                   </th>
                   <th className="px-2 py-2 text-center w-8 shrink-0">No.</th>
-                  <SortableTh sortKey="poNumber"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-32">구매오더번호</SortableTh>
+                  <SortableTh sortKey="poNumber"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-24">구매오더번호</SortableTh>
                   <SortableTh sortKey="orderDate"       currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-center w-24">발주일자</SortableTh>
                   <SortableTh sortKey="supplierCode"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-24">구매처코드</SortableTh>
-                  <SortableTh sortKey="supplierName"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-36">구매처명</SortableTh>
-                  <SortableTh sortKey="itemCode"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-28">품목번호</SortableTh>
+                  <SortableTh sortKey="supplierName"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-44">구매처명</SortableTh>
+                  <SortableTh sortKey="itemCode"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-36">품목번호</SortableTh>
                   <SortableTh sortKey="itemName"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left">품목명</SortableTh>
-                  <SortableTh sortKey="vehicleModel"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-28">모델</SortableTh>
-                  <SortableTh sortKey="quantity"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-16">발주수량</SortableTh>
+                  <SortableTh sortKey="vehicleModel"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-16">모델</SortableTh>
+                  <SortableTh sortKey="quantity"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-18">발주수량</SortableTh>
                   <SortableTh sortKey="poUnitPrice"     currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-24">발주단가</SortableTh>
                   <SortableTh sortKey="currentUnitPrice"currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-24">최신단가</SortableTh>
                   <SortableTh sortKey="priceApplyDate"  currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-center w-24">단가적용일</SortableTh>

@@ -334,6 +334,7 @@ export default function PurchaseInputPage() {
   // ── 헤더 저장 ────────────────────────────────────────────────────────────────
   const handleSaveHeader = async () => {
     if (!header.supplierCode) { showAlert("구매처번호를 입력하세요."); return; }
+    if (!header.supplierName) { showAlert("구매처명이 없습니다. 구매처번호를 팝업에서 선택하거나 유효한 코드를 입력하세요."); return; }
     if (!header.inputDate)    { showAlert("매입일자를 입력하세요.");   return; }
 
     setSaving(true);
@@ -491,7 +492,7 @@ export default function PurchaseInputPage() {
               <RotateCcw className="h-3 w-3" />
             </Button>
           </div>
-          {/* 2행: 일자 범위 */}
+          {/* 2행: 일자 범위 + 조회 */}
           <div className="flex gap-1 items-center mb-1">
             <DateInput ref={listDateFromRef}
               value={listSearch.dateFrom}
@@ -502,7 +503,12 @@ export default function PurchaseInputPage() {
             <DateInput ref={listDateToRef}
               value={listSearch.dateTo}
               onChange={(e) => setListSearch((p) => ({ ...p, dateTo: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); loadList(); } }}
               className="h-7 text-xs flex-1" />
+            <Button type="button" size="sm" className="h-7 px-3 shrink-0" onClick={loadList}>
+              <Search className="mr-1 h-3 w-3" />
+              조회
+            </Button>
           </div>
         </div>
 

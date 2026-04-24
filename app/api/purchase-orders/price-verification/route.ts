@@ -4,12 +4,14 @@ import { getSessionFactory } from "@/lib/auth/session";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const startDate    = searchParams.get("startDate")    ?? "";
-  const endDate      = searchParams.get("endDate")      ?? "";
-  const supplierCode = searchParams.get("supplierCode") ?? "";
-  const supplierName = searchParams.get("supplierName") ?? "";
-  const itemCode     = searchParams.get("itemCode")     ?? "";
-  const model        = searchParams.get("model")        ?? "";
+  const startDate          = searchParams.get("startDate")          ?? "";
+  const endDate            = searchParams.get("endDate")            ?? "";
+  const priceApplyDateFrom = searchParams.get("priceApplyDateFrom") ?? "";
+  const priceApplyDateTo   = searchParams.get("priceApplyDateTo")   ?? "";
+  const supplierCode       = searchParams.get("supplierCode")       ?? "";
+  const supplierName       = searchParams.get("supplierName")       ?? "";
+  const itemCode           = searchParams.get("itemCode")           ?? "";
+  const model              = searchParams.get("model")              ?? "";
 
   if (!startDate || !endDate) {
     return NextResponse.json({ ok: false, message: "발주일 범위를 입력하세요.", items: [] }, { status: 400 });
@@ -19,13 +21,15 @@ export async function GET(request: Request) {
     const factory = await getSessionFactory(request);
     const pool = await getDbPool();
     const req  = pool.request()
-      .input("StartDate",     sql.Date,          startDate)
-      .input("EndDate",       sql.Date,          endDate)
-      .input("SupplierCode",  sql.NVarChar(50),  supplierCode || null)
-      .input("SupplierName",  sql.NVarChar(200), supplierName || null)
-      .input("ItemCode",      sql.NVarChar(100), itemCode     || null)
-      .input("Model",         sql.NVarChar(100), model        || null)
-      .input("BusinessPlace", sql.NVarChar(20),  factory);
+      .input("StartDate",          sql.Date,          startDate)
+      .input("EndDate",            sql.Date,          endDate)
+      .input("PriceApplyDateFrom", sql.Date,          priceApplyDateFrom || null)
+      .input("PriceApplyDateTo",   sql.Date,          priceApplyDateTo   || null)
+      .input("SupplierCode",       sql.NVarChar(50),  supplierCode || null)
+      .input("SupplierName",       sql.NVarChar(200), supplierName || null)
+      .input("ItemCode",           sql.NVarChar(100), itemCode     || null)
+      .input("Model",              sql.NVarChar(100), model        || null)
+      .input("BusinessPlace",      sql.NVarChar(20),  factory);
 
     const result = await req.query(`
       SELECT
@@ -50,8 +54,7 @@ export async function GET(request: Request) {
       CROSS APPLY (
         SELECT TOP 1 UnitPrice, ApplyDate
         FROM dbo.PurchasePrice pp2
-        WHERE pp2.ItemCode    = poi.ItemCode
-          AND (pp2.ApplyDate IS NULL OR pp2.ApplyDate >= @StartDate)
+        WHERE pp2.ItemCode = poi.ItemCode
         ORDER BY pp2.ApplyDate DESC
       ) pp
       WHERE po.OrderDate BETWEEN @StartDate AND @EndDate
@@ -60,6 +63,8 @@ export async function GET(request: Request) {
         AND (@SupplierName IS NULL OR po.SupplierName LIKE '%' + @SupplierName + '%')
         AND (@ItemCode     IS NULL OR poi.ItemCode    LIKE '%' + @ItemCode     + '%')
         AND (@Model        IS NULL OR im.VehicleModel LIKE '%' + @Model        + '%')
+        AND (@PriceApplyDateFrom IS NULL OR pp.ApplyDate >= @PriceApplyDateFrom)
+        AND (@PriceApplyDateTo   IS NULL OR pp.ApplyDate <= @PriceApplyDateTo)
         AND ABS(ISNULL(poi.UnitPrice, 0) - ISNULL(pp.UnitPrice, 0)) > 0
       ORDER BY po.OrderDate DESC, po.PoNumber, poi.SpecNo
     `);

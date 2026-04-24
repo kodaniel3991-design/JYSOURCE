@@ -34,62 +34,43 @@ export async function DELETE(
     if (Number(lockCheck.recordset[0].Cnt) > 0)
       return NextResponse.json({ ok: false, message: "매입실적처리된 입고이력은 삭제할 수 없습니다." }, { status: 423 });
 
-    // 기존 값 조회 (ReceivedQty 복원용)
+    // 기존 값 조회 (PurchaseOrderId 필요)
     const prev = await pool.request()
       .input("Id", sql.Int, id)
-      .query(`
-        SELECT Qty, PurchaseOrderId, ItemCode, Type, SeqNo
-        FROM dbo.ReceiptHistory WHERE Id = @Id
-      `);
+      .query(`SELECT PurchaseOrderId FROM dbo.ReceiptHistory WHERE Id = @Id`);
     if (!prev.recordset.length)
       return NextResponse.json({ ok: false, message: "이력을 찾을 수 없습니다." }, { status: 404 });
 
-    const { Qty, PurchaseOrderId, ItemCode, Type, SeqNo } = prev.recordset[0];
-    const qty = Number(Qty ?? 0);
-    const purchaseOrderId = Number(PurchaseOrderId);
-    const itemCode = String(ItemCode);
-    const seqNo = SeqNo != null ? Number(SeqNo) : null;
+    const purchaseOrderId = Number(prev.recordset[0].PurchaseOrderId);
 
     // 이력 삭제
     await pool.request()
       .input("Id", sql.Int, id)
       .query(`DELETE FROM dbo.ReceiptHistory WHERE Id = @Id`);
 
-    // PurchaseOrderItem.ReceivedQty 복원
-    // 입고 삭제 → ReceivedQty 감소 / 반품 삭제 → ReceivedQty 증가
-    const qtyDiff = Type === "반품" ? qty : -qty;
-    const req = pool.request()
-      .input("PurchaseOrderId", sql.Int,            purchaseOrderId)
-      .input("ItemCode",        sql.NVarChar(50),   itemCode)
-      .input("QtyDiff",         sql.Decimal(18, 3), qtyDiff);
-
-    if (seqNo != null) {
-      // SeqNo가 있으면 정확한 발주 품목 행만 업데이트
-      req.input("SeqNo", sql.Int, seqNo);
-      await req.query(`
-        UPDATE dbo.PurchaseOrderItem
-        SET ReceivedQty = CASE
-          WHEN ReceivedQty + @QtyDiff < 0 THEN 0
-          ELSE ReceivedQty + @QtyDiff
-        END
-        WHERE PurchaseOrderId = @PurchaseOrderId AND SpecNo = @SeqNo
+    // 오더 상태 재계산 — ReceiptHistory 순 합계 기준
+    const checkResult = await pool.request()
+      .input("PurchaseOrderId", sql.Int, purchaseOrderId)
+      .query(`
+        SELECT
+          SUM(poi.Quantity) AS TotalQty,
+          ISNULL(SUM(rh_agg.ReceivedQty), 0) AS TotalReceived
+        FROM dbo.PurchaseOrderItem poi
+        LEFT JOIN (
+          SELECT SeqNo, SUM(CASE WHEN Type = N'입고' THEN Qty ELSE -Qty END) AS ReceivedQty
+          FROM dbo.ReceiptHistory
+          WHERE PurchaseOrderId = @PurchaseOrderId
+          GROUP BY SeqNo
+        ) rh_agg ON rh_agg.SeqNo = poi.SpecNo
+        WHERE poi.PurchaseOrderId = @PurchaseOrderId
       `);
-    } else {
-      // SeqNo 없으면 ItemCode로 매핑 (가장 낮은 SpecNo 행)
-      await req.query(`
-        UPDATE dbo.PurchaseOrderItem
-        SET ReceivedQty = CASE
-          WHEN ReceivedQty + @QtyDiff < 0 THEN 0
-          ELSE ReceivedQty + @QtyDiff
-        END
-        WHERE PurchaseOrderId = @PurchaseOrderId
-          AND ItemCode = @ItemCode
-          AND SpecNo = (
-            SELECT MIN(SpecNo) FROM dbo.PurchaseOrderItem
-            WHERE PurchaseOrderId = @PurchaseOrderId AND ItemCode = @ItemCode
-          )
-      `);
-    }
+    const totalQty      = Number(checkResult.recordset[0].TotalQty ?? 0);
+    const totalReceived = Number(checkResult.recordset[0].TotalReceived ?? 0);
+    const newStatus = totalReceived <= 0 ? "issued" : totalReceived >= totalQty ? "received" : "partial";
+    await pool.request()
+      .input("Id",          sql.Int,          purchaseOrderId)
+      .input("OrderStatus", sql.NVarChar(20), newStatus)
+      .query(`UPDATE dbo.PurchaseOrder SET OrderStatus = @OrderStatus, UpdatedAt = GETDATE() WHERE Id = @Id`);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -128,25 +109,17 @@ export async function PUT(
     if (Number(lockCheck.recordset[0].Cnt) > 0)
       return NextResponse.json({ ok: false, message: "매입확정(회계처리) 된 입고이력은 수정할 수 없습니다." }, { status: 423 });
 
-    // 기존 값 조회 (qty 변경분 계산용)
+    // 기존 값 조회
     const prev = await pool.request()
       .input("Id", sql.Int, id)
-      .query(`
-        SELECT Qty, PurchaseOrderId, ItemCode
-        FROM dbo.ReceiptHistory WHERE Id = @Id
-      `);
+      .query(`SELECT PurchaseOrderId FROM dbo.ReceiptHistory WHERE Id = @Id`);
     if (!prev.recordset.length)
       return NextResponse.json({ ok: false, message: "이력을 찾을 수 없습니다." }, { status: 404 });
 
-    const oldQty       = Number(prev.recordset[0].Qty ?? 0);
-    const purchaseOrderId = Number(prev.recordset[0].PurchaseOrderId);
-    const itemCode        = String(prev.recordset[0].ItemCode);
-    const qtyDiff      = qty - oldQty;
-
     // 이력 업데이트
     await pool.request()
-      .input("Id",          sql.Int,           id)
-      .input("ReceiptDate", sql.Date,          receiptDate || null)
+      .input("Id",          sql.Int,            id)
+      .input("ReceiptDate", sql.Date,           receiptDate || null)
       .input("Qty",         sql.Decimal(18, 3), qty)
       .input("UnitPrice",   sql.Decimal(18, 4), unitPrice ?? null)
       .query(`
@@ -156,22 +129,6 @@ export async function PUT(
             UnitPrice   = @UnitPrice
         WHERE Id = @Id
       `);
-
-    // 입고량이 바뀐 경우 PurchaseOrderItem.ReceivedQty 동기화
-    if (qtyDiff !== 0) {
-      await pool.request()
-        .input("PurchaseOrderId", sql.Int,          purchaseOrderId)
-        .input("ItemCode",        sql.NVarChar(50), itemCode)
-        .input("QtyDiff",         sql.Decimal(18, 3), qtyDiff)
-        .query(`
-          UPDATE dbo.PurchaseOrderItem
-          SET ReceivedQty = CASE
-            WHEN ReceivedQty + @QtyDiff < 0 THEN 0
-            ELSE ReceivedQty + @QtyDiff
-          END
-          WHERE PurchaseOrderId = @PurchaseOrderId AND ItemCode = @ItemCode
-        `);
-    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

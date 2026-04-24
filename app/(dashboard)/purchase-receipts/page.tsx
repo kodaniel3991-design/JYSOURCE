@@ -41,6 +41,7 @@ type SpecRow = {
   specification: string;
   warehouse: string;
   orderedQty: number;
+  unitPrice: number;
   receivedQty: number;
   pendingQty: number;
   inputQty: number;
@@ -1763,6 +1764,7 @@ export default function PurchaseReceiptsPage() {
                             <SortableTh sortKey="storageLocation"currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-28">저장위치</SortableTh>
                             <SortableTh sortKey="unit"           currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-center w-14">단위</SortableTh>
                             <SortableTh sortKey="vehicleModel"   currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-28">모델</SortableTh>
+                            <SortableTh sortKey="unitPrice"      currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-24">단가</SortableTh>
                             <SortableTh sortKey="orderedQty"     currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-16">발주량</SortableTh>
                             <SortableTh sortKey="receivedQty"    currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-16">입고량</SortableTh>
                             <SortableTh sortKey="pendingQty"     currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-20">입고잔량</SortableTh>
@@ -1787,6 +1789,7 @@ export default function PurchaseReceiptsPage() {
                                 <td className="px-2 py-1 text-muted-foreground">{row.storageLocation}</td>
                                 <td className="px-2 py-1 text-center text-muted-foreground">{row.unit}</td>
                                 <td className="px-2 py-1 text-muted-foreground">{row.vehicleModel}</td>
+                                <td className="px-2 py-1 text-right tabular-nums text-muted-foreground">{row.unitPrice ? row.unitPrice.toLocaleString("ko-KR") : "-"}</td>
                                 <td className="px-2 py-1 text-right">{row.orderedQty.toLocaleString("ko-KR")}</td>
                                 <td className={`px-2 py-1 text-right font-semibold ${row.receivedQty > row.orderedQty ? "text-red-500 dark:text-red-400" : "text-foreground"}`}>
                                   {row.receivedQty > row.orderedQty

@@ -41,20 +41,29 @@ export async function GET(
     // 테이블 없으면 자동 생성
     await ensureReceiptHistoryTable(pool);
 
-    // 명세 행 조회 (ItemMaster JOIN으로 단위/모델/저장위치 포함)
+    // 명세 행 조회 — ReceivedQty는 ReceiptHistory에서 실시간 집계
     const specResult = await pool.request()
       .input("PurchaseOrderId", sql.Int, poId)
       .query(`
         SELECT
           poi.SpecNo, poi.ItemCode, poi.ItemName, poi.Specification, poi.Warehouse,
           poi.Quantity AS OrderedQty,
-          poi.ReceivedQty,
-          CASE WHEN poi.Quantity - poi.ReceivedQty < 0 THEN 0 ELSE poi.Quantity - poi.ReceivedQty END AS PendingQty,
+          ISNULL(poi.UnitPrice, 0) AS UnitPrice,
+          ISNULL(rh_agg.ReceivedQty, 0) AS ReceivedQty,
+          CASE WHEN poi.Quantity - ISNULL(rh_agg.ReceivedQty, 0) < 0 THEN 0
+               ELSE poi.Quantity - ISNULL(rh_agg.ReceivedQty, 0) END AS PendingQty,
           ISNULL(im.Unit, '')            AS Unit,
           ISNULL(im.VehicleModel, '')    AS VehicleModel,
           ISNULL(im.StorageLocation, '') AS StorageLocation
         FROM dbo.PurchaseOrderItem poi
         LEFT JOIN dbo.ItemMaster im ON im.ItemNo = poi.ItemCode
+        LEFT JOIN (
+          SELECT SeqNo,
+                 SUM(CASE WHEN Type = N'입고' THEN Qty ELSE -Qty END) AS ReceivedQty
+          FROM dbo.ReceiptHistory
+          WHERE PurchaseOrderId = @PurchaseOrderId
+          GROUP BY SeqNo
+        ) rh_agg ON rh_agg.SeqNo = poi.SpecNo
         WHERE poi.PurchaseOrderId = @PurchaseOrderId
         ORDER BY poi.SpecNo
       `);
@@ -66,6 +75,7 @@ export async function GET(
       specification:   String(r.Specification ?? ""),
       warehouse:       String(r.Warehouse ?? ""),
       orderedQty:      Number(r.OrderedQty ?? 0),
+      unitPrice:       Number(r.UnitPrice ?? 0),
       receivedQty:     Number(r.ReceivedQty ?? 0),
       pendingQty:      Number(r.PendingQty ?? 0),
       inputQty:        0,
