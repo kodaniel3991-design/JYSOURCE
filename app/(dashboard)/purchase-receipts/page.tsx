@@ -18,7 +18,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Search, RotateCcw, Save, PackageCheck, X, Printer, FileText, ChevronDown } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
-import { SortableTh } from "@/components/ui/sortable-th";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
@@ -132,6 +133,30 @@ type HistorySearchItem = {
   unit: string;
   vehicleModel: string;
   specNo: number;
+};
+
+// ── 컬럼 설정 ─────────────────────────────────────────────────────────────────
+
+const HIST_COLS = ["poNumber","specNo","type","receiptDate","processedAt","itemCode","itemName","warehouse","storageLocation","unit","vehicleModel","qty","unitPrice","receiptAmount","supplierCode","supplierName"] as const;
+const HIST_HEADER: Record<string, string> = {
+  poNumber:"구매오더번호", specNo:"순번", type:"구분", receiptDate:"입고일자", processedAt:"처리일시",
+  itemCode:"품목번호", itemName:"품목명", warehouse:"창고", storageLocation:"저장위치",
+  unit:"단위", vehicleModel:"모델", qty:"입고량", unitPrice:"입고단가",
+  receiptAmount:"입고금액", supplierCode:"거래처코드", supplierName:"거래처명",
+};
+
+const REG_COLS = ["poNumber","seq","itemCode","itemName","warehouse","storageLocation","unit","vehicleModel","unitPrice","orderedQty","receivedQty","pendingQty"] as const;
+const REG_HEADER: Record<string, string> = {
+  poNumber:"발주번호", seq:"순번", itemCode:"품목번호", itemName:"품목명",
+  warehouse:"창고", storageLocation:"저장위치", unit:"단위", vehicleModel:"모델",
+  unitPrice:"단가", orderedQty:"발주량", receivedQty:"입고량", pendingQty:"입고잔량",
+};
+
+const HIST_ENTRY_COLS = ["type","poNumber","seq","processedAt","itemCode","itemName","warehouse","storageLocation","unit","vehicleModel","qty","receiptDate","lotNo"] as const;
+const HIST_ENTRY_HEADER: Record<string, string> = {
+  type:"구분", poNumber:"발주번호", seq:"순번", processedAt:"처리일시",
+  itemCode:"품목번호", itemName:"품목명", warehouse:"창고", storageLocation:"저장위치",
+  unit:"단위", vehicleModel:"모델", qty:"수량", receiptDate:"입고일자", lotNo:"LOT번호",
 };
 
 // ── 키보드 지원 커스텀 셀렉트 ─────────────────────────────────────────────────
@@ -556,6 +581,10 @@ export default function PurchaseReceiptsPage() {
 
   // ── 등록작업 탭 정렬 ────────────────────────────────────────────────────────
   const { sortedItems: sortedFlatRows, sortKey: registerSortKey, sortDir: registerSortDir, toggleSort: toggleRegisterSort } = useSortableGrid(filteredFlatRows);
+
+  const histColSettings = useGridColumnSettings("receipt-process/history/list", [...HIST_COLS]);
+  const regColSettings = useGridColumnSettings("receipt-process/register/list", [...REG_COLS]);
+  const histEntryColSettings = useGridColumnSettings("receipt-process/hist-entry/list", [...HIST_ENTRY_COLS]);
 
   const groupedRows = useMemo<PoGroup[]>(() => {
     const groups: PoGroup[] = [];
@@ -1284,34 +1313,35 @@ export default function PurchaseReceiptsPage() {
               <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                 <div className="flex-1 overflow-auto min-h-0">
                   <table className="w-full text-xs">
+                    <colgroup>
+                      {histColSettings.colOrder.map((k) => (
+                        <col key={k} style={{ width: histColSettings.colWidths[k] ? `${histColSettings.colWidths[k]}px` : undefined }} />
+                      ))}
+                    </colgroup>
                     <thead className="sticky top-0 bg-muted/80 border-b">
                       <tr>
-                        <SortableTh sortKey="poNumber"       currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-32">구매오더번호</SortableTh>
-                        <SortableTh sortKey="specNo"         currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-14">순번</SortableTh>
-                        <SortableTh sortKey="type"           currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-14">구분</SortableTh>
-                        <SortableTh sortKey="receiptDate"    currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-28">입고일자</SortableTh>
-                        <SortableTh sortKey="processedAt"   currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-36">처리일시</SortableTh>
-                        <SortableTh sortKey="itemCode"       currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-36">품목번호</SortableTh>
-                        <SortableTh sortKey="itemName"       currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left">품목명</SortableTh>
-                        <SortableTh sortKey="warehouse"      currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-20">창고</SortableTh>
-                        <SortableTh sortKey="storageLocation"currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-24">저장위치</SortableTh>
-                        <SortableTh sortKey="unit"           currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-center w-14">단위</SortableTh>
-                        <SortableTh sortKey="vehicleModel"   currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-28">모델</SortableTh>
-                        <SortableTh sortKey="qty"            currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-right w-16">입고량</SortableTh>
-                        <SortableTh sortKey="unitPrice"      currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-right w-20">입고단가</SortableTh>
-                        <SortableTh sortKey="receiptAmount"  currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-right w-24">입고금액</SortableTh>
-                        <SortableTh sortKey="supplierCode"   currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-20">거래처코드</SortableTh>
-                        <SortableTh sortKey="supplierName"   currentKey={historySortKey as string|null} sortDir={historySortDir} onSort={(k) => toggleHistorySort(k as keyof HistorySearchItem)} className="px-2 py-2 text-left w-28">거래처명</SortableTh>
+                        {histColSettings.colOrder.map((k) => {
+                          const tp = { dragKey: histColSettings.dragKey, dropTargetKey: histColSettings.dropTargetKey, onResizeEnd: histColSettings.resize, onDragStartKey: histColSettings.setDragKey, onDropKey: histColSettings.reorder, onDragEndKey: () => histColSettings.setDragKey(null), onDragOverKey: histColSettings.setDropTargetKey };
+                          return (
+                            <GridTh key={k} colKey={k} {...tp}
+                              className="px-2 py-2 text-left whitespace-nowrap"
+                              sortKey={k} currentSortKey={historySortKey as string|null} sortDir={historySortDir}
+                              onSort={(sk) => toggleHistorySort(sk as keyof HistorySearchItem)}
+                            >
+                              {HIST_HEADER[k] ?? k}
+                            </GridTh>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
                       {historyLoading ? (
                         <tr>
-                          <td colSpan={16} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td>
+                          <td colSpan={HIST_COLS.length} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td>
                         </tr>
                       ) : historyItems.length === 0 ? (
                         <tr>
-                          <td colSpan={16} className="py-10 text-center text-xs text-muted-foreground">
+                          <td colSpan={HIST_COLS.length} className="py-10 text-center text-xs text-muted-foreground">
                             조회 조건을 입력하고 조회 버튼을 누르세요.
                           </td>
                         </tr>
@@ -1321,140 +1351,118 @@ export default function PurchaseReceiptsPage() {
                           const rowBase = h.type === "반품"
                             ? "bg-red-50/40 dark:bg-red-500/10"
                             : i % 2 === 1 ? "bg-slate-50/60 dark:bg-muted/20" : "";
-
-                          if (isEditing) {
-                            const editAmount = (Number(historyDraft.qty) || 0) * (Number(historyDraft.unitPrice) || 0);
-                            return (
-                              <tr key={h.id} className="border-b last:border-0 bg-yellow-50/60 dark:bg-yellow-500/10 ring-1 ring-inset ring-yellow-400/60">
-                                <td className="px-2 py-1 font-mono text-[11px] text-primary">{h.poNumber}</td>
-                                <td className="px-2 py-1 text-center text-muted-foreground">{h.specNo || "-"}</td>
-                                <td className="px-2 py-1 text-center">
-                                  <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${h.type === "반품" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"}`}>
-                                    {h.type}
-                                  </span>
-                                </td>
-                                {/* 입고일자 편집 */}
-                                <td className="px-1 py-0.5">
-                                  <DateInput
-                                    ref={editDateRef}
-                                    value={historyDraft.receiptDate}
-                                    onChange={(e) => setHistoryDraft((d) => ({ ...d, receiptDate: e.target.value }))}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Escape") { e.preventDefault(); cancelEditHistory(); }
-                                      if (e.key === "Enter")  { e.preventDefault(); editQtyRef.current?.focus(); }
-                                    }}
-                                    className="h-6 w-full rounded border border-input bg-background px-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                                    autoFocus
-                                  />
-                                </td>
-                                <td className="px-2 py-1 text-center text-muted-foreground">{h.processedAt || "-"}</td>
-                                <td className="px-2 py-1 font-mono">{h.itemCode}</td>
-                                <td className="px-2 py-1">{h.itemName}</td>
-                                <td className="px-2 py-1 text-center">{h.warehouse}</td>
-                                <td className="px-2 py-1 text-muted-foreground">{h.storageLocation || "-"}</td>
-                                <td className="px-2 py-1 text-center text-muted-foreground">{h.unit || "-"}</td>
-                                <td className="px-2 py-1 text-muted-foreground">{h.vehicleModel || "-"}</td>
-                                {/* 입고량 편집 */}
-                                <td className="px-1 py-0.5">
-                                  <input
-                                    ref={editQtyRef}
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={historyDraft.qty}
-                                    onChange={(e) => setHistoryDraft((d) => ({ ...d, qty: e.target.value.replace(/[^0-9.]/g, "") }))}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Escape") { e.preventDefault(); cancelEditHistory(); }
-                                      if (e.key === "Enter")  { e.preventDefault(); editUnitPriceRef.current?.focus(); }
-                                    }}
-                                    className="h-6 w-full rounded border border-input bg-background px-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
-                                  />
-                                </td>
-                                {/* 단가 편집 */}
-                                <td className="px-1 py-0.5">
-                                  <input
-                                    ref={editUnitPriceRef}
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={historyDraft.unitPrice}
-                                    onChange={(e) => setHistoryDraft((d) => ({ ...d, unitPrice: e.target.value.replace(/[^0-9.]/g, "") }))}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Escape") { e.preventDefault(); cancelEditHistory(); }
-                                      if (e.key === "Enter")  { e.preventDefault(); editSaveBtnRef.current?.focus(); }
-                                    }}
-                                    className="h-6 w-full rounded border border-input bg-background px-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
-                                  />
-                                </td>
-                                {/* 입고금액 자동계산 */}
-                                <td className="px-2 py-1 text-right text-xs font-semibold text-yellow-700 dark:text-yellow-400 tabular-nums">
-                                  {editAmount > 0 ? formatCurrency(Math.round(editAmount)) : "-"}
-                                </td>
-                                <td className="px-2 py-1 font-mono">{h.supplierCode}</td>
-                                <td className="px-1 py-0.5 text-right" colSpan={1}>
-                                  <div className="flex gap-1 justify-end">
-                                    <button
-                                      ref={editSaveBtnRef}
-                                      onClick={saveEditHistory}
-                                      disabled={historySaving}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") { e.preventDefault(); saveEditHistory(); }
-                                        if (e.key === "Escape") { e.preventDefault(); cancelEditHistory(); }
-                                      }}
-                                      className="h-6 px-2 rounded text-[10px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                                    >
-                                      {historySaving ? "저장중" : "저장"}
-                                    </button>
-                                    <button
-                                      onClick={cancelEditHistory}
-                                      onKeyDown={(e) => { if (e.key === "Escape") cancelEditHistory(); }}
-                                      className="h-6 px-2 rounded text-[10px] font-semibold bg-muted hover:bg-muted/80"
-                                    >
-                                      취소
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          }
+                          const editAmount = (Number(historyDraft.qty) || 0) * (Number(historyDraft.unitPrice) || 0);
 
                           return (
-                          <tr
-                            key={h.id}
-                            className={`border-b last:border-0 cursor-pointer ${
-                              selectedHistoryId === h.id
-                                ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
-                                : `hover:bg-sky-50/60 dark:hover:bg-sky-500/10 ${rowBase}`
-                            }`}
-                            onClick={() => setSelectedHistoryId(h.id === selectedHistoryId ? null : h.id)}
-                            onDoubleClick={() => startEditHistory(h)}
-                            title="더블클릭하여 수정"
-                          >
-                            <td className="px-2 py-1 font-mono text-[11px] text-primary">{h.poNumber}</td>
-                            <td className="px-2 py-1 text-center text-muted-foreground">{h.specNo || "-"}</td>
-                            <td className="px-2 py-1 text-center">
-                              <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${h.type === "반품" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"}`}>
-                                {h.type}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1 text-center">{h.receiptDate}</td>
-                            <td className="px-2 py-1 text-center text-muted-foreground">{h.processedAt || "-"}</td>
-                            <td className="px-2 py-1 font-mono">{h.itemCode}</td>
-                            <td className="px-2 py-1">{h.itemName}</td>
-                            <td className="px-2 py-1 text-center">{h.warehouse}</td>
-                            <td className="px-2 py-1 text-muted-foreground">{h.storageLocation || "-"}</td>
-                            <td className="px-2 py-1 text-center text-muted-foreground">{h.unit || "-"}</td>
-                            <td className="px-2 py-1 text-muted-foreground">{h.vehicleModel || "-"}</td>
-                            <td className={`px-2 py-1 text-right font-semibold ${h.type === "반품" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}>
-                              {h.qty.toLocaleString("ko-KR")}
-                            </td>
-                            <td className="px-2 py-1 text-right text-muted-foreground">
-                              {h.unitPrice ? h.unitPrice.toLocaleString("ko-KR") : "-"}
-                            </td>
-                            <td className="px-2 py-1 text-right">
-                              {h.receiptAmount ? formatCurrency(h.receiptAmount) : "-"}
-                            </td>
-                            <td className="px-2 py-1 font-mono">{h.supplierCode}</td>
-                            <td className="px-2 py-1">{h.supplierName}</td>
-                          </tr>
+                            <tr
+                              key={h.id}
+                              className={`border-b last:border-0 ${isEditing ? "bg-yellow-50/60 dark:bg-yellow-500/10 ring-1 ring-inset ring-yellow-400/60" : `cursor-pointer ${selectedHistoryId === h.id ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40" : `hover:bg-sky-50/60 dark:hover:bg-sky-500/10 ${rowBase}`}`}`}
+                              onClick={() => !isEditing && setSelectedHistoryId(h.id === selectedHistoryId ? null : h.id)}
+                              onDoubleClick={() => !isEditing && startEditHistory(h)}
+                              title={isEditing ? undefined : "더블클릭하여 수정"}
+                            >
+                              {histColSettings.colOrder.map((k) => {
+                                switch (k) {
+                                  case "poNumber": return <td key={k} className="px-2 py-1 font-mono text-[11px] text-primary">{h.poNumber}</td>;
+                                  case "specNo": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.specNo || "-"}</td>;
+                                  case "type": return (
+                                    <td key={k} className="px-2 py-1 text-center">
+                                      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${h.type === "반품" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"}`}>{h.type}</span>
+                                    </td>
+                                  );
+                                  case "receiptDate": return isEditing ? (
+                                    <td key={k} className="px-1 py-0.5">
+                                      <DateInput
+                                        ref={editDateRef}
+                                        value={historyDraft.receiptDate}
+                                        onChange={(e) => setHistoryDraft((d) => ({ ...d, receiptDate: e.target.value }))}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Escape") { e.preventDefault(); cancelEditHistory(); }
+                                          if (e.key === "Enter")  { e.preventDefault(); editQtyRef.current?.focus(); }
+                                        }}
+                                        className="h-6 w-full rounded border border-input bg-background px-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                                        autoFocus
+                                      />
+                                    </td>
+                                  ) : <td key={k} className="px-2 py-1 text-center">{h.receiptDate}</td>;
+                                  case "processedAt": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.processedAt || "-"}</td>;
+                                  case "itemCode": return <td key={k} className="px-2 py-1 font-mono">{h.itemCode}</td>;
+                                  case "itemName": return <td key={k} className="px-2 py-1">{h.itemName}</td>;
+                                  case "warehouse": return <td key={k} className="px-2 py-1 text-center">{h.warehouse}</td>;
+                                  case "storageLocation": return <td key={k} className="px-2 py-1 text-muted-foreground">{h.storageLocation || "-"}</td>;
+                                  case "unit": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.unit || "-"}</td>;
+                                  case "vehicleModel": return <td key={k} className="px-2 py-1 text-muted-foreground">{h.vehicleModel || "-"}</td>;
+                                  case "qty": return isEditing ? (
+                                    <td key={k} className="px-1 py-0.5">
+                                      <input
+                                        ref={editQtyRef}
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={historyDraft.qty}
+                                        onChange={(e) => setHistoryDraft((d) => ({ ...d, qty: e.target.value.replace(/[^0-9.]/g, "") }))}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Escape") { e.preventDefault(); cancelEditHistory(); }
+                                          if (e.key === "Enter")  { e.preventDefault(); editUnitPriceRef.current?.focus(); }
+                                        }}
+                                        className="h-6 w-full rounded border border-input bg-background px-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
+                                      />
+                                    </td>
+                                  ) : (
+                                    <td key={k} className={`px-2 py-1 text-right font-semibold ${h.type === "반품" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}>
+                                      {h.qty.toLocaleString("ko-KR")}
+                                    </td>
+                                  );
+                                  case "unitPrice": return isEditing ? (
+                                    <td key={k} className="px-1 py-0.5">
+                                      <input
+                                        ref={editUnitPriceRef}
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={historyDraft.unitPrice}
+                                        onChange={(e) => setHistoryDraft((d) => ({ ...d, unitPrice: e.target.value.replace(/[^0-9.]/g, "") }))}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Escape") { e.preventDefault(); cancelEditHistory(); }
+                                          if (e.key === "Enter")  { e.preventDefault(); editSaveBtnRef.current?.focus(); }
+                                        }}
+                                        className="h-6 w-full rounded border border-input bg-background px-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-ring"
+                                      />
+                                    </td>
+                                  ) : <td key={k} className="px-2 py-1 text-right text-muted-foreground">{h.unitPrice ? h.unitPrice.toLocaleString("ko-KR") : "-"}</td>;
+                                  case "receiptAmount": return isEditing ? (
+                                    <td key={k} className="px-2 py-1 text-right text-xs font-semibold text-yellow-700 dark:text-yellow-400 tabular-nums">
+                                      {editAmount > 0 ? formatCurrency(Math.round(editAmount)) : "-"}
+                                    </td>
+                                  ) : <td key={k} className="px-2 py-1 text-right">{h.receiptAmount ? formatCurrency(h.receiptAmount) : "-"}</td>;
+                                  case "supplierCode": return <td key={k} className="px-2 py-1 font-mono">{h.supplierCode}</td>;
+                                  case "supplierName": return isEditing ? (
+                                    <td key={k} className="px-1 py-0.5 text-right">
+                                      <div className="flex gap-1 justify-end">
+                                        <button
+                                          ref={editSaveBtnRef}
+                                          onClick={saveEditHistory}
+                                          disabled={historySaving}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") { e.preventDefault(); saveEditHistory(); }
+                                            if (e.key === "Escape") { e.preventDefault(); cancelEditHistory(); }
+                                          }}
+                                          className="h-6 px-2 rounded text-[10px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                        >
+                                          {historySaving ? "저장중" : "저장"}
+                                        </button>
+                                        <button
+                                          onClick={cancelEditHistory}
+                                          onKeyDown={(e) => { if (e.key === "Escape") cancelEditHistory(); }}
+                                          className="h-6 px-2 rounded text-[10px] font-semibold bg-muted hover:bg-muted/80"
+                                        >
+                                          취소
+                                        </button>
+                                      </div>
+                                    </td>
+                                  ) : <td key={k} className="px-2 py-1">{h.supplierName}</td>;
+                                  default: return <td key={k} />;
+                                }
+                              })}
+                            </tr>
                           );
                         })
                       )}
@@ -1754,20 +1762,31 @@ export default function PurchaseReceiptsPage() {
                     {/* 입고처리 그리드 */}
                     <div className="overflow-auto flex-1 min-h-0 border-b">
                       <table className="w-full text-xs">
+                        <colgroup>
+                          {regColSettings.colOrder.map((k) => (
+                            <col key={k} style={{ width: regColSettings.colWidths[k] ? `${regColSettings.colWidths[k]}px` : undefined }} />
+                          ))}
+                          <col style={{ width: "80px" }} />
+                          <col style={{ width: "80px" }} />
+                          <col style={{ width: "128px" }} />
+                          <col style={{ width: "112px" }} />
+                          <col style={{ width: "96px" }} />
+                          <col style={{ width: "96px" }} />
+                        </colgroup>
                         <thead className="sticky top-0 bg-muted/80 border-b z-10">
                           <tr>
-                            <SortableTh sortKey="poNumber"       currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-32">발주번호</SortableTh>
-                            <SortableTh sortKey="seq"            currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-center w-14">순번</SortableTh>
-                            <SortableTh sortKey="itemCode"       currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-36">품목번호</SortableTh>
-                            <SortableTh sortKey="itemName"       currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left">품목명</SortableTh>
-                            <SortableTh sortKey="warehouse"      currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-center w-24">창고</SortableTh>
-                            <SortableTh sortKey="storageLocation"currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-28">저장위치</SortableTh>
-                            <SortableTh sortKey="unit"           currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-center w-14">단위</SortableTh>
-                            <SortableTh sortKey="vehicleModel"   currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-left w-28">모델</SortableTh>
-                            <SortableTh sortKey="unitPrice"      currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-24">단가</SortableTh>
-                            <SortableTh sortKey="orderedQty"     currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-16">발주량</SortableTh>
-                            <SortableTh sortKey="receivedQty"    currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-16">입고량</SortableTh>
-                            <SortableTh sortKey="pendingQty"     currentKey={registerSortKey as string|null} sortDir={registerSortDir} onSort={(k) => toggleRegisterSort(k as keyof FlatSpecRow)} className="px-2 py-2 text-right w-20">입고잔량</SortableTh>
+                            {regColSettings.colOrder.map((k) => {
+                              const tp = { dragKey: regColSettings.dragKey, dropTargetKey: regColSettings.dropTargetKey, onResizeEnd: regColSettings.resize, onDragStartKey: regColSettings.setDragKey, onDropKey: regColSettings.reorder, onDragEndKey: () => regColSettings.setDragKey(null), onDragOverKey: regColSettings.setDropTargetKey };
+                              return (
+                                <GridTh key={k} colKey={k} {...tp}
+                                  className="px-2 py-2 text-left whitespace-nowrap"
+                                  sortKey={k} currentSortKey={registerSortKey as string|null} sortDir={registerSortDir}
+                                  onSort={(sk) => toggleRegisterSort(sk as keyof FlatSpecRow)}
+                                >
+                                  {REG_HEADER[k] ?? k}
+                                </GridTh>
+                              );
+                            })}
                             <th className="px-2 py-2 text-center w-20 bg-amber-50 dark:bg-amber-500/15">입고수량</th>
                             <th className="px-2 py-2 text-center w-20 bg-red-50 dark:bg-red-500/10">반품수량</th>
                             <th className="px-2 py-2 text-center w-32 bg-amber-50 dark:bg-amber-500/15">입고일자</th>
@@ -1781,24 +1800,31 @@ export default function PurchaseReceiptsPage() {
                             const isComplete = row.pendingQty === 0;
                             return (
                               <tr key={row.uid} className={`border-b last:border-0 ${focusedRowUid === row.uid ? "bg-blue-50 dark:bg-blue-500/15 ring-1 ring-inset ring-blue-300 dark:ring-blue-500/40" : isComplete ? "bg-green-50/60 dark:bg-green-500/10" : ""}`}>
-                                <td className="px-2 py-1 font-mono text-[11px] text-primary">{row.poNumber}</td>
-                                <td className="px-2 py-1 text-center text-muted-foreground">{row.seq}</td>
-                                <td className="px-2 py-1 font-mono">{row.itemCode}</td>
-                                <td className="px-2 py-1 font-medium">{row.itemName}</td>
-                                <td className="px-2 py-1 text-center text-muted-foreground">{row.warehouse}</td>
-                                <td className="px-2 py-1 text-muted-foreground">{row.storageLocation}</td>
-                                <td className="px-2 py-1 text-center text-muted-foreground">{row.unit}</td>
-                                <td className="px-2 py-1 text-muted-foreground">{row.vehicleModel}</td>
-                                <td className="px-2 py-1 text-right tabular-nums text-muted-foreground">{row.unitPrice ? row.unitPrice.toLocaleString("ko-KR") : "-"}</td>
-                                <td className="px-2 py-1 text-right">{row.orderedQty.toLocaleString("ko-KR")}</td>
-                                <td className={`px-2 py-1 text-right font-semibold ${row.receivedQty > row.orderedQty ? "text-red-500 dark:text-red-400" : "text-foreground"}`}>
-                                  {row.receivedQty > row.orderedQty
-                                    ? `-${(row.receivedQty - row.orderedQty).toLocaleString("ko-KR")}`
-                                    : row.receivedQty.toLocaleString("ko-KR")}
-                                </td>
-                                <td className={`px-2 py-1 text-right font-semibold ${isComplete ? "text-green-600 dark:text-green-400" : "text-orange-500"}`}>
-                                  {isComplete ? "완료" : row.pendingQty.toLocaleString("ko-KR")}
-                                </td>
+                                {regColSettings.colOrder.map((k) => {
+                                  switch (k) {
+                                    case "poNumber": return <td key={k} className="px-2 py-1 font-mono text-[11px] text-primary">{row.poNumber}</td>;
+                                    case "seq": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{row.seq}</td>;
+                                    case "itemCode": return <td key={k} className="px-2 py-1 font-mono">{row.itemCode}</td>;
+                                    case "itemName": return <td key={k} className="px-2 py-1 font-medium">{row.itemName}</td>;
+                                    case "warehouse": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{row.warehouse}</td>;
+                                    case "storageLocation": return <td key={k} className="px-2 py-1 text-muted-foreground">{row.storageLocation}</td>;
+                                    case "unit": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{row.unit}</td>;
+                                    case "vehicleModel": return <td key={k} className="px-2 py-1 text-muted-foreground">{row.vehicleModel}</td>;
+                                    case "unitPrice": return <td key={k} className="px-2 py-1 text-right tabular-nums text-muted-foreground">{row.unitPrice ? row.unitPrice.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "orderedQty": return <td key={k} className="px-2 py-1 text-right">{row.orderedQty.toLocaleString("ko-KR")}</td>;
+                                    case "receivedQty": return (
+                                      <td key={k} className={`px-2 py-1 text-right font-semibold ${row.receivedQty > row.orderedQty ? "text-red-500 dark:text-red-400" : "text-foreground"}`}>
+                                        {row.receivedQty > row.orderedQty ? `-${(row.receivedQty - row.orderedQty).toLocaleString("ko-KR")}` : row.receivedQty.toLocaleString("ko-KR")}
+                                      </td>
+                                    );
+                                    case "pendingQty": return (
+                                      <td key={k} className={`px-2 py-1 text-right font-semibold ${isComplete ? "text-green-600 dark:text-green-400" : "text-orange-500"}`}>
+                                        {isComplete ? "완료" : row.pendingQty.toLocaleString("ko-KR")}
+                                      </td>
+                                    );
+                                    default: return <td key={k} />;
+                                  }
+                                })}
                                 <td className="px-1 py-1 bg-amber-50 dark:bg-amber-500/10">
                                   <Input inputMode="numeric"
                                     data-grid-uid={row.uid}
@@ -1891,21 +1917,26 @@ export default function PurchaseReceiptsPage() {
                           <p className="p-4 text-center text-xs text-muted-foreground">아직 처리된 입고 내역이 없습니다.</p>
                         ) : (
                           <table className="w-full text-xs">
+                            <colgroup>
+                              {histEntryColSettings.colOrder.map((k) => (
+                                <col key={k} style={{ width: histEntryColSettings.colWidths[k] ? `${histEntryColSettings.colWidths[k]}px` : undefined }} />
+                              ))}
+                              <col style={{ width: "96px" }} />
+                            </colgroup>
                             <thead className="sticky top-0 bg-muted/60 border-b">
                               <tr>
-                                <SortableTh sortKey="type"        currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-14">구분</SortableTh>
-                                <SortableTh sortKey="poNumber"    currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-32">발주번호</SortableTh>
-                                <SortableTh sortKey="seq"         currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-14">순번</SortableTh>
-                                <SortableTh sortKey="processedAt" currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-32">처리일시</SortableTh>
-                                <SortableTh sortKey="itemCode"    currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-36">품목번호</SortableTh>
-                                <SortableTh sortKey="itemName"    currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left">품목명</SortableTh>
-                                <SortableTh sortKey="warehouse"   currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-24">창고</SortableTh>
-                                <SortableTh sortKey="storageLocation" currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-28">저장위치</SortableTh>
-                                <SortableTh sortKey="unit"        currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-14">단위</SortableTh>
-                                <SortableTh sortKey="vehicleModel"currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-28">모델</SortableTh>
-                                <SortableTh sortKey="qty"         currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-right w-16">수량</SortableTh>
-                                <SortableTh sortKey="receiptDate" currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-center w-24">입고일자</SortableTh>
-                                <SortableTh sortKey="lotNo"       currentKey={histEntrySortKey as string|null} sortDir={histEntrySortDir} onSort={(k) => toggleHistEntrySort(k as keyof HistoryEntry)} className="px-2 py-1.5 text-left w-24">LOT번호</SortableTh>
+                                {histEntryColSettings.colOrder.map((k) => {
+                                  const tp = { dragKey: histEntryColSettings.dragKey, dropTargetKey: histEntryColSettings.dropTargetKey, onResizeEnd: histEntryColSettings.resize, onDragStartKey: histEntryColSettings.setDragKey, onDropKey: histEntryColSettings.reorder, onDragEndKey: () => histEntryColSettings.setDragKey(null), onDragOverKey: histEntryColSettings.setDropTargetKey };
+                                  return (
+                                    <GridTh key={k} colKey={k} {...tp}
+                                      className="px-2 py-1.5 text-left whitespace-nowrap"
+                                      sortKey={k} currentSortKey={histEntrySortKey as string|null} sortDir={histEntrySortDir}
+                                      onSort={(sk) => toggleHistEntrySort(sk as keyof HistoryEntry)}
+                                    >
+                                      {HIST_ENTRY_HEADER[k] ?? k}
+                                    </GridTh>
+                                  );
+                                })}
                                 <th className="px-2 py-1.5 text-left w-24">비고</th>
                               </tr>
                             </thead>
@@ -1915,23 +1946,28 @@ export default function PurchaseReceiptsPage() {
                                   className={`border-b last:border-0 cursor-pointer hover:bg-primary/5 ${h.type === "반품" ? "bg-red-50/40 dark:bg-red-500/10" : i % 2 === 1 ? "bg-slate-50/60 dark:bg-muted/20" : ""}`}
                                   onClick={() => setHistoryItemCode(h.itemCode)}
                                 >
-                                  <td className="px-2 py-1 text-center">
-                                    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${h.type === "반품" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"}`}>
-                                      {h.type}
-                                    </span>
-                                  </td>
-                                  <td className="px-2 py-1 font-mono text-[11px] text-primary">{h.poNumber ?? "-"}</td>
-                                  <td className="px-2 py-1 text-center text-muted-foreground">{h.seq ?? "-"}</td>
-                                  <td className="px-2 py-1 text-muted-foreground">{h.processedAt}</td>
-                                  <td className="px-2 py-1 font-mono">{h.itemCode}</td>
-                                  <td className="px-2 py-1">{h.itemName}</td>
-                                  <td className="px-2 py-1 text-center text-muted-foreground">{h.warehouse || "-"}</td>
-                                  <td className="px-2 py-1 text-muted-foreground">{h.storageLocation || "-"}</td>
-                                  <td className="px-2 py-1 text-center text-muted-foreground">{h.unit || "-"}</td>
-                                  <td className="px-2 py-1 text-muted-foreground">{h.vehicleModel || "-"}</td>
-                                  <td className={`px-2 py-1 text-right font-semibold ${h.type === "반품" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}>{h.qty.toLocaleString("ko-KR")}</td>
-                                  <td className="px-2 py-1 text-center">{h.receiptDate}</td>
-                                  <td className="px-2 py-1">{h.lotNo || "-"}</td>
+                                  {histEntryColSettings.colOrder.map((k) => {
+                                    switch (k) {
+                                      case "type": return (
+                                        <td key={k} className="px-2 py-1 text-center">
+                                          <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${h.type === "반품" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"}`}>{h.type}</span>
+                                        </td>
+                                      );
+                                      case "poNumber": return <td key={k} className="px-2 py-1 font-mono text-[11px] text-primary">{h.poNumber ?? "-"}</td>;
+                                      case "seq": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.seq ?? "-"}</td>;
+                                      case "processedAt": return <td key={k} className="px-2 py-1 text-muted-foreground">{h.processedAt}</td>;
+                                      case "itemCode": return <td key={k} className="px-2 py-1 font-mono">{h.itemCode}</td>;
+                                      case "itemName": return <td key={k} className="px-2 py-1">{h.itemName}</td>;
+                                      case "warehouse": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.warehouse || "-"}</td>;
+                                      case "storageLocation": return <td key={k} className="px-2 py-1 text-muted-foreground">{h.storageLocation || "-"}</td>;
+                                      case "unit": return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.unit || "-"}</td>;
+                                      case "vehicleModel": return <td key={k} className="px-2 py-1 text-muted-foreground">{h.vehicleModel || "-"}</td>;
+                                      case "qty": return <td key={k} className={`px-2 py-1 text-right font-semibold ${h.type === "반품" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}>{h.qty.toLocaleString("ko-KR")}</td>;
+                                      case "receiptDate": return <td key={k} className="px-2 py-1 text-center">{h.receiptDate}</td>;
+                                      case "lotNo": return <td key={k} className="px-2 py-1">{h.lotNo || "-"}</td>;
+                                      default: return <td key={k} />;
+                                    }
+                                  })}
                                   <td className="px-2 py-1 text-muted-foreground">{h.note || "-"}</td>
                                 </tr>
                               ))}

@@ -16,7 +16,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
-import { SortableTh } from "@/components/ui/sortable-th";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,16 @@ type ReturnSlip = {
   items: ReturnSlipItem[];
 };
 
+// ── 컬럼 설정 ─────────────────────────────────────────────────────────────────
+
+const RETURN_COLS = ["poNumber","specNo","receiptDate","processedAt","itemCode","itemName","warehouse","storageLocation","unit","vehicleModel","qty","unitPrice","receiptAmount","supplierCode","supplierName"] as const;
+const RETURN_HEADER: Record<string, string> = {
+  poNumber:"구매오더번호", specNo:"순번", receiptDate:"입고일자", processedAt:"반품일자",
+  itemCode:"품목번호", itemName:"품목명", warehouse:"창고", storageLocation:"저장위치",
+  unit:"단위", vehicleModel:"모델", qty:"수량", unitPrice:"단가",
+  receiptAmount:"금액", supplierCode:"거래처코드", supplierName:"거래처명",
+};
+
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
 export default function PurchaseReturnsPage() {
@@ -103,6 +114,7 @@ export default function PurchaseReturnsPage() {
   const [totalAmount, setTotalAmount] = useState(0);
   const [loading, setLoading]     = useState(false);
   const { sortedItems, sortKey: rSortKey, sortDir: rSortDir, toggleSort: rToggleSort } = useSortableGrid(items);
+  const rColSettings = useGridColumnSettings("receipt-returns/list", [...RETURN_COLS]);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
   const [stripedRows, setStripedRows] = useState(true);
@@ -733,33 +745,35 @@ export default function PurchaseReturnsPage() {
           <CardContent className="p-0 flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-auto min-h-0">
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/80 border-b">
+                <colgroup>
+                  {rColSettings.colOrder.map((k) => (
+                    <col key={k} style={{ width: rColSettings.colWidths[k] ? `${rColSettings.colWidths[k]}px` : undefined }} />
+                  ))}
+                </colgroup>
+                <thead className="sticky top-0 bg-muted/80 border-b z-10">
                   <tr>
-                    <SortableTh sortKey="poNumber"       currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-32">구매오더번호</SortableTh>
-                    <SortableTh sortKey="specNo"         currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-10">순번</SortableTh>
-                    <SortableTh sortKey="receiptDate"    currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-24">입고일자</SortableTh>
-                    <SortableTh sortKey="processedAt"    currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-36">반품일자</SortableTh>
-                    <SortableTh sortKey="itemCode"       currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-32">품목번호</SortableTh>
-                    <SortableTh sortKey="itemName"       currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left">품목명</SortableTh>
-                    <SortableTh sortKey="warehouse"      currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-20">창고</SortableTh>
-                    <SortableTh sortKey="storageLocation"currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-24">저장위치</SortableTh>
-                    <SortableTh sortKey="unit"           currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-center w-14">단위</SortableTh>
-                    <SortableTh sortKey="vehicleModel"   currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-28">모델</SortableTh>
-                    <SortableTh sortKey="qty"            currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-right w-16">수량</SortableTh>
-                    <SortableTh sortKey="unitPrice"      currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-right w-20">단가</SortableTh>
-                    <SortableTh sortKey="receiptAmount"  currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-right w-24">금액</SortableTh>
-                    <SortableTh sortKey="supplierCode"   currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-20">거래처코드</SortableTh>
-                    <SortableTh sortKey="supplierName"   currentKey={rSortKey as string|null} sortDir={rSortDir} onSort={(k) => rToggleSort(k as keyof ReturnHistoryItem)} className="px-2 py-2 text-left w-28">거래처명</SortableTh>
+                    {rColSettings.colOrder.map((k) => {
+                      const tp = { dragKey: rColSettings.dragKey, dropTargetKey: rColSettings.dropTargetKey, onResizeEnd: rColSettings.resize, onDragStartKey: rColSettings.setDragKey, onDropKey: rColSettings.reorder, onDragEndKey: () => rColSettings.setDragKey(null), onDragOverKey: rColSettings.setDropTargetKey };
+                      return (
+                        <GridTh key={k} colKey={k} {...tp}
+                          className="px-2 py-2 whitespace-nowrap text-xs"
+                          sortKey={k} currentSortKey={rSortKey as string|null} sortDir={rSortDir}
+                          onSort={(sk) => rToggleSort(sk as keyof ReturnHistoryItem)}
+                        >
+                          {RETURN_HEADER[k] ?? k}
+                        </GridTh>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={15} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td>
+                      <td colSpan={RETURN_COLS.length} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td>
                     </tr>
                   ) : items.length === 0 ? (
                     <tr>
-                      <td colSpan={15} className="py-10 text-center text-xs text-muted-foreground">
+                      <td colSpan={RETURN_COLS.length} className="py-10 text-center text-xs text-muted-foreground">
                         조회 조건을 입력하고 조회 버튼을 누르세요.
                       </td>
                     </tr>
@@ -777,27 +791,26 @@ export default function PurchaseReturnsPage() {
                               : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
                           }`}
                         >
-                          <td className="px-2 py-1 font-mono text-[11px] text-primary">{h.poNumber}</td>
-                          <td className="px-2 py-1 text-center text-muted-foreground">{h.specNo || "-"}</td>
-                          <td className="px-2 py-1 text-center">{h.receiptDate}</td>
-                          <td className="px-2 py-1 text-center text-muted-foreground">{h.processedAt}</td>
-                          <td className="px-2 py-1 font-mono">{h.itemCode}</td>
-                          <td className="px-2 py-1">{h.itemName}</td>
-                          <td className="px-2 py-1 text-center">{h.warehouse}</td>
-                          <td className="px-2 py-1 text-muted-foreground">{h.storageLocation || "-"}</td>
-                          <td className="px-2 py-1 text-center text-muted-foreground">{h.unit || "-"}</td>
-                          <td className="px-2 py-1 text-muted-foreground">{h.vehicleModel || "-"}</td>
-                          <td className="px-2 py-1 text-right font-semibold text-red-600 dark:text-red-400">
-                            {h.qty.toLocaleString("ko-KR")}
-                          </td>
-                          <td className="px-2 py-1 text-right text-muted-foreground">
-                            {h.unitPrice ? h.unitPrice.toLocaleString("ko-KR") : "-"}
-                          </td>
-                          <td className="px-2 py-1 text-right">
-                            {h.receiptAmount ? formatCurrency(h.receiptAmount) : "-"}
-                          </td>
-                          <td className="px-2 py-1 font-mono">{h.supplierCode}</td>
-                          <td className="px-2 py-1">{h.supplierName}</td>
+                          {rColSettings.colOrder.map((k) => {
+                            switch (k) {
+                              case "poNumber":        return <td key={k} className="px-2 py-1 font-mono text-[11px] text-primary">{h.poNumber}</td>;
+                              case "specNo":          return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.specNo || "-"}</td>;
+                              case "receiptDate":     return <td key={k} className="px-2 py-1 text-center">{h.receiptDate}</td>;
+                              case "processedAt":     return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.processedAt}</td>;
+                              case "itemCode":        return <td key={k} className="px-2 py-1 font-mono">{h.itemCode}</td>;
+                              case "itemName":        return <td key={k} className="px-2 py-1">{h.itemName}</td>;
+                              case "warehouse":       return <td key={k} className="px-2 py-1 text-center">{h.warehouse}</td>;
+                              case "storageLocation": return <td key={k} className="px-2 py-1 text-muted-foreground">{h.storageLocation || "-"}</td>;
+                              case "unit":            return <td key={k} className="px-2 py-1 text-center text-muted-foreground">{h.unit || "-"}</td>;
+                              case "vehicleModel":    return <td key={k} className="px-2 py-1 text-muted-foreground">{h.vehicleModel || "-"}</td>;
+                              case "qty":             return <td key={k} className="px-2 py-1 text-right font-semibold text-red-600 dark:text-red-400">{h.qty.toLocaleString("ko-KR")}</td>;
+                              case "unitPrice":       return <td key={k} className="px-2 py-1 text-right text-muted-foreground">{h.unitPrice ? h.unitPrice.toLocaleString("ko-KR") : "-"}</td>;
+                              case "receiptAmount":   return <td key={k} className="px-2 py-1 text-right">{h.receiptAmount ? formatCurrency(h.receiptAmount) : "-"}</td>;
+                              case "supplierCode":    return <td key={k} className="px-2 py-1 font-mono">{h.supplierCode}</td>;
+                              case "supplierName":    return <td key={k} className="px-2 py-1">{h.supplierName}</td>;
+                              default:                return <td key={k} />;
+                            }
+                          })}
                         </tr>
                       );
                     })

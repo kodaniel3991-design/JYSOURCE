@@ -15,7 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
-import { SortableTh } from "@/components/ui/sortable-th";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,29 @@ type SupplierAggRow = {
 const thCls = "px-2 py-2 text-center border-r border-border whitespace-nowrap font-medium";
 const tdCls = "px-2 py-1 border-r border-border";
 
+// ── 컬럼 설정 상수 ───────────────────────────────────────────────────────────
+
+const PERIOD_DETAIL_COLS = ["supplierCode","receiptDate","receiptNo","itemCode","itemName","spec","material","unit","deliveryQty","defectQty","defectRate","receiptQty","unitPrice","receiptAmount","isApprox"];
+const PERIOD_ITEM_COLS   = ["supplierCode","itemCode","itemName","spec","material","unit","deliveryQty","defectQty","defectRate","receiptQty","receiptAmount"];
+const PERIOD_AGG_COLS    = ["supplierCode","deliveryQty","defectQty","defectRate","receiptQty","receiptAmount"];
+const LOCKED_DETAIL = ["supplierCode","receiptDate"];
+const LOCKED_ITEM   = ["supplierCode"];
+
+const PERIOD_DETAIL_HEADER: Record<string, string> = {
+  receiptNo:"전표번호", itemCode:"품목번호", itemName:"품목명", spec:"규격", material:"재질",
+  unit:"단위", deliveryQty:"납품수량", defectQty:"불량수량", defectRate:"불량률(ppm)",
+  receiptQty:"입고수량", unitPrice:"입고단가", receiptAmount:"입고금액", isApprox:"가단가",
+};
+const PERIOD_ITEM_HEADER: Record<string, string> = {
+  itemCode:"품목번호", itemName:"품목명", spec:"규격", material:"재질", unit:"단위",
+  deliveryQty:"납품수량", defectQty:"불량수량", defectRate:"불량률(ppm)",
+  receiptQty:"입고수량", receiptAmount:"입고금액",
+};
+const PERIOD_AGG_HEADER: Record<string, string> = {
+  supplierCode:"거래처번호", deliveryQty:"납품수량", defectQty:"불량수량",
+  defectRate:"불량률(ppm)", receiptQty:"입고수량", receiptAmount:"입고금액",
+};
+
 // ── 페이지 ───────────────────────────────────────────────────────────────────
 
 export default function ReceiptPeriodPage() {
@@ -111,6 +135,11 @@ export default function ReceiptPeriodPage() {
   const [loading, setLoading] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+
+  // 컬럼 설정 (순서 + 너비, 사용자별 localStorage 저장)
+  const detailColSettings = useGridColumnSettings("receipt-period/detail",    PERIOD_DETAIL_COLS);
+  const itemColSettings   = useGridColumnSettings("receipt-period/item-group", PERIOD_ITEM_COLS);
+  const aggColSettings    = useGridColumnSettings("receipt-period/agg",        PERIOD_AGG_COLS);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
   const [stripedRows, setStripedRows] = useState(true);
 
@@ -732,53 +761,70 @@ export default function ReceiptPeriodPage() {
           <CardContent className="p-0 flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-auto min-h-0">
               <table className="w-full text-xs border-collapse">
+                {/* colgroup */}
+                {viewType === "내역" && (
+                  <colgroup>
+                    <col style={{ width: detailColSettings.colWidths.supplierCode ? `${detailColSettings.colWidths.supplierCode}px` : "176px" }} />
+                    <col style={{ width: detailColSettings.colWidths.receiptDate  ? `${detailColSettings.colWidths.receiptDate}px`  : "96px"  }} />
+                    {detailColSettings.colOrder.filter((k) => !LOCKED_DETAIL.includes(k)).map((k) => (
+                      <col key={k} style={{ width: detailColSettings.colWidths[k] ? `${detailColSettings.colWidths[k]}px` : undefined }} />
+                    ))}
+                  </colgroup>
+                )}
+                {viewType === "업체+품목" && (
+                  <colgroup>
+                    <col style={{ width: itemColSettings.colWidths.supplierCode ? `${itemColSettings.colWidths.supplierCode}px` : "192px" }} />
+                    {itemColSettings.colOrder.filter((k) => !LOCKED_ITEM.includes(k)).map((k) => (
+                      <col key={k} style={{ width: itemColSettings.colWidths[k] ? `${itemColSettings.colWidths[k]}px` : undefined }} />
+                    ))}
+                  </colgroup>
+                )}
+                {viewType === "업체집계" && (
+                  <colgroup>
+                    {aggColSettings.colOrder.map((k) => (
+                      <col key={k} style={{ width: aggColSettings.colWidths[k] ? `${aggColSettings.colWidths[k]}px` : undefined }} />
+                    ))}
+                  </colgroup>
+                )}
 
                 {/* ── 헤더 ─────────────────────────────────────────────────── */}
                 <thead className="sticky top-0 bg-muted/80 border-b z-10">
-                  {viewType === "내역" && (
-                    <tr>
-                      <th className={`${thCls} w-44`}>거래처번호</th>
-                      <th className={`${thCls} w-24`}>입고일자</th>
-                      <th className={`${thCls} w-24`}>전표번호</th>
-                      <th className={`${thCls} w-36`}>품목번호</th>
-                      <th className={`${thCls} min-w-[120px]`}>품목명</th>
-                      <th className={`${thCls} w-20`}>규격</th>
-                      <th className={`${thCls} w-16`}>재질</th>
-                      <th className={`${thCls} w-12`}>단위</th>
-                      <th className={`${thCls} w-20`}>납품수량</th>
-                      <th className={`${thCls} w-18`}>불량수량</th>
-                      <th className={`${thCls} w-22`}>불량률(ppm)</th>
-                      <th className={`${thCls} w-20`}>입고수량</th>
-                      <th className={`${thCls} w-22`}>입고단가</th>
-                      <th className={`${thCls} w-26`}>입고금액</th>
-                      <th className={`${thCls} w-16 border-r-0`}>가단가여부</th>
-                    </tr>
-                  )}
-                  {viewType === "업체+품목" && (
-                    <tr>
-                      <th className={`${thCls} w-48`}>거래처번호</th>
-                      <th className={`${thCls} w-36`}>품목번호</th>
-                      <th className={`${thCls} min-w-[120px]`}>품목명</th>
-                      <th className={`${thCls} w-20`}>규격</th>
-                      <th className={`${thCls} w-16`}>재질</th>
-                      <th className={`${thCls} w-12`}>단위</th>
-                      <th className={`${thCls} w-22`}>납품수량</th>
-                      <th className={`${thCls} w-18`}>불량수량</th>
-                      <th className={`${thCls} w-22`}>불량률(ppm)</th>
-                      <th className={`${thCls} w-22`}>입고수량</th>
-                      <th className={`${thCls} w-28 border-r-0`}>입고금액</th>
-                    </tr>
-                  )}
-                  {viewType === "업체집계" && (
-                    <tr>
-                      <SortableTh sortKey="supplierCode"  currentKey={aggSortKey as string|null} sortDir={aggSortDir} onSort={(k) => aggToggleSort(k as keyof SupplierAggRow)} className={`${thCls} min-w-[180px]`}>거래처번호</SortableTh>
-                      <th className={`${thCls} w-28`}>납품수량</th>
-                      <th className={`${thCls} w-24`}>불량수량</th>
-                      <th className={`${thCls} w-28`}>불량률(ppm)</th>
-                      <SortableTh sortKey="qty"           currentKey={aggSortKey as string|null} sortDir={aggSortDir} onSort={(k) => aggToggleSort(k as keyof SupplierAggRow)} className={`${thCls} w-28`}>입고수량</SortableTh>
-                      <SortableTh sortKey="receiptAmount" currentKey={aggSortKey as string|null} sortDir={aggSortDir} onSort={(k) => aggToggleSort(k as keyof SupplierAggRow)} className={`${thCls} w-36 border-r-0`}>입고금액</SortableTh>
-                    </tr>
-                  )}
+                  {viewType === "내역" && (() => {
+                    const ordCols = detailColSettings.colOrder.filter((k) => !LOCKED_DETAIL.includes(k));
+                    const tp = { dragKey: detailColSettings.dragKey, dropTargetKey: detailColSettings.dropTargetKey, onResizeEnd: detailColSettings.resize, onDragStartKey: detailColSettings.setDragKey, onDropKey: detailColSettings.reorder, onDragEndKey: () => detailColSettings.setDragKey(null), onDragOverKey: detailColSettings.setDropTargetKey };
+                    return (
+                      <tr>
+                        <GridTh colKey="supplierCode" locked {...tp} className={thCls}>거래처번호</GridTh>
+                        <GridTh colKey="receiptDate"  locked {...tp} className={thCls}>입고일자</GridTh>
+                        {ordCols.map((k) => <GridTh key={k} colKey={k} {...tp} className={thCls}>{PERIOD_DETAIL_HEADER[k] ?? k}</GridTh>)}
+                      </tr>
+                    );
+                  })()}
+                  {viewType === "업체+품목" && (() => {
+                    const ordCols = itemColSettings.colOrder.filter((k) => !LOCKED_ITEM.includes(k));
+                    const tp = { dragKey: itemColSettings.dragKey, dropTargetKey: itemColSettings.dropTargetKey, onResizeEnd: itemColSettings.resize, onDragStartKey: itemColSettings.setDragKey, onDropKey: itemColSettings.reorder, onDragEndKey: () => itemColSettings.setDragKey(null), onDragOverKey: itemColSettings.setDropTargetKey };
+                    return (
+                      <tr>
+                        <GridTh colKey="supplierCode" locked {...tp} className={thCls}>거래처번호</GridTh>
+                        {ordCols.map((k) => <GridTh key={k} colKey={k} {...tp} className={thCls}>{PERIOD_ITEM_HEADER[k] ?? k}</GridTh>)}
+                      </tr>
+                    );
+                  })()}
+                  {viewType === "업체집계" && (() => {
+                    const tp = { dragKey: aggColSettings.dragKey, dropTargetKey: aggColSettings.dropTargetKey, onResizeEnd: aggColSettings.resize, onDragStartKey: aggColSettings.setDragKey, onDropKey: aggColSettings.reorder, onDragEndKey: () => aggColSettings.setDragKey(null), onDragOverKey: aggColSettings.setDropTargetKey };
+                    const SORT_KEYS: Record<string, keyof SupplierAggRow> = { supplierCode:"supplierCode", receiptQty:"qty", receiptAmount:"receiptAmount" };
+                    return (
+                      <tr>
+                        {aggColSettings.colOrder.map((k) => (
+                          <GridTh key={k} colKey={k} {...tp} className={thCls}
+                            sortKey={SORT_KEYS[k]} currentSortKey={aggSortKey as string|null} sortDir={aggSortDir}
+                            onSort={(sk) => aggToggleSort(SORT_KEYS[sk] ?? sk as keyof SupplierAggRow)}>
+                            {PERIOD_AGG_HEADER[k] ?? k}
+                          </GridTh>
+                        ))}
+                      </tr>
+                    );
+                  })()}
                 </thead>
 
                 {/* ── 바디 ─────────────────────────────────────────────────── */}
@@ -816,57 +862,48 @@ export default function ReceiptPeriodPage() {
                                     className={`border-b cursor-pointer ${item.id === selectedKey ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40" : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"}`}
                                   >
                                     {showSup && (
-                                      <td rowSpan={supplierRowSpan}
-                                        className={`${tdCls} align-top text-[11px]`}>
+                                      <td rowSpan={supplierRowSpan} className={`${tdCls} align-top text-[11px]`}>
                                         <div className="font-mono">{group.supplierCode}</div>
                                         <div className="text-muted-foreground text-[10px]">{group.supplierName}</div>
                                       </td>
                                     )}
                                     {showDate && (
-                                      <td rowSpan={dg.rows.length}
-                                        className={`${tdCls} text-center align-top`}>
-                                        {dg.receiptDate}
-                                      </td>
+                                      <td rowSpan={dg.rows.length} className={`${tdCls} text-center align-top`}>{dg.receiptDate}</td>
                                     )}
-                                    <td className={`${tdCls} text-center font-mono text-[11px]`}>{item.receiptNo}</td>
-                                    <td className={`${tdCls} font-mono text-[11px]`}>{item.itemCode}</td>
-                                    <td className={tdCls}>{item.itemName}</td>
-                                    <td className={`${tdCls} text-muted-foreground`}></td>
-                                    <td className={`${tdCls} text-muted-foreground`}></td>
-                                    <td className={`${tdCls} text-center`}>{item.unit}</td>
-                                    <td className={`${tdCls} text-right tabular-nums ${qColor}`}>{item.qty.toLocaleString("ko-KR")}</td>
-                                    <td className={`${tdCls} text-right`}>0</td>
-                                    <td className={`${tdCls} text-right`}>0</td>
-                                    <td className={`${tdCls} text-right tabular-nums font-semibold ${qColor}`}>{item.qty.toLocaleString("ko-KR")}</td>
-                                    <td className={`${tdCls} text-right tabular-nums text-muted-foreground`}>
-                                      {item.unitPrice ? item.unitPrice.toLocaleString("ko-KR") : ""}
-                                    </td>
-                                    <td className={`${tdCls} text-right tabular-nums`}>{item.receiptAmount.toLocaleString("ko-KR")}</td>
-                                    <td className="px-2 py-1 text-center text-muted-foreground">N</td>
+                                    {detailColSettings.colOrder.filter((k) => !LOCKED_DETAIL.includes(k)).map((k) => {
+                                      switch (k) {
+                                        case "receiptNo":     return <td key={k} className={`${tdCls} text-center font-mono text-[11px]`}>{item.receiptNo}</td>;
+                                        case "itemCode":      return <td key={k} className={`${tdCls} font-mono text-[11px]`}>{item.itemCode}</td>;
+                                        case "itemName":      return <td key={k} className={tdCls}>{item.itemName}</td>;
+                                        case "spec":          return <td key={k} className={`${tdCls} text-muted-foreground`}></td>;
+                                        case "material":      return <td key={k} className={`${tdCls} text-muted-foreground`}></td>;
+                                        case "unit":          return <td key={k} className={`${tdCls} text-center`}>{item.unit}</td>;
+                                        case "deliveryQty":   return <td key={k} className={`${tdCls} text-right tabular-nums ${qColor}`}>{item.qty.toLocaleString("ko-KR")}</td>;
+                                        case "defectQty":     return <td key={k} className={`${tdCls} text-right`}>0</td>;
+                                        case "defectRate":    return <td key={k} className={`${tdCls} text-right`}>0</td>;
+                                        case "receiptQty":    return <td key={k} className={`${tdCls} text-right tabular-nums font-semibold ${qColor}`}>{item.qty.toLocaleString("ko-KR")}</td>;
+                                        case "unitPrice":     return <td key={k} className={`${tdCls} text-right tabular-nums text-muted-foreground`}>{item.unitPrice ? item.unitPrice.toLocaleString("ko-KR") : ""}</td>;
+                                        case "receiptAmount": return <td key={k} className={`${tdCls} text-right tabular-nums`}>{item.receiptAmount.toLocaleString("ko-KR")}</td>;
+                                        case "isApprox":      return <td key={k} className={`${tdCls} text-center text-muted-foreground`}>N</td>;
+                                        default:              return <td key={k} className={tdCls} />;
+                                      }
+                                    })}
                                   </tr>
                                 );
                               })
                             );
 
                             const subtotalRow = (
-                              <tr key={`sub-${group.supplierCode}`}
-                                className="border-b bg-yellow-50/80 dark:bg-yellow-500/10 font-semibold">
-                                <td colSpan={8} className="px-3 py-1 text-right border-r border-border text-yellow-700 dark:text-yellow-300">
-                                  [소&nbsp;&nbsp;계]
-                                </td>
-                                <td className="px-2 py-1 text-right border-r border-border tabular-nums text-yellow-700 dark:text-yellow-300">
-                                  {group.totalQty.toLocaleString("ko-KR")}
-                                </td>
-                                <td className="px-2 py-1 text-right border-r border-border">0</td>
-                                <td className="px-2 py-1 text-right border-r border-border">0</td>
-                                <td className="px-2 py-1 text-right border-r border-border tabular-nums text-yellow-700 dark:text-yellow-300">
-                                  {group.totalQty.toLocaleString("ko-KR")}
-                                </td>
-                                <td className="px-2 py-1 border-r border-border" />
-                                <td className="px-2 py-1 text-right border-r border-border tabular-nums text-yellow-700 dark:text-yellow-300">
-                                  {group.totalAmount.toLocaleString("ko-KR")}
-                                </td>
-                                <td className="px-2 py-1" />
+                              <tr key={`sub-${group.supplierCode}`} className="border-b bg-yellow-50/80 dark:bg-yellow-500/10 font-semibold">
+                                <td colSpan={2} className={`px-3 py-1 text-right ${tdCls} text-yellow-700 dark:text-yellow-300`}>[소&nbsp;&nbsp;계]</td>
+                                {detailColSettings.colOrder.filter((k) => !LOCKED_DETAIL.includes(k)).map((k) => {
+                                  if (k === "deliveryQty") return <td key={k} className={`px-2 py-1 text-right ${tdCls} tabular-nums text-yellow-700 dark:text-yellow-300`}>{group.totalQty.toLocaleString("ko-KR")}</td>;
+                                  if (k === "defectQty")   return <td key={k} className={`px-2 py-1 text-right ${tdCls}`}>0</td>;
+                                  if (k === "defectRate")  return <td key={k} className={`px-2 py-1 text-right ${tdCls}`}>0</td>;
+                                  if (k === "receiptQty")  return <td key={k} className={`px-2 py-1 text-right ${tdCls} tabular-nums text-yellow-700 dark:text-yellow-300`}>{group.totalQty.toLocaleString("ko-KR")}</td>;
+                                  if (k === "receiptAmount") return <td key={k} className={`px-2 py-1 text-right ${tdCls} tabular-nums text-yellow-700 dark:text-yellow-300`}>{group.totalAmount.toLocaleString("ko-KR")}</td>;
+                                  return <td key={k} className={`px-2 py-1 ${tdCls}`} />;
+                                })}
                               </tr>
                             );
 
@@ -874,22 +911,15 @@ export default function ReceiptPeriodPage() {
                           })}
 
                           <tr className="border-t-2 border-lime-400 bg-lime-50/80 dark:bg-lime-500/10 font-bold">
-                            <td colSpan={8} className="px-3 py-2 text-right border-r border-border text-lime-800 dark:text-lime-300 text-sm">
-                              [합&nbsp;&nbsp;계]
-                            </td>
-                            <td className="px-2 py-2 text-right border-r border-border tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalQty.toLocaleString("ko-KR")}
-                            </td>
-                            <td className="px-2 py-2 text-right border-r border-border">0</td>
-                            <td className="px-2 py-2 text-right border-r border-border">0</td>
-                            <td className="px-2 py-2 text-right border-r border-border tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalQty.toLocaleString("ko-KR")}
-                            </td>
-                            <td className="px-2 py-2 border-r border-border" />
-                            <td className="px-2 py-2 text-right border-r border-border tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalAmount.toLocaleString("ko-KR")}
-                            </td>
-                            <td className="px-2 py-2" />
+                            <td colSpan={2} className={`px-3 py-2 text-right ${tdCls} text-lime-800 dark:text-lime-300 text-sm`}>[합&nbsp;&nbsp;계]</td>
+                            {detailColSettings.colOrder.filter((k) => !LOCKED_DETAIL.includes(k)).map((k) => {
+                              if (k === "deliveryQty") return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "defectQty")   return <td key={k} className={`px-2 py-2 text-right ${tdCls}`}>0</td>;
+                              if (k === "defectRate")  return <td key={k} className={`px-2 py-2 text-right ${tdCls}`}>0</td>;
+                              if (k === "receiptQty")  return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "receiptAmount") return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalAmount.toLocaleString("ko-KR")}</td>;
+                              return <td key={k} className={`px-2 py-2 ${tdCls}`} />;
+                            })}
                           </tr>
                         </>
                       )}
@@ -916,16 +946,21 @@ export default function ReceiptPeriodPage() {
                                       <div className="text-muted-foreground text-[10px]">{group.supplierName}</div>
                                     </td>
                                   )}
-                                  <td className={`${tdCls} font-mono text-[11px]`}>{row.itemCode}</td>
-                                  <td className={tdCls}>{row.itemName}</td>
-                                  <td className={`${tdCls} text-muted-foreground`}></td>
-                                  <td className={`${tdCls} text-muted-foreground`}></td>
-                                  <td className={`${tdCls} text-center`}>{row.unit}</td>
-                                  <td className={`${tdCls} text-right tabular-nums ${qColor}`}>{row.qty.toLocaleString("ko-KR")}</td>
-                                  <td className={`${tdCls} text-right`}>0</td>
-                                  <td className={`${tdCls} text-right`}>0</td>
-                                  <td className={`${tdCls} text-right tabular-nums font-semibold ${qColor}`}>{row.qty.toLocaleString("ko-KR")}</td>
-                                  <td className="px-2 py-1 text-right tabular-nums">{row.receiptAmount.toLocaleString("ko-KR")}</td>
+                                  {itemColSettings.colOrder.filter((k) => !LOCKED_ITEM.includes(k)).map((k) => {
+                                    switch (k) {
+                                      case "itemCode":      return <td key={k} className={`${tdCls} font-mono text-[11px]`}>{row.itemCode}</td>;
+                                      case "itemName":      return <td key={k} className={tdCls}>{row.itemName}</td>;
+                                      case "spec":          return <td key={k} className={`${tdCls} text-muted-foreground`} />;
+                                      case "material":      return <td key={k} className={`${tdCls} text-muted-foreground`} />;
+                                      case "unit":          return <td key={k} className={`${tdCls} text-center`}>{row.unit}</td>;
+                                      case "deliveryQty":   return <td key={k} className={`${tdCls} text-right tabular-nums ${qColor}`}>{row.qty.toLocaleString("ko-KR")}</td>;
+                                      case "defectQty":     return <td key={k} className={`${tdCls} text-right`}>0</td>;
+                                      case "defectRate":    return <td key={k} className={`${tdCls} text-right`}>0</td>;
+                                      case "receiptQty":    return <td key={k} className={`${tdCls} text-right tabular-nums font-semibold ${qColor}`}>{row.qty.toLocaleString("ko-KR")}</td>;
+                                      case "receiptAmount": return <td key={k} className={`${tdCls} text-right tabular-nums`}>{row.receiptAmount.toLocaleString("ko-KR")}</td>;
+                                      default:              return <td key={k} className={tdCls} />;
+                                    }
+                                  })}
                                 </tr>
                               );
                             });
@@ -933,20 +968,15 @@ export default function ReceiptPeriodPage() {
                             const subtotalRow = (
                               <tr key={`sub-${group.supplierCode}`}
                                 className="border-b bg-yellow-50/80 dark:bg-yellow-500/10 font-semibold">
-                                <td colSpan={6} className="px-3 py-1 text-right border-r border-border text-yellow-700 dark:text-yellow-300">
-                                  [소&nbsp;&nbsp;계]
-                                </td>
-                                <td className="px-2 py-1 text-right border-r border-border tabular-nums text-yellow-700 dark:text-yellow-300">
-                                  {group.totalQty.toLocaleString("ko-KR")}
-                                </td>
-                                <td className="px-2 py-1 text-right border-r border-border">0</td>
-                                <td className="px-2 py-1 text-right border-r border-border">0</td>
-                                <td className="px-2 py-1 text-right border-r border-border tabular-nums text-yellow-700 dark:text-yellow-300">
-                                  {group.totalQty.toLocaleString("ko-KR")}
-                                </td>
-                                <td className="px-2 py-1 text-right tabular-nums text-yellow-700 dark:text-yellow-300">
-                                  {group.totalAmount.toLocaleString("ko-KR")}
-                                </td>
+                                <td className={`px-3 py-1 text-right ${tdCls} text-yellow-700 dark:text-yellow-300`}>[소&nbsp;&nbsp;계]</td>
+                                {itemColSettings.colOrder.filter((k) => !LOCKED_ITEM.includes(k)).map((k) => {
+                                  if (k === "deliveryQty")   return <td key={k} className={`px-2 py-1 text-right ${tdCls} tabular-nums text-yellow-700 dark:text-yellow-300`}>{group.totalQty.toLocaleString("ko-KR")}</td>;
+                                  if (k === "defectQty")     return <td key={k} className={`px-2 py-1 text-right ${tdCls}`}>0</td>;
+                                  if (k === "defectRate")    return <td key={k} className={`px-2 py-1 text-right ${tdCls}`}>0</td>;
+                                  if (k === "receiptQty")    return <td key={k} className={`px-2 py-1 text-right ${tdCls} tabular-nums text-yellow-700 dark:text-yellow-300`}>{group.totalQty.toLocaleString("ko-KR")}</td>;
+                                  if (k === "receiptAmount") return <td key={k} className={`px-2 py-1 text-right ${tdCls} tabular-nums text-yellow-700 dark:text-yellow-300`}>{group.totalAmount.toLocaleString("ko-KR")}</td>;
+                                  return <td key={k} className={`px-2 py-1 ${tdCls}`} />;
+                                })}
                               </tr>
                             );
 
@@ -954,20 +984,15 @@ export default function ReceiptPeriodPage() {
                           })}
 
                           <tr className="border-t-2 border-lime-400 bg-lime-50/80 dark:bg-lime-500/10 font-bold">
-                            <td colSpan={6} className="px-3 py-2 text-right border-r border-border text-lime-800 dark:text-lime-300 text-sm">
-                              [합&nbsp;&nbsp;계]
-                            </td>
-                            <td className="px-2 py-2 text-right border-r border-border tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalQty.toLocaleString("ko-KR")}
-                            </td>
-                            <td className="px-2 py-2 text-right border-r border-border">0</td>
-                            <td className="px-2 py-2 text-right border-r border-border">0</td>
-                            <td className="px-2 py-2 text-right border-r border-border tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalQty.toLocaleString("ko-KR")}
-                            </td>
-                            <td className="px-2 py-2 text-right tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalAmount.toLocaleString("ko-KR")}
-                            </td>
+                            <td className={`px-3 py-2 text-right ${tdCls} text-lime-800 dark:text-lime-300 text-sm`}>[합&nbsp;&nbsp;계]</td>
+                            {itemColSettings.colOrder.filter((k) => !LOCKED_ITEM.includes(k)).map((k) => {
+                              if (k === "deliveryQty")   return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "defectQty")     return <td key={k} className={`px-2 py-2 text-right ${tdCls}`}>0</td>;
+                              if (k === "defectRate")    return <td key={k} className={`px-2 py-2 text-right ${tdCls}`}>0</td>;
+                              if (k === "receiptQty")    return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "receiptAmount") return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalAmount.toLocaleString("ko-KR")}</td>;
+                              return <td key={k} className={`px-2 py-2 ${tdCls}`} />;
+                            })}
                           </tr>
                         </>
                       )}
@@ -981,39 +1006,31 @@ export default function ReceiptPeriodPage() {
                               onClick={() => setSelectedKey(row.supplierCode === selectedKey ? null : row.supplierCode)}
                               className={`border-b cursor-pointer ${row.supplierCode === selectedKey ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40" : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"}`}
                             >
-                              <td className={`${tdCls} text-[11px]`}>
-                                <span className="font-mono">{row.supplierCode}</span>
-                                <span className="text-muted-foreground"> - {row.supplierName}</span>
-                              </td>
-                              <td className={`${tdCls} text-right tabular-nums ${row.qty < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
-                                {row.qty.toLocaleString("ko-KR")}
-                              </td>
-                              <td className={`${tdCls} text-right`}>0</td>
-                              <td className={`${tdCls} text-right`}>0</td>
-                              <td className={`${tdCls} text-right tabular-nums font-semibold ${row.qty < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
-                                {row.qty.toLocaleString("ko-KR")}
-                              </td>
-                              <td className="px-2 py-1 text-right tabular-nums">
-                                {row.receiptAmount.toLocaleString("ko-KR")}
-                              </td>
+                              {aggColSettings.colOrder.map((k) => {
+                                const qColor = row.qty < 0 ? "text-red-600 dark:text-red-400" : "";
+                                switch (k) {
+                                  case "supplierCode":  return <td key={k} className={`${tdCls} text-[11px]`}><span className="font-mono">{row.supplierCode}</span><span className="text-muted-foreground"> - {row.supplierName}</span></td>;
+                                  case "deliveryQty":   return <td key={k} className={`${tdCls} text-right tabular-nums ${qColor}`}>{row.qty.toLocaleString("ko-KR")}</td>;
+                                  case "defectQty":     return <td key={k} className={`${tdCls} text-right`}>0</td>;
+                                  case "defectRate":    return <td key={k} className={`${tdCls} text-right`}>0</td>;
+                                  case "receiptQty":    return <td key={k} className={`${tdCls} text-right tabular-nums font-semibold ${qColor}`}>{row.qty.toLocaleString("ko-KR")}</td>;
+                                  case "receiptAmount": return <td key={k} className={`${tdCls} text-right tabular-nums`}>{row.receiptAmount.toLocaleString("ko-KR")}</td>;
+                                  default:              return <td key={k} className={tdCls} />;
+                                }
+                              })}
                             </tr>
                           ))}
 
                           <tr className="border-t-2 border-lime-400 bg-lime-50/80 dark:bg-lime-500/10 font-bold">
-                            <td className="px-3 py-2 border-r border-border text-lime-800 dark:text-lime-300 text-sm">
-                              [합&nbsp;&nbsp;계]
-                            </td>
-                            <td className="px-2 py-2 text-right border-r border-border tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalQty.toLocaleString("ko-KR")}
-                            </td>
-                            <td className="px-2 py-2 text-right border-r border-border">0</td>
-                            <td className="px-2 py-2 text-right border-r border-border">0</td>
-                            <td className="px-2 py-2 text-right border-r border-border tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalQty.toLocaleString("ko-KR")}
-                            </td>
-                            <td className="px-2 py-2 text-right tabular-nums text-lime-800 dark:text-lime-300">
-                              {grandTotalAmount.toLocaleString("ko-KR")}
-                            </td>
+                            {aggColSettings.colOrder.map((k) => {
+                              if (k === "supplierCode")  return <td key={k} className={`px-3 py-2 ${tdCls} text-lime-800 dark:text-lime-300 text-sm`}>[합&nbsp;&nbsp;계]</td>;
+                              if (k === "deliveryQty")   return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "defectQty")     return <td key={k} className={`px-2 py-2 text-right ${tdCls}`}>0</td>;
+                              if (k === "defectRate")    return <td key={k} className={`px-2 py-2 text-right ${tdCls}`}>0</td>;
+                              if (k === "receiptQty")    return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "receiptAmount") return <td key={k} className={`px-2 py-2 text-right ${tdCls} tabular-nums text-lime-800 dark:text-lime-300`}>{grandTotalAmount.toLocaleString("ko-KR")}</td>;
+                              return <td key={k} className={`px-2 py-2 ${tdCls}`} />;
+                            })}
                           </tr>
                         </>
                       )}

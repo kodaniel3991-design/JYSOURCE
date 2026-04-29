@@ -1975,6 +1975,7 @@ export default function ItemsPage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1">
             <MasterListGrid<ItemMasterRecord>
+              pageKey="items/list"
               columns={itemColumns}
               data={sortedItems}
               keyExtractor={(it) => it.id}

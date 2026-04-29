@@ -391,6 +391,7 @@ export default function ItemTypeCodesPage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1">
             <MasterListGrid<ItemTypeCodeRecord>
+              pageKey="item-type-codes/list"
               maxHeight="100%"
               columns={visibleColumns as unknown as any}
               data={paged}

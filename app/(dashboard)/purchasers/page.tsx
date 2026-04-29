@@ -784,6 +784,7 @@ export default function PurchasersPage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1">
             <MasterListGrid<PurchaserRecord>
+              pageKey="purchasers/list"
               columns={visibleColumns as unknown as any}
               data={paged}
               keyExtractor={(r) => r.id}

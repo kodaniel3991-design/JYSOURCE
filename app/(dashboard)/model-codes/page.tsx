@@ -383,6 +383,7 @@ export default function ModelCodesPage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1">
             <MasterListGrid<ModelCodeRecord>
+              pageKey="model-codes/list"
               maxHeight="100%"
               columns={visibleColumns as unknown as any}
               data={paged}

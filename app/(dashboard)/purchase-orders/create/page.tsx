@@ -1292,6 +1292,7 @@ export default function CreatePurchaseOrderPage() {
           <CardContent className="flex-1 min-h-0 min-w-0 p-0 overflow-hidden">
             <div ref={listContentRef} className="h-full overflow-x-hidden overflow-y-auto">
               <MasterListGrid<BasicInfoListItem>
+                pageKey="purchase-orders/create/list"
                 columns={basicListColumns}
                 data={basicInfoList}
                 keyExtractor={(row) => row.id}

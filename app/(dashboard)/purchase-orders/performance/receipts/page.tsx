@@ -271,6 +271,7 @@ export default function PurchaseReceiptStatusPage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
           <div className="min-h-0 flex-1">
             <MasterListGrid<ReceiptStatusRow>
+              pageKey="po-performance/receipts"
               columns={[
                 {
                   key: "modelCode",

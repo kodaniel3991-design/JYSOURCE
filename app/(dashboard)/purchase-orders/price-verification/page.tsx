@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
-import { SortableTh } from "@/components/ui/sortable-th";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -43,6 +44,14 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const FIRST_OF_MONTH = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-01`;
 const TODAY_STR      = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
+const PV_COLS = ["poNumber","orderDate","supplierCode","supplierName","itemCode","itemName","vehicleModel","quantity","poUnitPrice","currentUnitPrice","priceApplyDate","diff","diffRate","amountDiff","status"] as const;
+const PV_HEADER: Record<string, string> = {
+  poNumber:"구매오더번호", orderDate:"발주일자", supplierCode:"구매처코드", supplierName:"구매처명",
+  itemCode:"품목번호", itemName:"품목명", vehicleModel:"모델", quantity:"발주수량",
+  poUnitPrice:"발주단가", currentUnitPrice:"최신단가", priceApplyDate:"단가적용일",
+  diff:"단가차이", diffRate:"차이율", amountDiff:"금액차이", status:"상태",
+};
+
 export default function PriceVerificationPage() {
   // ── 검색 조건 ────────────────────────────────────────────────────────────────
   const [dateFrom,           setDateFrom]           = useCachedState("price-verify/dateFrom",           FIRST_OF_MONTH);
@@ -69,6 +78,7 @@ export default function PriceVerificationPage() {
   // ── 결과 ────────────────────────────────────────────────────────────────────
   const [items,    setItems]    = useCachedState<PriceVerificationItem[]>("price-verify/items", []);
   const { sortedItems: sortedPVItems, sortKey: pvSortKey, sortDir: pvSortDir, toggleSort: pvToggleSort } = useSortableGrid(items);
+  const pvColSettings = useGridColumnSettings("price-verify/list", [...PV_COLS]);
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useCachedState<boolean>("price-verify/searched", false);
   const [error,    setError]    = useState<string | null>(null);
@@ -437,6 +447,13 @@ export default function PriceVerificationPage() {
         <CardContent className="p-0 flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-auto min-h-0">
             <table className="w-full text-xs">
+              <colgroup>
+                <col style={{ width: "32px" }} />
+                <col style={{ width: "32px" }} />
+                {pvColSettings.colOrder.map((k) => (
+                  <col key={k} style={{ width: pvColSettings.colWidths[k] ? `${pvColSettings.colWidths[k]}px` : undefined }} />
+                ))}
+              </colgroup>
               <thead className="sticky top-0 bg-muted/80 border-b z-10">
                 <tr>
                   <th className="px-2 py-2 text-center w-8 shrink-0">
@@ -451,32 +468,29 @@ export default function PriceVerificationPage() {
                     )}
                   </th>
                   <th className="px-2 py-2 text-center w-8 shrink-0">No.</th>
-                  <SortableTh sortKey="poNumber"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-24">구매오더번호</SortableTh>
-                  <SortableTh sortKey="orderDate"       currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-center w-24">발주일자</SortableTh>
-                  <SortableTh sortKey="supplierCode"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-24">구매처코드</SortableTh>
-                  <SortableTh sortKey="supplierName"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-44">구매처명</SortableTh>
-                  <SortableTh sortKey="itemCode"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-36">품목번호</SortableTh>
-                  <SortableTh sortKey="itemName"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left">품목명</SortableTh>
-                  <SortableTh sortKey="vehicleModel"    currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-left w-16">모델</SortableTh>
-                  <SortableTh sortKey="quantity"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-18">발주수량</SortableTh>
-                  <SortableTh sortKey="poUnitPrice"     currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-24">발주단가</SortableTh>
-                  <SortableTh sortKey="currentUnitPrice"currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-24">최신단가</SortableTh>
-                  <SortableTh sortKey="priceApplyDate"  currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-center w-24">단가적용일</SortableTh>
-                  <SortableTh sortKey="diff"            currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-20">단가차이</SortableTh>
-                  <SortableTh sortKey="diffRate"        currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-16">차이율</SortableTh>
-                  <SortableTh sortKey="amountDiff"      currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-right w-28">금액차이</SortableTh>
-                  <SortableTh sortKey="status"          currentKey={pvSortKey as string|null} sortDir={pvSortDir} onSort={(k) => pvToggleSort(k as keyof PriceVerificationItem)} className="px-2 py-2 text-center w-20">상태</SortableTh>
+                  {pvColSettings.colOrder.map((k) => {
+                    const tp = { dragKey: pvColSettings.dragKey, dropTargetKey: pvColSettings.dropTargetKey, onResizeEnd: pvColSettings.resize, onDragStartKey: pvColSettings.setDragKey, onDropKey: pvColSettings.reorder, onDragEndKey: () => pvColSettings.setDragKey(null), onDragOverKey: pvColSettings.setDropTargetKey };
+                    return (
+                      <GridTh key={k} colKey={k} {...tp}
+                        className="px-2 py-2 whitespace-nowrap text-xs"
+                        sortKey={k} currentSortKey={pvSortKey as string|null} sortDir={pvSortDir}
+                        onSort={(sk) => pvToggleSort(sk as keyof PriceVerificationItem)}
+                      >
+                        {PV_HEADER[k] ?? k}
+                      </GridTh>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={17} className="py-12 text-center text-muted-foreground">조회 중...</td></tr>
+                  <tr><td colSpan={2 + PV_COLS.length} className="py-12 text-center text-muted-foreground">조회 중...</td></tr>
                 ) : error ? (
-                  <tr><td colSpan={17} className="py-12 text-center text-destructive text-xs">{error}</td></tr>
+                  <tr><td colSpan={2 + PV_COLS.length} className="py-12 text-center text-destructive text-xs">{error}</td></tr>
                 ) : !searched ? (
-                  <tr><td colSpan={17} className="py-12 text-center text-muted-foreground text-xs">발주일 범위를 입력하고 검색 버튼을 누르세요.</td></tr>
+                  <tr><td colSpan={2 + PV_COLS.length} className="py-12 text-center text-muted-foreground text-xs">발주일 범위를 입력하고 검색 버튼을 누르세요.</td></tr>
                 ) : items.length === 0 ? (
-                  <tr><td colSpan={17} className="py-12 text-center text-muted-foreground text-xs">단가 불일치 내역이 없습니다.</td></tr>
+                  <tr><td colSpan={2 + PV_COLS.length} className="py-12 text-center text-muted-foreground text-xs">단가 불일치 내역이 없습니다.</td></tr>
                 ) : (
                   sortedPVItems.map((item, i) => {
                     const key = rowKey(item);
@@ -505,41 +519,26 @@ export default function PriceVerificationPage() {
                           />
                         </td>
                         <td className="px-2 py-1 text-center text-muted-foreground">{i + 1}</td>
-                        <td className="px-2 py-1 font-mono text-[11px] text-primary">{item.poNumber}</td>
-                        <td className="px-2 py-1 text-center tabular-nums">{item.orderDate}</td>
-                        <td className="px-2 py-1 font-mono text-[11px]">{item.supplierCode}</td>
-                        <td className="px-2 py-1">{item.supplierName}</td>
-                        <td className="px-2 py-1 font-mono text-[11px]">{item.itemCode}</td>
-                        <td className="px-2 py-1">{item.itemName}</td>
-                        <td className="px-2 py-1 text-[11px]">{item.vehicleModel}</td>
-                        <td className="px-2 py-1 text-right tabular-nums">{fmt(item.quantity)}</td>
-                        <td className="px-2 py-1 text-right tabular-nums font-medium">{fmt(item.poUnitPrice)}</td>
-                        <td className="px-2 py-1 text-right tabular-nums">
-                          {item.currentUnitPrice != null ? fmt(item.currentUnitPrice) : "-"}
-                        </td>
-                        <td className="px-2 py-1 text-center tabular-nums text-muted-foreground text-[11px]">
-                          {item.priceApplyDate ?? "-"}
-                        </td>
-                        <td className={`px-2 py-1 text-right tabular-nums font-semibold ${diffColor}`}>
-                          {item.diff != null ? (item.diff > 0 ? "+" : "") + fmt(item.diff) : "-"}
-                        </td>
-                        <td className={`px-2 py-1 text-right tabular-nums ${diffColor}`}>
-                          {item.diffRate != null
-                            ? (item.diffRate > 0 ? "+" : "") + item.diffRate.toFixed(1) + "%"
-                            : "-"}
-                        </td>
-                        <td className={`px-2 py-1 text-right tabular-nums font-semibold ${diffColor}`}>
-                          {item.amountDiff != null ? (item.amountDiff > 0 ? "+" : "") + fmt(item.amountDiff) : "-"}
-                        </td>
-                        <td className="px-2 py-1 text-center">
-                          <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                            item.status === "단가상승"
-                              ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
-                              : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
-                          }`}>
-                            {item.status}
-                          </span>
-                        </td>
+                        {pvColSettings.colOrder.map((k) => {
+                          switch (k) {
+                            case "poNumber":         return <td key={k} className="px-2 py-1 font-mono text-[11px] text-primary">{item.poNumber}</td>;
+                            case "orderDate":        return <td key={k} className="px-2 py-1 text-center tabular-nums">{item.orderDate}</td>;
+                            case "supplierCode":     return <td key={k} className="px-2 py-1 font-mono text-[11px]">{item.supplierCode}</td>;
+                            case "supplierName":     return <td key={k} className="px-2 py-1">{item.supplierName}</td>;
+                            case "itemCode":         return <td key={k} className="px-2 py-1 font-mono text-[11px]">{item.itemCode}</td>;
+                            case "itemName":         return <td key={k} className="px-2 py-1">{item.itemName}</td>;
+                            case "vehicleModel":     return <td key={k} className="px-2 py-1 text-[11px]">{item.vehicleModel}</td>;
+                            case "quantity":         return <td key={k} className="px-2 py-1 text-right tabular-nums">{fmt(item.quantity)}</td>;
+                            case "poUnitPrice":      return <td key={k} className="px-2 py-1 text-right tabular-nums font-medium">{fmt(item.poUnitPrice)}</td>;
+                            case "currentUnitPrice": return <td key={k} className="px-2 py-1 text-right tabular-nums">{item.currentUnitPrice != null ? fmt(item.currentUnitPrice) : "-"}</td>;
+                            case "priceApplyDate":   return <td key={k} className="px-2 py-1 text-center tabular-nums text-muted-foreground text-[11px]">{item.priceApplyDate ?? "-"}</td>;
+                            case "diff":             return <td key={k} className={`px-2 py-1 text-right tabular-nums font-semibold ${diffColor}`}>{item.diff != null ? (item.diff > 0 ? "+" : "") + fmt(item.diff) : "-"}</td>;
+                            case "diffRate":         return <td key={k} className={`px-2 py-1 text-right tabular-nums ${diffColor}`}>{item.diffRate != null ? (item.diffRate > 0 ? "+" : "") + item.diffRate.toFixed(1) + "%" : "-"}</td>;
+                            case "amountDiff":       return <td key={k} className={`px-2 py-1 text-right tabular-nums font-semibold ${diffColor}`}>{item.amountDiff != null ? (item.amountDiff > 0 ? "+" : "") + fmt(item.amountDiff) : "-"}</td>;
+                            case "status":           return <td key={k} className="px-2 py-1 text-center"><span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${item.status === "단가상승" ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"}`}>{item.status}</span></td>;
+                            default:                 return <td key={k} />;
+                          }
+                        })}
                       </tr>
                     );
                   })

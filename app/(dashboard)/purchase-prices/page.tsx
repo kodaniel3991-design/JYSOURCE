@@ -764,6 +764,7 @@ export default function PurchasePricesPage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1">
             <MasterListGrid<PurchasePriceRecord>
+              pageKey="purchase-prices/list"
               columns={visibleColumns}
               data={filteredList}
               keyExtractor={(r) => r.id}
@@ -1082,6 +1083,7 @@ export default function PurchasePricesPage() {
               </div>
             ) : (
               <MasterListGrid<PurchasePriceChangeLog>
+                pageKey="purchase-prices/changelog"
                 columns={[
                   {
                     key: "seq",

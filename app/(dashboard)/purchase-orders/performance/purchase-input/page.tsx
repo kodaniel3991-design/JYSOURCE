@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
-import { SortableTh } from "@/components/ui/sortable-th";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,23 @@ type UnreceivedItem = {
 };
 
 // ── 초기값 ───────────────────────────────────────────────────────────────────
+
+const IN_ITEM_COLS = ["itemCode","itemName","unit","inputQty","inputAmount","convertedAmount","taxAmount","totalWithTax","receiptNo","purchaseOrderNo","note"] as const;
+const IN_ITEM_HEADER: Record<string, string> = {
+  itemCode:"품목번호", itemName:"품목명", unit:"단위", inputQty:"매입수량",
+  inputAmount:"매입금액", convertedAmount:"환전매입금액", taxAmount:"부가세액",
+  totalWithTax:"부가세포함금액", receiptNo:"입고번호", purchaseOrderNo:"구매오더", note:"적요",
+};
+const IN_SORT_KEYS = new Set(["itemCode","itemName","inputQty","inputAmount","convertedAmount","taxAmount","totalWithTax","receiptNo","purchaseOrderNo"]);
+
+const UN_ITEM_COLS = ["receiptNo","itemCode","itemName","unit","unreceiptQty","inputQty","receiptDate","unitPrice","receiptAmount","taxAmount","isTaxable","supplierCode","supplierName"] as const;
+const UN_ITEM_HEADER: Record<string, string> = {
+  receiptNo:"입고번호", itemCode:"품목번호", itemName:"품목명", unit:"단위",
+  unreceiptQty:"미매입량", inputQty:"매입량", receiptDate:"입고일자",
+  unitPrice:"입고단가", receiptAmount:"입고금액", taxAmount:"부가세액",
+  isTaxable:"과세", supplierCode:"업체코드", supplierName:"업체명",
+};
+const UN_SORT_KEYS = new Set(["receiptNo","itemCode","itemName","unreceiptQty","inputQty","receiptDate","unitPrice","receiptAmount","taxAmount","supplierCode","supplierName"]);
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const todayStr = () => {
@@ -122,6 +140,7 @@ export default function PurchaseInputPage() {
   // 매입내역 탭
   const [inputItems,         setInputItems]         = useCachedState<InputItem[]>("purchase-input/inputItems", []);
   const { sortedItems: sortedInputItems, sortKey: inSortKey, sortDir: inSortDir, toggleSort: inToggleSort } = useSortableGrid(inputItems);
+  const inColSettings = useGridColumnSettings("purchase-input/items", [...IN_ITEM_COLS]);
   const [selectedItemIds,    setSelectedItemIds]    = useState<Set<string>>(new Set());
   const [itemsLoading,       setItemsLoading]       = useState(false);
 
@@ -137,6 +156,7 @@ export default function PurchaseInputPage() {
   const [unItemName,   setUnItemName]   = useCachedState("purchase-input/unItemName",   "");
   const [unreceivedItems,    setUnreceivedItems]    = useCachedState<UnreceivedItem[]>("purchase-input/unreceivedItems", []);
   const { sortedItems: sortedUnItems, sortKey: unSortKey, sortDir: unSortDir, toggleSort: unToggleSort } = useSortableGrid(unreceivedItems);
+  const unColSettings = useGridColumnSettings("purchase-input/unreceived", [...UN_ITEM_COLS]);
   const [selectedUnIds,      setSelectedUnIds]      = useState<Set<string>>(new Set());
   const [unLoading,          setUnLoading]          = useState(false);
 
@@ -795,6 +815,13 @@ export default function PurchaseInputPage() {
                 {/* 그리드 */}
                 <div className="flex-1 overflow-auto min-h-0">
                   <table className="w-full text-xs border-collapse">
+                    <colgroup>
+                      <col style={{ width: "32px" }} />
+                      <col style={{ width: "40px" }} />
+                      {inColSettings.colOrder.map((k) => (
+                        <col key={k} style={{ width: inColSettings.colWidths[k] ? `${inColSettings.colWidths[k]}px` : undefined }} />
+                      ))}
+                    </colgroup>
                     <thead className="sticky top-0 bg-muted/80 z-10">
                       <tr>
                         <th className="px-2 py-1.5 border-b border-r border-border w-8">
@@ -804,24 +831,26 @@ export default function PurchaseInputPage() {
                             disabled={header.status === "회계처리"} />
                         </th>
                         <th className="px-2 py-1.5 text-center border-b border-r border-border w-10">No.</th>
-                        <SortableTh sortKey="itemCode"       currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-32">품목번호</SortableTh>
-                        <SortableTh sortKey="itemName"       currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border min-w-[120px]">품목명</SortableTh>
-                        <th className="px-2 py-1.5 text-center border-b border-r border-border w-10">단위</th>
-                        <SortableTh sortKey="inputQty"       currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-20">매입수량</SortableTh>
-                        <SortableTh sortKey="inputAmount"    currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">매입금액</SortableTh>
-                        <SortableTh sortKey="convertedAmount"currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">환전매입금액</SortableTh>
-                        <SortableTh sortKey="taxAmount"      currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-22">부가세액</SortableTh>
-                        <SortableTh sortKey="totalWithTax"   currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-28">부가세포함금액</SortableTh>
-                        <SortableTh sortKey="receiptNo"      currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-36">입고번호</SortableTh>
-                        <SortableTh sortKey="purchaseOrderNo"currentKey={inSortKey as string|null} sortDir={inSortDir} onSort={(k) => inToggleSort(k as keyof InputItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-28">구매오더</SortableTh>
-                        <th className="px-2 py-1.5 text-left border-b border-border">적요</th>
+                        {inColSettings.colOrder.map((k) => {
+                          const tp = { dragKey: inColSettings.dragKey, dropTargetKey: inColSettings.dropTargetKey, onResizeEnd: inColSettings.resize, onDragStartKey: inColSettings.setDragKey, onDropKey: inColSettings.reorder, onDragEndKey: () => inColSettings.setDragKey(null), onDragOverKey: inColSettings.setDropTargetKey };
+                          return (
+                            <GridTh key={k} colKey={k} {...tp}
+                              className="px-2 py-1.5 whitespace-nowrap border-b border-r border-border text-xs"
+                              sortKey={IN_SORT_KEYS.has(k) ? k : undefined}
+                              currentSortKey={inSortKey as string|null} sortDir={inSortDir}
+                              onSort={(sk) => inToggleSort(sk as keyof InputItem)}
+                            >
+                              {IN_ITEM_HEADER[k] ?? k}
+                            </GridTh>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
                       {itemsLoading ? (
-                        <tr><td colSpan={13} className="py-8 text-center text-muted-foreground">조회 중...</td></tr>
+                        <tr><td colSpan={2 + IN_ITEM_COLS.length} className="py-8 text-center text-muted-foreground">조회 중...</td></tr>
                       ) : inputItems.length === 0 ? (
-                        <tr><td colSpan={13} className="py-8 text-center text-muted-foreground">
+                        <tr><td colSpan={2 + IN_ITEM_COLS.length} className="py-8 text-center text-muted-foreground">
                           구매입고참조 탭에서 입고자료를 선택 후 매입확정하세요.
                         </td></tr>
                       ) : sortedInputItems.map((item, idx) => (
@@ -838,42 +867,37 @@ export default function PurchaseInputPage() {
                               }} />
                           </td>
                           <td className="px-2 py-1 text-center border-r border-border">{idx + 1}</td>
-                          <td className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.itemCode}</td>
-                          <td className="px-2 py-1 border-r border-border">{item.itemName}</td>
-                          <td className="px-2 py-1 text-center border-r border-border">{item.unit}</td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.inputQty)}</td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.inputAmount)}</td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.convertedAmount)}</td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.taxAmount)}</td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums text-blue-600 dark:text-blue-400 font-semibold">
-                            {fmt(item.totalWithTax)}
-                          </td>
-                          <td className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.receiptNo}</td>
-                          <td className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.purchaseOrderNo}</td>
-                          <td className="px-2 py-1">{item.note}</td>
+                          {inColSettings.colOrder.map((k) => {
+                            switch (k) {
+                              case "itemCode":        return <td key={k} className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.itemCode}</td>;
+                              case "itemName":        return <td key={k} className="px-2 py-1 border-r border-border">{item.itemName}</td>;
+                              case "unit":            return <td key={k} className="px-2 py-1 text-center border-r border-border">{item.unit}</td>;
+                              case "inputQty":        return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.inputQty)}</td>;
+                              case "inputAmount":     return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.inputAmount)}</td>;
+                              case "convertedAmount": return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.convertedAmount)}</td>;
+                              case "taxAmount":       return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.taxAmount)}</td>;
+                              case "totalWithTax":    return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums text-blue-600 dark:text-blue-400 font-semibold">{fmt(item.totalWithTax)}</td>;
+                              case "receiptNo":       return <td key={k} className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.receiptNo}</td>;
+                              case "purchaseOrderNo": return <td key={k} className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.purchaseOrderNo}</td>;
+                              case "note":            return <td key={k} className="px-2 py-1">{item.note}</td>;
+                              default:                return <td key={k} />;
+                            }
+                          })}
                         </tr>
                       ))}
                     </tbody>
                     {inputItems.length > 0 && (
                       <tfoot className="sticky bottom-0 bg-yellow-50/80 dark:bg-yellow-500/10 font-semibold">
                         <tr>
-                          <td colSpan={5} className="px-3 py-1.5 text-right border-t border-r border-border">합&nbsp;&nbsp;계</td>
-                          <td className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">
-                            {fmt(inputItems.reduce((s, i) => s + i.inputQty, 0))}
-                          </td>
-                          <td className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">
-                            {fmt(inputItems.reduce((s, i) => s + i.inputAmount, 0))}
-                          </td>
-                          <td className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">
-                            {fmt(inputItems.reduce((s, i) => s + i.convertedAmount, 0))}
-                          </td>
-                          <td className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">
-                            {fmt(inputItems.reduce((s, i) => s + i.taxAmount, 0))}
-                          </td>
-                          <td className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums text-blue-600 dark:text-blue-400">
-                            {fmt(inputItems.reduce((s, i) => s + i.totalWithTax, 0))}
-                          </td>
-                          <td colSpan={3} className="border-t" />
+                          <td colSpan={2} className="px-3 py-1.5 text-right border-t border-r border-border">합&nbsp;&nbsp;계</td>
+                          {inColSettings.colOrder.map((k) => {
+                            if (k === "inputQty")        return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.inputQty, 0))}</td>;
+                            if (k === "inputAmount")     return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.inputAmount, 0))}</td>;
+                            if (k === "convertedAmount") return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.convertedAmount, 0))}</td>;
+                            if (k === "taxAmount")       return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.taxAmount, 0))}</td>;
+                            if (k === "totalWithTax")    return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums text-blue-600 dark:text-blue-400">{fmt(inputItems.reduce((s, i) => s + i.totalWithTax, 0))}</td>;
+                            return <td key={k} className="border-t" />;
+                          })}
                         </tr>
                       </tfoot>
                     )}
@@ -973,6 +997,12 @@ export default function PurchaseInputPage() {
                 {/* 그리드 */}
                 <div className="flex-1 overflow-auto min-h-0">
                   <table className="w-full text-xs border-collapse">
+                    <colgroup>
+                      <col style={{ width: "32px" }} />
+                      {unColSettings.colOrder.map((k) => (
+                        <col key={k} style={{ width: unColSettings.colWidths[k] ? `${unColSettings.colWidths[k]}px` : undefined }} />
+                      ))}
+                    </colgroup>
                     <thead className="sticky top-0 bg-muted/80 z-10">
                       <tr>
                         <th className="px-2 py-1.5 border-b border-r border-border w-8">
@@ -980,26 +1010,26 @@ export default function PurchaseInputPage() {
                             checked={unreceivedItems.length > 0 && selectedUnIds.size === unreceivedItems.length}
                             onChange={toggleAllUn} />
                         </th>
-                        <SortableTh sortKey="receiptNo"     currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-36">입고번호</SortableTh>
-                        <SortableTh sortKey="itemCode"      currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-32">품목번호</SortableTh>
-                        <SortableTh sortKey="itemName"      currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-r border-border min-w-[80px]">품목명</SortableTh>
-                        <th className="px-2 py-1.5 text-center border-b border-r border-border w-10">단위</th>
-                        <SortableTh sortKey="unreceiptQty"  currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">미매입량</SortableTh>
-                        <SortableTh sortKey="inputQty"      currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">매입량</SortableTh>
-                        <SortableTh sortKey="receiptDate"   currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-center border-b border-r border-border w-24">입고일자</SortableTh>
-                        <SortableTh sortKey="unitPrice"     currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-20">입고단가</SortableTh>
-                        <SortableTh sortKey="receiptAmount" currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-24">입고금액</SortableTh>
-                        <SortableTh sortKey="taxAmount"     currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-right border-b border-r border-border w-20">부가세액</SortableTh>
-                        <th className="px-2 py-1.5 text-center border-b border-r border-border w-12">과세</th>
-                        <SortableTh sortKey="supplierCode"  currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-r border-border w-20">업체코드</SortableTh>
-                        <SortableTh sortKey="supplierName"  currentKey={unSortKey as string|null} sortDir={unSortDir} onSort={(k) => unToggleSort(k as keyof UnreceivedItem)} className="px-2 py-1.5 text-left border-b border-border min-w-[80px]">업체명</SortableTh>
+                        {unColSettings.colOrder.map((k) => {
+                          const tp = { dragKey: unColSettings.dragKey, dropTargetKey: unColSettings.dropTargetKey, onResizeEnd: unColSettings.resize, onDragStartKey: unColSettings.setDragKey, onDropKey: unColSettings.reorder, onDragEndKey: () => unColSettings.setDragKey(null), onDragOverKey: unColSettings.setDropTargetKey };
+                          return (
+                            <GridTh key={k} colKey={k} {...tp}
+                              className="px-2 py-1.5 whitespace-nowrap border-b border-r border-border text-xs"
+                              sortKey={UN_SORT_KEYS.has(k) ? k : undefined}
+                              currentSortKey={unSortKey as string|null} sortDir={unSortDir}
+                              onSort={(sk) => unToggleSort(sk as keyof UnreceivedItem)}
+                            >
+                              {UN_ITEM_HEADER[k] ?? k}
+                            </GridTh>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
                       {unLoading ? (
-                        <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">조회 중...</td></tr>
+                        <tr><td colSpan={1 + UN_ITEM_COLS.length} className="py-8 text-center text-muted-foreground">조회 중...</td></tr>
                       ) : unreceivedItems.length === 0 ? (
-                        <tr><td colSpan={14} className="py-8 text-center text-muted-foreground">
+                        <tr><td colSpan={1 + UN_ITEM_COLS.length} className="py-8 text-center text-muted-foreground">
                           {header.supplierCode ? "조회 버튼을 눌러 미매입 입고자료를 불러오세요." : "구매처를 먼저 입력하세요."}
                         </td></tr>
                       ) : sortedUnItems.map((item, idx) => (
@@ -1014,41 +1044,39 @@ export default function PurchaseInputPage() {
                                 setSelectedUnIds(s);
                               }} />
                           </td>
-                          <td className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.receiptNo}</td>
-                          <td className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.itemCode}</td>
-                          <td className="px-2 py-1 border-r border-border">{item.itemName}</td>
-                          <td className="px-2 py-1 text-center border-r border-border">{item.unit}</td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums text-muted-foreground">
-                            {fmt(item.unreceiptQty)}
-                          </td>
-                          <td className="px-1 py-0.5 border-r border-border">
-                            <input
-                              type="number"
-                              value={item.inputQty}
-                              data-un-row={idx}
-                              onChange={(e) => updateInputQty(item.id, Number(e.target.value))}
-                              onKeyDown={(e) => {
-                                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                                  e.preventDefault();
-                                  const next = idx + (e.key === "ArrowDown" ? 1 : -1);
-                                  const el = document.querySelector<HTMLInputElement>(`[data-un-row="${next}"]`);
-                                  if (el) { el.focus(); el.select(); }
-                                }
-                              }}
-                              className="w-full text-right tabular-nums text-red-600 dark:text-red-400 font-semibold bg-yellow-50/60 dark:bg-yellow-500/10 border border-border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-primary"
-                            />
-                          </td>
-                          <td className="px-2 py-1 text-center border-r border-border">{item.receiptDate}</td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.unitPrice)}</td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums text-blue-600 dark:text-blue-400 font-semibold">
-                            {fmt(Math.round(item.inputQty * item.unitPrice))}
-                          </td>
-                          <td className="px-2 py-1 text-right border-r border-border tabular-nums">
-                            {fmt(Math.round(item.inputQty * item.unitPrice * 0.1))}
-                          </td>
-                          <td className="px-2 py-1 text-center border-r border-border">과세</td>
-                          <td className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.supplierCode}</td>
-                          <td className="px-2 py-1 text-[11px]">{item.supplierName}</td>
+                          {unColSettings.colOrder.map((k) => {
+                            switch (k) {
+                              case "receiptNo":     return <td key={k} className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.receiptNo}</td>;
+                              case "itemCode":      return <td key={k} className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.itemCode}</td>;
+                              case "itemName":      return <td key={k} className="px-2 py-1 border-r border-border">{item.itemName}</td>;
+                              case "unit":          return <td key={k} className="px-2 py-1 text-center border-r border-border">{item.unit}</td>;
+                              case "unreceiptQty":  return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums text-muted-foreground">{fmt(item.unreceiptQty)}</td>;
+                              case "inputQty":      return (
+                                <td key={k} className="px-1 py-0.5 border-r border-border">
+                                  <input type="number" value={item.inputQty} data-un-row={idx}
+                                    onChange={(e) => updateInputQty(item.id, Number(e.target.value))}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                                        e.preventDefault();
+                                        const next = idx + (e.key === "ArrowDown" ? 1 : -1);
+                                        const el = document.querySelector<HTMLInputElement>(`[data-un-row="${next}"]`);
+                                        if (el) { el.focus(); el.select(); }
+                                      }
+                                    }}
+                                    className="w-full text-right tabular-nums text-red-600 dark:text-red-400 font-semibold bg-yellow-50/60 dark:bg-yellow-500/10 border border-border rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+                                  />
+                                </td>
+                              );
+                              case "receiptDate":   return <td key={k} className="px-2 py-1 text-center border-r border-border">{item.receiptDate}</td>;
+                              case "unitPrice":     return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(item.unitPrice)}</td>;
+                              case "receiptAmount": return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums text-blue-600 dark:text-blue-400 font-semibold">{fmt(Math.round(item.inputQty * item.unitPrice))}</td>;
+                              case "taxAmount":     return <td key={k} className="px-2 py-1 text-right border-r border-border tabular-nums">{fmt(Math.round(item.inputQty * item.unitPrice * 0.1))}</td>;
+                              case "isTaxable":     return <td key={k} className="px-2 py-1 text-center border-r border-border">과세</td>;
+                              case "supplierCode":  return <td key={k} className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.supplierCode}</td>;
+                              case "supplierName":  return <td key={k} className="px-2 py-1 text-[11px]">{item.supplierName}</td>;
+                              default:              return <td key={k} />;
+                            }
+                          })}
                         </tr>
                       ))}
                     </tbody>

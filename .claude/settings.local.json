@@ -7,7 +7,10 @@
       "Bash(cmd /c \"cd d:\\\\JYS && node_modules\\\\.bin\\\\tsc --noEmit 2>&1\")",
       "Bash(cmd /c \"node_modules\\\\.bin\\\\tsc --noEmit 2>&1\")",
       "Bash(cmd /c \"cd /d d:\\\\JYS && node_modules\\\\.bin\\\\tsc --noEmit\")",
-      "Bash(findstr /i \"error TS\")"
+      "Bash(findstr /i \"error TS\")",
+      "Bash(grep -n \"thead\\\\|<th \\\\|<th$\\\\|<th>\" \"d:/JYS/app/\\(dashboard\\)/purchase-receipts/period/page.tsx\")",
+      "Bash(python3 -c ' *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

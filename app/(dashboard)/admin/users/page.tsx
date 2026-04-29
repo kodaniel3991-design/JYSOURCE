@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
-import { SortableTh } from "@/components/ui/sortable-th";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,13 @@ interface UserRow {
   IsActive: boolean;
   CreatedAt: string;
 }
+
+const USER_COLS = ["Username","UserId","EmployeeNo","Position","PhoneNo","Email","HireDate","FactoryName","IsActive"] as const;
+const USER_HEADER: Record<string, string> = {
+  Username:"아이디", UserId:"사용자명", EmployeeNo:"사번", Position:"직책",
+  PhoneNo:"전화번호", Email:"이메일", HireDate:"입사일자", FactoryName:"소속 공장", IsActive:"상태",
+};
+const USER_SORT_KEYS = new Set(["Username","UserId","EmployeeNo","Position","Email","HireDate","FactoryName","IsActive"]);
 
 interface FactoryOption {
   FactoryCode: string;
@@ -75,6 +83,7 @@ const EMPTY_MAIL_PW: MailPwDraft = { emailPassword: "", show: false };
 export default function AdminUsersPage() {
   const [rows, setRows] = useCachedState<UserRow[]>("admin/users/rows", []);
   const { sortedItems: sortedUsers, sortKey: userSortKey, sortDir: userSortDir, toggleSort: userToggleSort } = useSortableGrid(rows);
+  const userColSettings = useGridColumnSettings("admin/users/list", [...USER_COLS]);
   const [factories, setFactories] = useCachedState<FactoryOption[]>("admin/users/factories", []);
   const [positionOptions, setPositionOptions] = useState<{ value: string; label: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -297,31 +306,41 @@ export default function AdminUsersPage() {
 
       <div className="rounded-lg border bg-card overflow-x-auto">
         <table className="w-full text-sm">
+          <colgroup>
+            {userColSettings.colOrder.map((k) => (
+              <col key={k} style={{ width: userColSettings.colWidths[k] ? `${userColSettings.colWidths[k]}px` : undefined }} />
+            ))}
+            <col style={{ width: "128px" }} />
+          </colgroup>
           <thead>
             <tr className="border-b bg-muted/50">
-              <SortableTh sortKey="Username"   currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">아이디</SortableTh>
-              <SortableTh sortKey="UserId"     currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">사용자명</SortableTh>
-              <SortableTh sortKey="EmployeeNo" currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">사번</SortableTh>
-              <SortableTh sortKey="Position"   currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">직책</SortableTh>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">전화번호</th>
-              <SortableTh sortKey="Email"      currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">이메일</SortableTh>
-              <SortableTh sortKey="HireDate"   currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">입사일자</SortableTh>
-              <SortableTh sortKey="FactoryName"currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap">소속 공장</SortableTh>
-              <SortableTh sortKey="IsActive"   currentKey={userSortKey as string|null} sortDir={userSortDir} onSort={(k) => userToggleSort(k as keyof UserRow)} className="px-4 py-3 text-center font-medium text-muted-foreground w-20 whitespace-nowrap">상태</SortableTh>
+              {userColSettings.colOrder.map((k) => {
+                const tp = { dragKey: userColSettings.dragKey, dropTargetKey: userColSettings.dropTargetKey, onResizeEnd: userColSettings.resize, onDragStartKey: userColSettings.setDragKey, onDropKey: userColSettings.reorder, onDragEndKey: () => userColSettings.setDragKey(null), onDragOverKey: userColSettings.setDropTargetKey };
+                return (
+                  <GridTh key={k} colKey={k} {...tp}
+                    className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap"
+                    sortKey={USER_SORT_KEYS.has(k) ? k : undefined}
+                    currentSortKey={userSortKey as string|null} sortDir={userSortDir}
+                    onSort={(sk) => userToggleSort(sk as keyof UserRow)}
+                  >
+                    {USER_HEADER[k] ?? k}
+                  </GridTh>
+                );
+              })}
               <th className="px-4 py-3 w-32 text-right pr-4 font-medium text-muted-foreground text-xs whitespace-nowrap">관리</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-muted-foreground">
+                <td colSpan={USER_COLS.length + 1} className="py-12 text-center text-muted-foreground">
                   불러오는 중...
                 </td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-muted-foreground">
+                <td colSpan={USER_COLS.length + 1} className="py-12 text-center text-muted-foreground">
                   <Users className="mx-auto mb-2 h-8 w-8 opacity-30" />
                   등록된 사용자가 없습니다.
                 </td>
@@ -337,31 +356,20 @@ export default function AdminUsersPage() {
                     : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
                 }`}
               >
-                <td className="px-4 py-3 font-medium whitespace-nowrap">{row.Username}</td>
-                <td className="px-4 py-3 whitespace-nowrap">{row.UserId ?? <span className="text-xs opacity-40">-</span>}</td>
-                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.EmployeeNo ?? <span className="text-xs opacity-40">-</span>}</td>
-                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                  {row.Position
-                    ? (positionOptions.find((o) => o.value === row.Position)?.label ?? row.Position)
-                    : <span className="text-xs opacity-40">-</span>}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.PhoneNo ?? <span className="text-xs opacity-40">-</span>}</td>
-                <td className="px-4 py-3 text-muted-foreground">{row.Email ?? <span className="text-xs opacity-40">-</span>}</td>
-                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                  {row.HireDate ? new Date(row.HireDate).toLocaleDateString("ko-KR") : <span className="text-xs opacity-40">-</span>}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                  {row.FactoryName
-                    ? <span>{row.FactoryName} <span className="text-xs opacity-60">({row.FactoryCode})</span></span>
-                    : <span className="text-xs opacity-50">미지정</span>}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    row.IsActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
-                  }`}>
-                    {row.IsActive ? "활성" : "비활성"}
-                  </span>
-                </td>
+                {userColSettings.colOrder.map((k) => {
+                  switch (k) {
+                    case "Username":    return <td key={k} className="px-4 py-3 font-medium whitespace-nowrap">{row.Username}</td>;
+                    case "UserId":      return <td key={k} className="px-4 py-3 whitespace-nowrap">{row.UserId ?? <span className="text-xs opacity-40">-</span>}</td>;
+                    case "EmployeeNo":  return <td key={k} className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.EmployeeNo ?? <span className="text-xs opacity-40">-</span>}</td>;
+                    case "Position":    return <td key={k} className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.Position ? (positionOptions.find((o) => o.value === row.Position)?.label ?? row.Position) : <span className="text-xs opacity-40">-</span>}</td>;
+                    case "PhoneNo":     return <td key={k} className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.PhoneNo ?? <span className="text-xs opacity-40">-</span>}</td>;
+                    case "Email":       return <td key={k} className="px-4 py-3 text-muted-foreground">{row.Email ?? <span className="text-xs opacity-40">-</span>}</td>;
+                    case "HireDate":    return <td key={k} className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.HireDate ? new Date(row.HireDate).toLocaleDateString("ko-KR") : <span className="text-xs opacity-40">-</span>}</td>;
+                    case "FactoryName": return <td key={k} className="px-4 py-3 text-muted-foreground whitespace-nowrap">{row.FactoryName ? <span>{row.FactoryName} <span className="text-xs opacity-60">({row.FactoryCode})</span></span> : <span className="text-xs opacity-50">미지정</span>}</td>;
+                    case "IsActive":    return <td key={k} className="px-4 py-3 text-center"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.IsActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>{row.IsActive ? "활성" : "비활성"}</span></td>;
+                    default:            return <td key={k} />;
+                  }
+                })}
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <Button

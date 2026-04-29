@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 
 /** 컬럼 정의: 헤더, 셀 렌더, 최소/최대 너비, 추가 클래스 */
 export interface MasterListGridColumn<T> {
@@ -66,6 +68,17 @@ export interface MasterListGridProps<T> {
   virtual?: boolean;
   /** 가상 스크롤 행 높이 추정값 (기본 32px) */
   estimatedRowHeight?: number;
+  /**
+   * 컬럼 순서·너비를 localStorage에 저장할 키 접두어.
+   * 지정하면 드래그 리오더 + 리사이즈 기능이 활성화됩니다.
+   * (예: "purchase-orders/list")
+   */
+  pageKey?: string;
+  /**
+   * 드래그/리사이즈를 비활성화할 컬럼 key 목록.
+   * 미지정 시 rowSpan 정의된 컬럼이 자동으로 locked 처리됩니다.
+   */
+  lockedColumns?: string[];
 }
 
 const defaultEmptyMessage = "조회된 데이터가 없습니다.";
@@ -89,11 +102,40 @@ export function MasterListGrid<T>({
   disablePagination = false,
   virtual = false,
   estimatedRowHeight = 32,
+  pageKey,
+  lockedColumns,
 }: MasterListGridProps<T>) {
-  const colCount = columns.length;
+  const defaultOrder = React.useMemo(() => columns.map((c) => c.key), [columns]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // pageKey 없으면 더미 훅 결과 (기능 비활성화)
+  const colSettings = useGridColumnSettings(
+    pageKey ?? "__disabled__",
+    pageKey ? defaultOrder : []
+  );
+
+  // 컬럼 맵: key → column 정의
+  const colMap = React.useMemo(
+    () => new Map(columns.map((c) => [c.key, c])),
+    [columns]
+  );
+
+  // pageKey 있으면 colOrder 순서 적용, 없으면 원래 순서
+  const orderedColumns = React.useMemo(() => {
+    if (!pageKey) return columns;
+    return colSettings.colOrder
+      .map((k) => colMap.get(k))
+      .filter((c): c is MasterListGridColumn<T> => c != null);
+  }, [pageKey, colSettings.colOrder, colMap, columns]);
+
+  // locked 컬럼 결정
+  const lockedSet = React.useMemo(() => {
+    if (lockedColumns) return new Set(lockedColumns);
+    return new Set(columns.filter((c) => c.rowSpan != null).map((c) => c.key));
+  }, [lockedColumns, columns]);
+
+  const colCount = orderedColumns.length;
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  // 가상 스크롤이 활성화된 경우 자동 페이지네이션 비활성화
   const autoPageSize = pageSizeProp ?? 10;
   const shouldAutoPaginate = !virtual && !pagination && !disablePagination && data.length > autoPageSize;
   const [internalPage, setInternalPage] = React.useState(1);
@@ -139,7 +181,6 @@ export function MasterListGrid<T>({
     selectedRowClassName ??
     "bg-sky-100/80 ring-1 ring-sky-200 hover:bg-sky-100 dark:bg-sky-500/15 dark:ring-sky-600 dark:hover:bg-sky-500/25";
 
-  // 가상 스크롤 virtualizer
   const virtualizer = useVirtualizer({
     count: virtual ? rowsToRender.length : 0,
     getScrollElement: () => scrollRef.current,
@@ -155,14 +196,14 @@ export function MasterListGrid<T>({
       ? totalVirtualSize - virtualItems[virtualItems.length - 1].end
       : 0;
 
-  // rowSpan 커버리지 사전 계산: coverageMap[rowIdx] = Set<colKey> (해당 셀 렌더 스킵)
+  // rowSpan 커버리지 사전 계산
   const coverageMap = React.useMemo(() => {
     const map = new Map<number, Set<string>>();
-    if (!columns.some((c) => c.rowSpan)) return map;
+    if (!orderedColumns.some((c) => c.rowSpan)) return map;
     rowsToRender.forEach((row, rowIdx) => {
-      columns.forEach((col) => {
+      orderedColumns.forEach((col) => {
         if (!col.rowSpan) return;
-        if (map.get(rowIdx)?.has(col.key)) return; // 이미 커버된 셀은 스킵
+        if (map.get(rowIdx)?.has(col.key)) return;
         const span = col.rowSpan(row, rowIdx, rowsToRender);
         if (span > 1) {
           for (let i = 1; i < span; i++) {
@@ -173,7 +214,7 @@ export function MasterListGrid<T>({
       });
     });
     return map;
-  }, [columns, rowsToRender]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orderedColumns, rowsToRender]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderRow = (row: T, index: number) => (
     <TableRow
@@ -190,8 +231,7 @@ export function MasterListGrid<T>({
       onClick={() => onRowClick?.(row)}
       onDoubleClick={() => onRowDoubleClick?.(row)}
     >
-      {columns.map((col) => {
-        // rowSpan 커버된 셀은 렌더하지 않음
+      {orderedColumns.map((col) => {
         if (coverageMap.get(index)?.has(col.key)) return null;
 
         const content = col.cell
@@ -239,9 +279,29 @@ export function MasterListGrid<T>({
         }}
       >
         <Table>
+          {/* colgroup으로 컬럼 너비 관리 */}
+          {pageKey && (
+            <colgroup>
+              {orderedColumns.map((col) => {
+                const w = colSettings.colWidths[col.key];
+                const minW =
+                  col.minWidth == null
+                    ? undefined
+                    : typeof col.minWidth === "number"
+                      ? col.minWidth
+                      : undefined;
+                return (
+                  <col
+                    key={col.key}
+                    style={{ width: w ? `${w}px` : minW ? `${minW}px` : undefined }}
+                  />
+                );
+              })}
+            </colgroup>
+          )}
           <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-[1] [&_th]:bg-muted/80 [&_th]:shadow-[0_1px_0_0_hsl(var(--border))]">
             <TableRow className="h-8 border-b hover:bg-transparent">
-              {columns.map((col) => {
+              {orderedColumns.map((col) => {
                 const alignClass =
                   col.align === "right"
                     ? "text-right"
@@ -254,6 +314,32 @@ export function MasterListGrid<T>({
                     : typeof col.minWidth === "number"
                       ? `${col.minWidth}px`
                       : col.minWidth;
+
+                if (pageKey) {
+                  return (
+                    <GridTh
+                      key={col.key}
+                      colKey={col.key}
+                      locked={lockedSet.has(col.key)}
+                      dragKey={colSettings.dragKey}
+                      dropTargetKey={colSettings.dropTargetKey}
+                      onResizeEnd={colSettings.resize}
+                      onDragStartKey={colSettings.setDragKey}
+                      onDropKey={colSettings.reorder}
+                      onDragEndKey={() => colSettings.setDragKey(null)}
+                      onDragOverKey={colSettings.setDropTargetKey}
+                      className={cn(
+                        "h-8 whitespace-nowrap px-3 py-1.5 text-xs",
+                        alignClass,
+                        col.headerClassName
+                      )}
+                      style={minWidth ? { minWidth } : undefined}
+                    >
+                      {col.header}
+                    </GridTh>
+                  );
+                }
+
                 return (
                   <TableHead
                     key={col.key}

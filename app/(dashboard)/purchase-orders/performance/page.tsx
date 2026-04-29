@@ -239,6 +239,7 @@ export default function PurchasePerformancePage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
           <div className="min-h-0 flex-1">
             <MasterListGrid<PurchaseOrderSummary>
+              pageKey="po-performance/po-list"
               columns={[
                 {
                   key: "poNumber",
@@ -296,6 +297,7 @@ export default function PurchasePerformancePage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
           <div className="min-h-0 flex-1">
             <MasterListGrid<SupplierSummaryRow>
+              pageKey="po-performance/supplier-list"
               columns={[
                 {
                   key: "supplierName",

@@ -745,6 +745,7 @@ export default function PurchaseOrdersPage() {
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
           <div className="min-h-0 flex-1">
             <MasterListGrid<PurchaseOrderSummary>
+              pageKey="purchase-orders/list"
               columns={visibleColumns as unknown as any}
               data={loading ? [] : paginated}
               keyExtractor={(row) => row.id}

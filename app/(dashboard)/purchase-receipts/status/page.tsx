@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
@@ -15,6 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
+import { cn } from "@/lib/utils";
 
 // ── 타입 ───────────────────────────────────────────────────────────────────
 
@@ -108,10 +111,24 @@ type InputSummaryItem = {
 };
 
 // ── 상수 ───────────────────────────────────────────────────────────────────
-// 명세 뷰: 구매처번호, 구매처명, 품목번호, 품목명, 구매오더, 명세, 입고단가, 입고량, 단위, 입고금액, 입고일자, 통화
 const COL_COUNT = 12;
-// 합계 뷰: 구매처번호, 구매처명, 품목번호, 품목명, 입고수량, 단위, 입고금액, 입고금액(VAT+), 매입수량, 매입금액, 미매입수량, 미매입금액
 const COL_COUNT_COMBINED = 12;
+
+const DETAIL_COLS  = ["supplierCode","supplierName","itemCode","itemName","poNumber","specNo","unitPrice","qty","unit","receiptAmount","receiptDate","currency"];
+const SUMMARY_COLS = ["supplierCode","supplierName","itemCode","itemName","receiptQty","unit","receiptAmount","receiptAmountVat","inputQty","inputAmount","unprocessedQty","unprocessedAmount"];
+const LOCKED_SUPPLIER = ["supplierCode","supplierName"];
+
+const DETAIL_HEADER: Record<string, string> = {
+  itemCode: "품목번호", itemName: "품목명", poNumber: "구매오더", specNo: "명세",
+  unitPrice: "입고단가", qty: "입고량", unit: "단위", receiptAmount: "입고금액",
+  receiptDate: "입고일자", currency: "통화",
+};
+const SUMMARY_HEADER: Record<string, string> = {
+  itemCode: "품목번호", itemName: "품목명", receiptQty: "입고수량", unit: "단위",
+  receiptAmount: "입고금액(VAT제외)", receiptAmountVat: "입고금액(VAT포함)",
+  inputQty: "매입수량", inputAmount: "매입금액",
+  unprocessedQty: "미매입수량", unprocessedAmount: "미매입금액",
+};
 
 // ── 페이지 ─────────────────────────────────────────────────────────────────
 
@@ -149,6 +166,11 @@ export default function ReceiptStatusPage() {
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
   const [stripedRows, setStripedRows] = useState(true);
+
+  // 컬럼 설정 (순서 + 너비, 사용자별 localStorage 저장)
+  const detailCols  = useGridColumnSettings("receipt-status/detail",  DETAIL_COLS);
+  const summaryCols = useGridColumnSettings("receipt-status/summary", SUMMARY_COLS);
+  const cs = viewMode === "detail" ? detailCols : summaryCols;
 
   // Enter 네비게이션 refs
   const refDateFrom     = useRef<HTMLInputElement>(null);
@@ -804,179 +826,196 @@ export default function ReceiptStatusPage() {
             <div className="flex-1 overflow-auto min-h-0 print-scroll">
 
               {/* ── 명세 뷰 ── */}
-              {viewMode === "detail" && (
-                <table className="w-full text-xs border-collapse">
-                  <thead className="sticky top-0 bg-muted/80 border-b z-10">
-                    <tr>
-                      <th className="px-2 py-2 text-left border-r border-border whitespace-nowrap w-24">구매처번호</th>
-                      <th className="px-2 py-2 text-left border-r border-border w-32">구매처명</th>
-                      <th className="px-2 py-2 text-left border-r border-border w-40">품목번호</th>
-                      <th className="px-2 py-2 text-left border-r border-border min-w-[140px]">품목명</th>
-                      <th className="px-2 py-2 text-center border-r border-border w-32">구매오더</th>
-                      <th className="px-2 py-2 text-center border-r border-border w-12">명세</th>
-                      <th className="px-2 py-2 text-right border-r border-border w-24">입고단가</th>
-                      <th className="px-2 py-2 text-right border-r border-border w-20">입고량</th>
-                      <th className="px-2 py-2 text-center border-r border-border w-12">단위</th>
-                      <th className="px-2 py-2 text-right border-r border-border w-28">입고금액</th>
-                      <th className="px-2 py-2 text-center border-r border-border w-24">입고일자</th>
-                      <th className="px-2 py-2 text-center w-14">통화</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr><td colSpan={COL_COUNT} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td></tr>
-                    ) : mergedItems.length === 0 ? (
-                      <tr><td colSpan={COL_COUNT} className="py-10 text-center text-xs text-muted-foreground">조회 조건을 입력하고 조회 버튼을 누르세요.</td></tr>
-                    ) : (
-                      <>
-                        {supplierGroups.flatMap((group) => [
-                          ...group.rows.map((item, idx) => (
-                            <tr
-                              key={item.mergeKey}
-                              onClick={() => setSelectedKey(item.mergeKey === selectedKey ? null : item.mergeKey)}
-                              className={`border-b cursor-pointer ${
-                                item.mergeKey === selectedKey
-                                  ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
-                                  : item.type === "반품"
-                                  ? "bg-red-50/40 dark:bg-red-500/10 hover:bg-red-100/60 dark:hover:bg-red-500/20"
-                                  : (stripedRows && idx % 2 === 1)
-                                  ? "bg-slate-50/60 dark:bg-muted/20 hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
-                                  : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
-                              }`}
-                            >
-                              {idx === 0 && (
-                                <>
-                                  <td rowSpan={group.rows.length} className="px-2 py-1 font-mono text-[11px] border-r border-border align-top">{group.supplierCode}</td>
-                                  <td rowSpan={group.rows.length} className="px-2 py-1 border-r border-border align-top">{group.supplierName}</td>
-                                </>
-                              )}
-                              <td className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.itemCode}</td>
-                              <td className="px-2 py-1 border-r border-border">{item.itemName}</td>
-                              <td className="px-2 py-1 text-center border-r border-border font-mono text-[11px] bg-yellow-50/60 dark:bg-yellow-500/10">{item.poNumber}</td>
-                              <td className="px-2 py-1 text-center border-r border-border bg-yellow-50/60 dark:bg-yellow-500/10">{item.specNo || "-"}</td>
-                              <td className="px-2 py-1 text-right border-r border-border tabular-nums text-muted-foreground">{item.unitPrice ? item.unitPrice.toLocaleString("ko-KR") : "-"}</td>
-                              <td className={`px-2 py-1 text-right border-r border-border tabular-nums font-semibold ${item.type === "반품" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}>
-                                {item.qty.toLocaleString("ko-KR")}
-                              </td>
-                              <td className="px-2 py-1 text-center border-r border-border text-muted-foreground">{item.unit || "-"}</td>
-                              <td className="px-2 py-1 text-right border-r border-border tabular-nums">{item.receiptAmount !== 0 ? item.receiptAmount.toLocaleString("ko-KR") : "-"}</td>
-                              <td className="px-2 py-1 text-center border-r border-border">{item.receiptDate}</td>
-                              <td className="px-2 py-1 text-center text-muted-foreground">KRW</td>
-                            </tr>
-                          )),
-                          <tr key={`sub-${group.supplierCode}`} className="border-b bg-pink-100/80 dark:bg-pink-500/10 font-semibold">
-                            <td colSpan={7} className="px-3 py-1.5 text-right border-r border-border text-xs text-pink-800 dark:text-pink-300">구매처 계</td>
-                            <td className="px-2 py-1.5 text-right border-r border-border tabular-nums text-pink-800 dark:text-pink-300">{group.totalQty.toLocaleString("ko-KR")}</td>
-                            <td className="px-2 py-1.5 border-r border-border" />
-                            <td className="px-2 py-1.5 text-right border-r border-border tabular-nums text-pink-800 dark:text-pink-300">{group.totalAmount.toLocaleString("ko-KR")}</td>
-                            <td colSpan={2} className="px-2 py-1.5" />
-                          </tr>,
-                        ])}
-                        <tr className="bg-pink-200/80 dark:bg-pink-500/20 font-bold border-t-2 border-pink-300 dark:border-pink-500/40">
-                          <td colSpan={7} className="px-3 py-2 text-right border-r border-border text-sm text-pink-900 dark:text-pink-200">총 계</td>
-                          <td className="px-2 py-2 text-right border-r border-border tabular-nums text-pink-900 dark:text-pink-200">{grandTotalQty.toLocaleString("ko-KR")}</td>
-                          <td className="px-2 py-2 border-r border-border" />
-                          <td className="px-2 py-2 text-right border-r border-border tabular-nums text-pink-900 dark:text-pink-200">{grandTotalAmount.toLocaleString("ko-KR")}</td>
-                          <td colSpan={2} className="px-2 py-2" />
-                        </tr>
-                      </>
-                    )}
-                  </tbody>
-                </table>
-              )}
+              {viewMode === "detail" && (() => {
+                const orderedCols = detailCols.colOrder.filter((k) => !LOCKED_SUPPLIER.includes(k));
+                const thProps = { dragKey: detailCols.dragKey, dropTargetKey: detailCols.dropTargetKey, onResizeEnd: detailCols.resize, onDragStartKey: detailCols.setDragKey, onDropKey: detailCols.reorder, onDragEndKey: () => detailCols.setDragKey(null), onDragOverKey: detailCols.setDropTargetKey };
+                const br = "border-r border-border";
+                return (
+                  <table className="w-full text-xs border-collapse">
+                    <colgroup>
+                      <col style={{ width: detailCols.colWidths.supplierCode ? `${detailCols.colWidths.supplierCode}px` : "96px" }} />
+                      <col style={{ width: detailCols.colWidths.supplierName ? `${detailCols.colWidths.supplierName}px` : "128px" }} />
+                      {orderedCols.map((k) => <col key={k} style={{ width: detailCols.colWidths[k] ? `${detailCols.colWidths[k]}px` : undefined }} />)}
+                    </colgroup>
+                    <thead className="sticky top-0 bg-muted/80 border-b z-10">
+                      <tr>
+                        <GridTh colKey="supplierCode" locked {...thProps} className={`px-2 py-2 text-left ${br} whitespace-nowrap`}>구매처번호</GridTh>
+                        <GridTh colKey="supplierName" locked {...thProps} className={`px-2 py-2 text-left ${br}`}>구매처명</GridTh>
+                        {orderedCols.map((k) => (
+                          <GridTh key={k} colKey={k} {...thProps} className={`px-2 py-2 whitespace-nowrap ${br}`}>{DETAIL_HEADER[k] ?? k}</GridTh>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr><td colSpan={COL_COUNT} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td></tr>
+                      ) : mergedItems.length === 0 ? (
+                        <tr><td colSpan={COL_COUNT} className="py-10 text-center text-xs text-muted-foreground">조회 조건을 입력하고 조회 버튼을 누르세요.</td></tr>
+                      ) : (
+                        <>
+                          {supplierGroups.flatMap((group) => [
+                            ...group.rows.map((item, idx) => (
+                              <tr
+                                key={item.mergeKey}
+                                onClick={() => setSelectedKey(item.mergeKey === selectedKey ? null : item.mergeKey)}
+                                className={`border-b cursor-pointer ${
+                                  item.mergeKey === selectedKey
+                                    ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
+                                    : item.type === "반품"
+                                    ? "bg-red-50/40 dark:bg-red-500/10 hover:bg-red-100/60 dark:hover:bg-red-500/20"
+                                    : (stripedRows && idx % 2 === 1)
+                                    ? "bg-slate-50/60 dark:bg-muted/20 hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
+                                    : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
+                                }`}
+                              >
+                                {idx === 0 && (
+                                  <>
+                                    <td rowSpan={group.rows.length} className={`px-2 py-1 font-mono text-[11px] ${br} align-top`}>{group.supplierCode}</td>
+                                    <td rowSpan={group.rows.length} className={`px-2 py-1 ${br} align-top`}>{group.supplierName}</td>
+                                  </>
+                                )}
+                                {orderedCols.map((k) => {
+                                  switch (k) {
+                                    case "itemCode":      return <td key={k} className={`px-2 py-1 font-mono text-[11px] ${br}`}>{item.itemCode}</td>;
+                                    case "itemName":      return <td key={k} className={`px-2 py-1 ${br}`}>{item.itemName}</td>;
+                                    case "poNumber":      return <td key={k} className={`px-2 py-1 text-center ${br} font-mono text-[11px] bg-yellow-50/60 dark:bg-yellow-500/10`}>{item.poNumber}</td>;
+                                    case "specNo":        return <td key={k} className={`px-2 py-1 text-center ${br} bg-yellow-50/60 dark:bg-yellow-500/10`}>{item.specNo || "-"}</td>;
+                                    case "unitPrice":     return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums text-muted-foreground`}>{item.unitPrice ? item.unitPrice.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "qty":           return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums font-semibold ${item.type === "반품" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}>{item.qty.toLocaleString("ko-KR")}</td>;
+                                    case "unit":          return <td key={k} className={`px-2 py-1 text-center ${br} text-muted-foreground`}>{item.unit || "-"}</td>;
+                                    case "receiptAmount": return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums`}>{item.receiptAmount !== 0 ? item.receiptAmount.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "receiptDate":   return <td key={k} className={`px-2 py-1 text-center ${br}`}>{item.receiptDate}</td>;
+                                    case "currency":      return <td key={k} className={`px-2 py-1 text-center ${br} text-muted-foreground`}>KRW</td>;
+                                    default:              return <td key={k} className={`px-2 py-1 ${br}`} />;
+                                  }
+                                })}
+                              </tr>
+                            )),
+                            <tr key={`sub-${group.supplierCode}`} className="border-b bg-pink-100/80 dark:bg-pink-500/10 font-semibold">
+                              <td colSpan={2} className={`px-3 py-1.5 text-right ${br} text-xs text-pink-800 dark:text-pink-300`}>구매처 계</td>
+                              {orderedCols.map((k) => {
+                                const base = `px-2 py-1.5 ${br} tabular-nums`;
+                                if (k === "qty")           return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalQty.toLocaleString("ko-KR")}</td>;
+                                if (k === "receiptAmount") return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalAmount.toLocaleString("ko-KR")}</td>;
+                                return <td key={k} className={base} />;
+                              })}
+                            </tr>,
+                          ])}
+                          <tr className="bg-pink-200/80 dark:bg-pink-500/20 font-bold border-t-2 border-pink-300 dark:border-pink-500/40">
+                            <td colSpan={2} className={`px-3 py-2 text-right ${br} text-sm text-pink-900 dark:text-pink-200`}>총 계</td>
+                            {orderedCols.map((k) => {
+                              const base = `px-2 py-2 ${br} tabular-nums`;
+                              if (k === "qty")           return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "receiptAmount") return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandTotalAmount.toLocaleString("ko-KR")}</td>;
+                              return <td key={k} className={base} />;
+                            })}
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                );
+              })()}
 
               {/* ── 합계 뷰 ── */}
-              {viewMode === "summary" && (
-                <table className="w-full text-xs border-collapse">
-                  <thead className="sticky top-0 bg-muted/80 border-b z-10">
-                    <tr>
-                      <th rowSpan={2} className="px-2 py-1 text-left border-r border-border whitespace-nowrap w-24 align-middle">구매처번호</th>
-                      <th rowSpan={2} className="px-2 py-1 text-left border-r border-border w-32 align-middle">구매처명</th>
-                      <th rowSpan={2} className="px-2 py-1 text-left border-r border-border w-40 align-middle">품목번호</th>
-                      <th rowSpan={2} className="px-2 py-1 text-left border-r border-border min-w-[140px] align-middle">품목명</th>
-                      <th rowSpan={2} className="px-2 py-1 text-right border-r border-border w-20 align-middle">입고수량</th>
-                      <th rowSpan={2} className="px-2 py-1 text-center border-r border-border w-12 align-middle">단위</th>
-                      <th colSpan={2} className="px-2 py-1 text-center border-r border-border bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300">입고금액</th>
-                      <th rowSpan={2} className="px-2 py-1 text-right border-r border-border w-24 align-middle">매입수량</th>
-                      <th rowSpan={2} className="px-2 py-1 text-right border-r border-border w-28 align-middle">매입금액</th>
-                      <th rowSpan={2} className="px-2 py-1 text-right border-r border-border w-24 align-middle">미매입수량</th>
-                      <th rowSpan={2} className="px-2 py-1 text-right w-28 align-middle">미매입금액</th>
-                    </tr>
-                    <tr>
-                      <th className="px-2 py-1 text-right border-r border-border w-28 bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 text-[10px] font-normal">VAT제외</th>
-                      <th className="px-2 py-1 text-right border-r border-border w-28 bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 text-[10px] font-normal">VAT포함</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr><td colSpan={COL_COUNT_COMBINED} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td></tr>
-                    ) : combinedItems.length === 0 ? (
-                      <tr><td colSpan={COL_COUNT_COMBINED} className="py-10 text-center text-xs text-muted-foreground">조회 조건을 입력하고 조회 버튼을 누르세요.</td></tr>
-                    ) : (
-                      <>
-                        {combinedGroups.flatMap((group) => [
-                          ...group.rows.map((item, idx) => (
-                            <tr
-                              key={item.key}
-                              onClick={() => setSelectedKey(item.key === selectedKey ? null : item.key)}
-                              className={`border-b cursor-pointer ${
-                                item.key === selectedKey
-                                  ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
-                                  : (stripedRows && idx % 2 === 1)
-                                  ? "bg-slate-50/60 dark:bg-muted/20 hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
-                                  : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
-                              }`}
-                            >
-                              {idx === 0 && (
-                                <>
-                                  <td rowSpan={group.rows.length} className="px-2 py-1 font-mono text-[11px] border-r border-border align-top">{group.supplierCode}</td>
-                                  <td rowSpan={group.rows.length} className="px-2 py-1 border-r border-border align-top">{group.supplierName}</td>
-                                </>
-                              )}
-                              <td className="px-2 py-1 font-mono text-[11px] border-r border-border">{item.itemCode}</td>
-                              <td className="px-2 py-1 border-r border-border">{item.itemName}</td>
-                              <td className="px-2 py-1 text-right border-r border-border tabular-nums text-blue-600 dark:text-blue-400 font-semibold">{item.receiptQty.toLocaleString("ko-KR")}</td>
-                              <td className="px-2 py-1 text-center border-r border-border text-muted-foreground">{item.unit || "-"}</td>
-                              <td className="px-2 py-1 text-right border-r border-border tabular-nums bg-blue-50/30 dark:bg-blue-500/5">{item.receiptAmount ? item.receiptAmount.toLocaleString("ko-KR") : "-"}</td>
-                              <td className="px-2 py-1 text-right border-r border-border tabular-nums bg-blue-50/30 dark:bg-blue-500/5">{item.receiptAmountVat ? item.receiptAmountVat.toLocaleString("ko-KR") : "-"}</td>
-                              <td className="px-2 py-1 text-right border-r border-border tabular-nums">{item.inputQty ? item.inputQty.toLocaleString("ko-KR") : "-"}</td>
-                              <td className="px-2 py-1 text-right border-r border-border tabular-nums">{item.inputAmount ? item.inputAmount.toLocaleString("ko-KR") : "-"}</td>
-                              <td className={`px-2 py-1 text-right border-r border-border tabular-nums font-semibold ${item.unprocessedQty > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"}`}>
-                                {item.unprocessedQty !== 0 ? item.unprocessedQty.toLocaleString("ko-KR") : "-"}
-                              </td>
-                              <td className={`px-2 py-1 text-right tabular-nums font-semibold ${item.unprocessedAmount > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"}`}>
-                                {item.unprocessedAmount !== 0 ? item.unprocessedAmount.toLocaleString("ko-KR") : "-"}
-                              </td>
-                            </tr>
-                          )),
-                          <tr key={`sub-${group.supplierCode}`} className="border-b bg-pink-100/80 dark:bg-pink-500/10 font-semibold">
-                            <td colSpan={4} className="px-3 py-1.5 text-right border-r border-border text-xs text-pink-800 dark:text-pink-300">구매처 계</td>
-                            <td className="px-2 py-1.5 text-right border-r border-border tabular-nums text-blue-700 dark:text-blue-300">{group.totalReceiptQty.toLocaleString("ko-KR")}</td>
-                            <td className="px-2 py-1.5 border-r border-border" />
-                            <td className="px-2 py-1.5 text-right border-r border-border tabular-nums text-pink-800 dark:text-pink-300 bg-blue-50/30">{group.totalReceiptAmount.toLocaleString("ko-KR")}</td>
-                            <td className="px-2 py-1.5 text-right border-r border-border tabular-nums text-pink-800 dark:text-pink-300 bg-blue-50/30">{group.totalReceiptAmountVat.toLocaleString("ko-KR")}</td>
-                            <td className="px-2 py-1.5 text-right border-r border-border tabular-nums text-pink-800 dark:text-pink-300">{group.totalInputQty.toLocaleString("ko-KR")}</td>
-                            <td className="px-2 py-1.5 text-right border-r border-border tabular-nums text-pink-800 dark:text-pink-300">{group.totalInputAmount.toLocaleString("ko-KR")}</td>
-                            <td className="px-2 py-1.5 text-right border-r border-border tabular-nums text-orange-700 dark:text-orange-300">{group.totalUnprocessedQty.toLocaleString("ko-KR")}</td>
-                            <td className="px-2 py-1.5 text-right tabular-nums text-orange-700 dark:text-orange-300">{group.totalUnprocessedAmount.toLocaleString("ko-KR")}</td>
-                          </tr>,
-                        ])}
-                        <tr className="bg-pink-200/80 dark:bg-pink-500/20 font-bold border-t-2 border-pink-300 dark:border-pink-500/40">
-                          <td colSpan={4} className="px-3 py-2 text-right border-r border-border text-sm text-pink-900 dark:text-pink-200">총 계</td>
-                          <td className="px-2 py-2 text-right border-r border-border tabular-nums text-blue-800 dark:text-blue-200">{grandCombined.receiptQty.toLocaleString("ko-KR")}</td>
-                          <td className="px-2 py-2 border-r border-border" />
-                          <td className="px-2 py-2 text-right border-r border-border tabular-nums text-pink-900 dark:text-pink-200 bg-blue-50/30">{grandCombined.receiptAmount.toLocaleString("ko-KR")}</td>
-                          <td className="px-2 py-2 text-right border-r border-border tabular-nums text-pink-900 dark:text-pink-200 bg-blue-50/30">{grandCombined.receiptAmountVat.toLocaleString("ko-KR")}</td>
-                          <td className="px-2 py-2 text-right border-r border-border tabular-nums text-pink-900 dark:text-pink-200">{grandCombined.inputQty.toLocaleString("ko-KR")}</td>
-                          <td className="px-2 py-2 text-right border-r border-border tabular-nums text-pink-900 dark:text-pink-200">{grandCombined.inputAmount.toLocaleString("ko-KR")}</td>
-                          <td className="px-2 py-2 text-right border-r border-border tabular-nums text-orange-800 dark:text-orange-200">{grandCombined.unprocessedQty.toLocaleString("ko-KR")}</td>
-                          <td className="px-2 py-2 text-right tabular-nums text-orange-800 dark:text-orange-200">{grandCombined.unprocessedAmount.toLocaleString("ko-KR")}</td>
-                        </tr>
-                      </>
-                    )}
-                  </tbody>
+              {viewMode === "summary" && (() => {
+                const orderedCols = summaryCols.colOrder.filter((k) => !LOCKED_SUPPLIER.includes(k));
+                const thProps = { dragKey: summaryCols.dragKey, dropTargetKey: summaryCols.dropTargetKey, onResizeEnd: summaryCols.resize, onDragStartKey: summaryCols.setDragKey, onDropKey: summaryCols.reorder, onDragEndKey: () => summaryCols.setDragKey(null), onDragOverKey: summaryCols.setDropTargetKey };
+                const br = "border-r border-border";
+                return (
+                  <table className="w-full text-xs border-collapse">
+                    <colgroup>
+                      <col style={{ width: summaryCols.colWidths.supplierCode ? `${summaryCols.colWidths.supplierCode}px` : "96px" }} />
+                      <col style={{ width: summaryCols.colWidths.supplierName ? `${summaryCols.colWidths.supplierName}px` : "128px" }} />
+                      {orderedCols.map((k) => <col key={k} style={{ width: summaryCols.colWidths[k] ? `${summaryCols.colWidths[k]}px` : undefined }} />)}
+                    </colgroup>
+                    <thead className="sticky top-0 bg-muted/80 border-b z-10">
+                      <tr>
+                        <GridTh colKey="supplierCode" locked {...thProps} className={`px-2 py-2 text-left ${br} whitespace-nowrap`}>구매처번호</GridTh>
+                        <GridTh colKey="supplierName" locked {...thProps} className={`px-2 py-2 text-left ${br}`}>구매처명</GridTh>
+                        {orderedCols.map((k) => (
+                          <GridTh key={k} colKey={k} {...thProps} className={cn("px-2 py-2 whitespace-nowrap", br, (k === "receiptAmount" || k === "receiptAmountVat") && "bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300")}>{SUMMARY_HEADER[k] ?? k}</GridTh>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr><td colSpan={COL_COUNT_COMBINED} className="py-10 text-center text-xs text-muted-foreground">조회 중...</td></tr>
+                      ) : combinedItems.length === 0 ? (
+                        <tr><td colSpan={COL_COUNT_COMBINED} className="py-10 text-center text-xs text-muted-foreground">조회 조건을 입력하고 조회 버튼을 누르세요.</td></tr>
+                      ) : (
+                        <>
+                          {combinedGroups.flatMap((group) => [
+                            ...group.rows.map((item, idx) => (
+                              <tr
+                                key={item.key}
+                                onClick={() => setSelectedKey(item.key === selectedKey ? null : item.key)}
+                                className={`border-b cursor-pointer ${
+                                  item.key === selectedKey
+                                    ? "bg-sky-100 dark:bg-sky-500/20 ring-1 ring-inset ring-sky-300 dark:ring-sky-500/40"
+                                    : (stripedRows && idx % 2 === 1)
+                                    ? "bg-slate-50/60 dark:bg-muted/20 hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
+                                    : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
+                                }`}
+                              >
+                                {idx === 0 && (
+                                  <>
+                                    <td rowSpan={group.rows.length} className={`px-2 py-1 font-mono text-[11px] ${br} align-top`}>{group.supplierCode}</td>
+                                    <td rowSpan={group.rows.length} className={`px-2 py-1 ${br} align-top`}>{group.supplierName}</td>
+                                  </>
+                                )}
+                                {orderedCols.map((k) => {
+                                  switch (k) {
+                                    case "itemCode":          return <td key={k} className={`px-2 py-1 font-mono text-[11px] ${br}`}>{item.itemCode}</td>;
+                                    case "itemName":          return <td key={k} className={`px-2 py-1 ${br}`}>{item.itemName}</td>;
+                                    case "receiptQty":        return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums text-blue-600 dark:text-blue-400 font-semibold`}>{item.receiptQty.toLocaleString("ko-KR")}</td>;
+                                    case "unit":              return <td key={k} className={`px-2 py-1 text-center ${br} text-muted-foreground`}>{item.unit || "-"}</td>;
+                                    case "receiptAmount":     return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums bg-blue-50/30 dark:bg-blue-500/5`}>{item.receiptAmount ? item.receiptAmount.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "receiptAmountVat":  return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums bg-blue-50/30 dark:bg-blue-500/5`}>{item.receiptAmountVat ? item.receiptAmountVat.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "inputQty":          return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums`}>{item.inputQty ? item.inputQty.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "inputAmount":       return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums`}>{item.inputAmount ? item.inputAmount.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "unprocessedQty":    return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums font-semibold ${item.unprocessedQty > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"}`}>{item.unprocessedQty !== 0 ? item.unprocessedQty.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "unprocessedAmount": return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums font-semibold ${item.unprocessedAmount > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"}`}>{item.unprocessedAmount !== 0 ? item.unprocessedAmount.toLocaleString("ko-KR") : "-"}</td>;
+                                    default:                  return <td key={k} className={`px-2 py-1 ${br}`} />;
+                                  }
+                                })}
+                              </tr>
+                            )),
+                            <tr key={`sub-${group.supplierCode}`} className="border-b bg-pink-100/80 dark:bg-pink-500/10 font-semibold">
+                              <td colSpan={2} className={`px-3 py-1.5 text-right ${br} text-xs text-pink-800 dark:text-pink-300`}>구매처 계</td>
+                              {orderedCols.map((k) => {
+                                const base = `px-2 py-1.5 ${br} tabular-nums`;
+                                if (k === "receiptQty")        return <td key={k} className={`${base} text-right text-blue-700 dark:text-blue-300`}>{group.totalReceiptQty.toLocaleString("ko-KR")}</td>;
+                                if (k === "receiptAmount")     return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300 bg-blue-50/30`}>{group.totalReceiptAmount.toLocaleString("ko-KR")}</td>;
+                                if (k === "receiptAmountVat")  return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300 bg-blue-50/30`}>{group.totalReceiptAmountVat.toLocaleString("ko-KR")}</td>;
+                                if (k === "inputQty")          return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalInputQty.toLocaleString("ko-KR")}</td>;
+                                if (k === "inputAmount")       return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalInputAmount.toLocaleString("ko-KR")}</td>;
+                                if (k === "unprocessedQty")    return <td key={k} className={`${base} text-right text-orange-700 dark:text-orange-300`}>{group.totalUnprocessedQty.toLocaleString("ko-KR")}</td>;
+                                if (k === "unprocessedAmount") return <td key={k} className={`${base} text-right text-orange-700 dark:text-orange-300`}>{group.totalUnprocessedAmount.toLocaleString("ko-KR")}</td>;
+                                return <td key={k} className={base} />;
+                              })}
+                            </tr>,
+                          ])}
+                          <tr className="bg-pink-200/80 dark:bg-pink-500/20 font-bold border-t-2 border-pink-300 dark:border-pink-500/40">
+                            <td colSpan={2} className={`px-3 py-2 text-right ${br} text-sm text-pink-900 dark:text-pink-200`}>총 계</td>
+                            {orderedCols.map((k) => {
+                              const base = `px-2 py-2 ${br} tabular-nums`;
+                              if (k === "receiptQty")        return <td key={k} className={`${base} text-right text-blue-800 dark:text-blue-200`}>{grandCombined.receiptQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "receiptAmount")     return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200 bg-blue-50/30`}>{grandCombined.receiptAmount.toLocaleString("ko-KR")}</td>;
+                              if (k === "receiptAmountVat")  return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200 bg-blue-50/30`}>{grandCombined.receiptAmountVat.toLocaleString("ko-KR")}</td>;
+                              if (k === "inputQty")          return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandCombined.inputQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "inputAmount")       return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandCombined.inputAmount.toLocaleString("ko-KR")}</td>;
+                              if (k === "unprocessedQty")    return <td key={k} className={`${base} text-right text-orange-800 dark:text-orange-200`}>{grandCombined.unprocessedQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "unprocessedAmount") return <td key={k} className={`${base} text-right text-orange-800 dark:text-orange-200`}>{grandCombined.unprocessedAmount.toLocaleString("ko-KR")}</td>;
+                              return <td key={k} className={base} />;
+                            })}
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
                 </table>
-              )}
+                );
+             })()}
 
             </div>
           </CardContent>

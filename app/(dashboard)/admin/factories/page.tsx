@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
-import { SortableTh } from "@/components/ui/sortable-th";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,9 @@ interface FactoryRow {
   IsActive: boolean;
 }
 
+const FACT_COLS = ["FactoryCode","FactoryName","SortOrder","IsActive"] as const;
+const FACT_HEADER: Record<string, string> = { FactoryCode:"공장코드", FactoryName:"공장명", SortOrder:"순서", IsActive:"상태" };
+
 const EMPTY_DRAFT: Omit<FactoryRow, "FactoryCode"> & { FactoryCode: string } = {
   FactoryCode: "",
   FactoryName: "",
@@ -36,6 +40,7 @@ const EMPTY_DRAFT: Omit<FactoryRow, "FactoryCode"> & { FactoryCode: string } = {
 export default function AdminFactoriesPage() {
   const [rows, setRows] = useCachedState<FactoryRow[]>("admin/factories/rows", []);
   const { sortedItems: sortedFactories, sortKey: factSortKey, sortDir: factSortDir, toggleSort: factToggleSort } = useSortableGrid(rows);
+  const factColSettings = useGridColumnSettings("admin/factories/list", [...FACT_COLS]);
   const [loading, setLoading] = useState(false);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const [gridSettingsTab, setGridSettingsTab] = useState<"export" | "sort" | "columns" | "view">("export");
@@ -150,26 +155,40 @@ export default function AdminFactoriesPage() {
 
       <div className="rounded-lg border bg-card">
         <table className="w-full text-sm">
+          <colgroup>
+            {factColSettings.colOrder.map((k) => (
+              <col key={k} style={{ width: factColSettings.colWidths[k] ? `${factColSettings.colWidths[k]}px` : undefined }} />
+            ))}
+            <col style={{ width: "96px" }} />
+          </colgroup>
           <thead>
             <tr className="border-b bg-muted/50">
-              <SortableTh sortKey="FactoryCode" currentKey={factSortKey as string|null} sortDir={factSortDir} onSort={(k) => factToggleSort(k as keyof FactoryRow)} className="px-4 py-3 text-left font-medium text-muted-foreground">공장코드</SortableTh>
-              <SortableTh sortKey="FactoryName" currentKey={factSortKey as string|null} sortDir={factSortDir} onSort={(k) => factToggleSort(k as keyof FactoryRow)} className="px-4 py-3 text-left font-medium text-muted-foreground">공장명</SortableTh>
-              <SortableTh sortKey="SortOrder"   currentKey={factSortKey as string|null} sortDir={factSortDir} onSort={(k) => factToggleSort(k as keyof FactoryRow)} className="px-4 py-3 text-center font-medium text-muted-foreground w-20">순서</SortableTh>
-              <SortableTh sortKey="IsActive"    currentKey={factSortKey as string|null} sortDir={factSortDir} onSort={(k) => factToggleSort(k as keyof FactoryRow)} className="px-4 py-3 text-center font-medium text-muted-foreground w-20">상태</SortableTh>
+              {factColSettings.colOrder.map((k) => {
+                const tp = { dragKey: factColSettings.dragKey, dropTargetKey: factColSettings.dropTargetKey, onResizeEnd: factColSettings.resize, onDragStartKey: factColSettings.setDragKey, onDropKey: factColSettings.reorder, onDragEndKey: () => factColSettings.setDragKey(null), onDragOverKey: factColSettings.setDropTargetKey };
+                return (
+                  <GridTh key={k} colKey={k} {...tp}
+                    className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap"
+                    sortKey={k} currentSortKey={factSortKey as string|null} sortDir={factSortDir}
+                    onSort={(sk) => factToggleSort(sk as keyof FactoryRow)}
+                  >
+                    {FACT_HEADER[k] ?? k}
+                  </GridTh>
+                );
+              })}
               <th className="px-4 py-3 w-24" />
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                <td colSpan={FACT_COLS.length + 1} className="py-12 text-center text-muted-foreground">
                   불러오는 중...
                 </td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                <td colSpan={FACT_COLS.length + 1} className="py-12 text-center text-muted-foreground">
                   <Factory className="mx-auto mb-2 h-8 w-8 opacity-30" />
                   등록된 공장이 없습니다.
                 </td>
@@ -185,18 +204,15 @@ export default function AdminFactoriesPage() {
                     : "hover:bg-sky-50/60 dark:hover:bg-sky-500/10"
                 }`}
               >
-                <td className="px-4 py-3 font-mono font-medium">{row.FactoryCode}</td>
-                <td className="px-4 py-3">{row.FactoryName}</td>
-                <td className="px-4 py-3 text-center text-muted-foreground">{row.SortOrder}</td>
-                <td className="px-4 py-3 text-center">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    row.IsActive
-                      ? "bg-green-50 text-green-700"
-                      : "bg-red-50 text-red-600"
-                  }`}>
-                    {row.IsActive ? "활성" : "비활성"}
-                  </span>
-                </td>
+                {factColSettings.colOrder.map((k) => {
+                  switch (k) {
+                    case "FactoryCode": return <td key={k} className="px-4 py-3 font-mono font-medium">{row.FactoryCode}</td>;
+                    case "FactoryName": return <td key={k} className="px-4 py-3">{row.FactoryName}</td>;
+                    case "SortOrder":   return <td key={k} className="px-4 py-3 text-center text-muted-foreground">{row.SortOrder}</td>;
+                    case "IsActive":    return <td key={k} className="px-4 py-3 text-center"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.IsActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>{row.IsActive ? "활성" : "비활성"}</span></td>;
+                    default:            return <td key={k} />;
+                  }
+                })}
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <Button
