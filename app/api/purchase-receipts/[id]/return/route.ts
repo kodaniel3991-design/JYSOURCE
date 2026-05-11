@@ -72,7 +72,7 @@ export async function POST(
       .query(`SELECT COUNT(1) AS Cnt FROM dbo.ReceiptHistory WHERE ReceiptNo LIKE @Pattern`);
     const seq = Number(countResult.recordset[0].Cnt) + 1;
     const returnNo = makeReturnNo(seq);
-    const processedAt = new Date();
+    const processedAt = new Date(Date.now() + 9 * 60 * 60 * 1000);
 
     for (const it of targets) {
       // 이력 삽입

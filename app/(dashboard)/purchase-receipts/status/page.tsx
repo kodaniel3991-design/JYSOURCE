@@ -51,6 +51,7 @@ type MergedItem = {
   receiptDate: string;
   qty: number;
   receiptAmount: number;
+  receiptAmountVat: number;
   unitPrice: number;
   unit: string;
   type: "입고" | "반품";
@@ -62,6 +63,7 @@ type SupplierGroup = {
   rows: MergedItem[];
   totalQty: number;
   totalAmount: number;
+  totalAmountVat: number;
 };
 
 // 합계 뷰: 구매처+품목 기준 집계 (입고 + 매입 합산)
@@ -111,16 +113,17 @@ type InputSummaryItem = {
 };
 
 // ── 상수 ───────────────────────────────────────────────────────────────────
-const COL_COUNT = 12;
+const COL_COUNT = 13;
 const COL_COUNT_COMBINED = 12;
 
-const DETAIL_COLS  = ["supplierCode","supplierName","itemCode","itemName","poNumber","specNo","unitPrice","qty","unit","receiptAmount","receiptDate","currency"];
+const DETAIL_COLS  = ["supplierCode","supplierName","itemCode","itemName","poNumber","specNo","unitPrice","qty","unit","receiptAmount","receiptAmountVat","receiptDate","currency"];
 const SUMMARY_COLS = ["supplierCode","supplierName","itemCode","itemName","receiptQty","unit","receiptAmount","receiptAmountVat","inputQty","inputAmount","unprocessedQty","unprocessedAmount"];
 const LOCKED_SUPPLIER = ["supplierCode","supplierName"];
 
 const DETAIL_HEADER: Record<string, string> = {
   itemCode: "품목번호", itemName: "품목명", poNumber: "구매오더", specNo: "명세",
-  unitPrice: "입고단가", qty: "입고량", unit: "단위", receiptAmount: "입고금액",
+  unitPrice: "입고단가", qty: "입고량", unit: "단위",
+  receiptAmount: "입고금액(VAT제외)", receiptAmountVat: "입고금액(VAT포함)",
   receiptDate: "입고일자", currency: "통화",
 };
 const SUMMARY_HEADER: Record<string, string> = {
@@ -248,25 +251,29 @@ export default function ReceiptStatusPage() {
       const signedAmt    = item.type === "반품" ? -Math.abs(item.receiptAmount) : item.receiptAmount;
       if (!map.has(key)) {
         map.set(key, {
-          mergeKey:     key,
-          supplierCode: item.supplierCode,
-          supplierName: item.supplierName,
-          poNumber:     item.poNumber,
-          specNo:       item.specNo,
-          itemCode:     item.itemCode,
-          itemName:     item.itemName,
-          receiptDate:  item.receiptDate,
-          qty:          signedQty,
-          receiptAmount: signedAmt,
-          unitPrice:    item.unitPrice,
-          unit:         item.unit,
-          type:         item.type,
+          mergeKey:         key,
+          supplierCode:     item.supplierCode,
+          supplierName:     item.supplierName,
+          poNumber:         item.poNumber,
+          specNo:           item.specNo,
+          itemCode:         item.itemCode,
+          itemName:         item.itemName,
+          receiptDate:      item.receiptDate,
+          qty:              signedQty,
+          receiptAmount:    signedAmt,
+          receiptAmountVat: 0,
+          unitPrice:        item.unitPrice,
+          unit:             item.unit,
+          type:             item.type,
         });
       } else {
         const r = map.get(key)!;
         r.qty           += signedQty;
         r.receiptAmount += signedAmt;
       }
+    }
+    for (const r of Array.from(map.values())) {
+      r.receiptAmountVat = Math.round(r.receiptAmount * 1.1);
     }
     return Array.from(map.values()).sort((a, b) => {
       const poCmp = a.poNumber.localeCompare(b.poNumber);
@@ -287,18 +294,21 @@ export default function ReceiptStatusPage() {
           rows: [],
           totalQty: 0,
           totalAmount: 0,
+          totalAmountVat: 0,
         });
       }
       const g = map.get(key)!;
       g.rows.push(item);
-      g.totalQty    += item.qty;
-      g.totalAmount += item.receiptAmount;
+      g.totalQty       += item.qty;
+      g.totalAmount    += item.receiptAmount;
+      g.totalAmountVat += item.receiptAmountVat;
     }
     return Array.from(map.values());
   }, [mergedItems]);
 
-  const grandTotalQty    = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalQty, 0),    [supplierGroups]);
-  const grandTotalAmount = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalAmount, 0), [supplierGroups]);
+  const grandTotalQty       = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalQty, 0),       [supplierGroups]);
+  const grandTotalAmount    = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalAmount, 0),    [supplierGroups]);
+  const grandTotalAmountVat = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalAmountVat, 0), [supplierGroups]);
 
   // ── 합계 뷰 집계: 구매처+품목 기준 (입고+매입 결합) ──────────────────
   const combinedItems = useMemo<CombinedItem[]>(() => {
@@ -842,7 +852,7 @@ export default function ReceiptStatusPage() {
                         <GridTh colKey="supplierCode" locked {...thProps} className={`px-2 py-2 text-left ${br} whitespace-nowrap`}>구매처번호</GridTh>
                         <GridTh colKey="supplierName" locked {...thProps} className={`px-2 py-2 text-left ${br}`}>구매처명</GridTh>
                         {orderedCols.map((k) => (
-                          <GridTh key={k} colKey={k} {...thProps} className={`px-2 py-2 whitespace-nowrap ${br}`}>{DETAIL_HEADER[k] ?? k}</GridTh>
+                          <GridTh key={k} colKey={k} {...thProps} className={cn("px-2 py-2 whitespace-nowrap", br, (k === "receiptAmount" || k === "receiptAmountVat") && "bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300")}>{DETAIL_HEADER[k] ?? k}</GridTh>
                         ))}
                       </tr>
                     </thead>
@@ -883,8 +893,9 @@ export default function ReceiptStatusPage() {
                                     case "unitPrice":     return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums text-muted-foreground`}>{item.unitPrice ? item.unitPrice.toLocaleString("ko-KR") : "-"}</td>;
                                     case "qty":           return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums font-semibold ${item.type === "반품" ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}>{item.qty.toLocaleString("ko-KR")}</td>;
                                     case "unit":          return <td key={k} className={`px-2 py-1 text-center ${br} text-muted-foreground`}>{item.unit || "-"}</td>;
-                                    case "receiptAmount": return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums`}>{item.receiptAmount !== 0 ? item.receiptAmount.toLocaleString("ko-KR") : "-"}</td>;
-                                    case "receiptDate":   return <td key={k} className={`px-2 py-1 text-center ${br}`}>{item.receiptDate}</td>;
+                                    case "receiptAmount":    return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums`}>{item.receiptAmount !== 0 ? item.receiptAmount.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "receiptAmountVat": return <td key={k} className={`px-2 py-1 text-right ${br} tabular-nums text-blue-700 dark:text-blue-300`}>{item.receiptAmountVat !== 0 ? item.receiptAmountVat.toLocaleString("ko-KR") : "-"}</td>;
+                                    case "receiptDate":      return <td key={k} className={`px-2 py-1 text-center ${br}`}>{item.receiptDate}</td>;
                                     case "currency":      return <td key={k} className={`px-2 py-1 text-center ${br} text-muted-foreground`}>KRW</td>;
                                     default:              return <td key={k} className={`px-2 py-1 ${br}`} />;
                                   }
@@ -895,8 +906,9 @@ export default function ReceiptStatusPage() {
                               <td colSpan={2} className={`px-3 py-1.5 text-right ${br} text-xs text-pink-800 dark:text-pink-300`}>구매처 계</td>
                               {orderedCols.map((k) => {
                                 const base = `px-2 py-1.5 ${br} tabular-nums`;
-                                if (k === "qty")           return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalQty.toLocaleString("ko-KR")}</td>;
-                                if (k === "receiptAmount") return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalAmount.toLocaleString("ko-KR")}</td>;
+                                if (k === "qty")              return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalQty.toLocaleString("ko-KR")}</td>;
+                                if (k === "receiptAmount")    return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalAmount.toLocaleString("ko-KR")}</td>;
+                                if (k === "receiptAmountVat") return <td key={k} className={`${base} text-right text-pink-800 dark:text-pink-300`}>{group.totalAmountVat.toLocaleString("ko-KR")}</td>;
                                 return <td key={k} className={base} />;
                               })}
                             </tr>,
@@ -905,8 +917,9 @@ export default function ReceiptStatusPage() {
                             <td colSpan={2} className={`px-3 py-2 text-right ${br} text-sm text-pink-900 dark:text-pink-200`}>총 계</td>
                             {orderedCols.map((k) => {
                               const base = `px-2 py-2 ${br} tabular-nums`;
-                              if (k === "qty")           return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
-                              if (k === "receiptAmount") return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandTotalAmount.toLocaleString("ko-KR")}</td>;
+                              if (k === "qty")              return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandTotalQty.toLocaleString("ko-KR")}</td>;
+                              if (k === "receiptAmount")    return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandTotalAmount.toLocaleString("ko-KR")}</td>;
+                              if (k === "receiptAmountVat") return <td key={k} className={`${base} text-right text-pink-900 dark:text-pink-200`}>{grandTotalAmountVat.toLocaleString("ko-KR")}</td>;
                               return <td key={k} className={base} />;
                             })}
                           </tr>

@@ -56,7 +56,7 @@ export function PODetailClient({ id }: { id: string }) {
     };
 
     const totalQty = poItems.reduce((sum, i) => sum + i.quantity, 0);
-    const EMPTY_ROWS = Math.max(0, 30 - poItems.length);
+    const EMPTY_ROWS = poItems.length > 20 ? 0 : Math.max(0, 30 - poItems.length);
 
     const B = "1px solid #000";
     const G = "background-color:#c6efce;";
@@ -77,87 +77,95 @@ export function PODetailClient({ id }: { id: string }) {
   table { border-collapse: collapse; width: 100%; }
   .print-btn { text-align:right; margin-bottom:6px; }
   .print-btn button { padding:3px 14px; font-size:11px; cursor:pointer; }
+  tbody td { white-space:nowrap; overflow:hidden; }
   @media print { .print-btn { display:none; } }
 </style>
 </head><body>
 
 <div class="print-btn"><button onclick="window.print()">인 쇄</button></div>
 
-<!-- 제목 + 발주번호 (단일 외곽 테두리 박스) -->
-<table style="border:${B};margin-bottom:0;">
-  <tr>
-    <td colspan="4" style="text-align:center;font-size:22px;font-weight:700;letter-spacing:0.5em;padding:8px 6px;border-bottom:${B};">구 매 발 주 서</td>
-  </tr>
-  <tr>
-    ${td(`padding:3px 6px;width:26%;`,"발주번호 : "+po.poNumber)}
-    ${td(`padding:3px 6px;width:30%;`,"발주일자 : "+createdDate)}
-    ${td(`padding:3px 6px;width:36%;`,"")}
-    ${td(`padding:3px 6px;width:8%;text-align:right;`,"Page : 1/1")}
-  </tr>
-</table>
-
-<!-- 공급받는자 / 공급자 (6컬럼 단일 테이블 - 행 높이 자동 정렬) -->
-<table style="margin-top:0;border:${B};">
+<!-- 단일 테이블: thead 가 인쇄 시 매 페이지 자동 반복 -->
+<table style="border-collapse:collapse;width:100%;">
   <colgroup>
-    <col style="width:16px;"><col style="width:48px;"><col style="width:calc(50% - 64px);">
-    <col style="width:16px;"><col style="width:48px;"><col>
+    <col style="width:4%;"><col style="width:13%;"><col style="width:18%;">
+    <col style="width:13%;"><col style="width:10%;"><col style="width:13%;">
+    <col style="width:9%;"><col style="width:7%;"><col style="width:5%;">
+    <col style="width:8%;">
   </colgroup>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.companyName}</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
-    <td style="border-bottom:${B};padding:2px 6px;">${supplier.companyName}</td>
-  </tr>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.representative}&nbsp;(인)</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
-    <td style="border-bottom:${B};padding:2px 6px;">${supplier.representative || "김상용"}&nbsp;&nbsp;구매처 번호 : ${supplier.purchaserNo}</td>
-  </tr>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">받</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.address}</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
-    <td style="border-bottom:${B};padding:2px 6px;">${supplier.address || "경상남도 김해시 진례면 테크로밸리로 108"}</td>
-  </tr>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">는</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.tel}</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
-    <td style="border-bottom:${B};padding:2px 6px;">${(supplier.telFax || "").split("/")[0]?.trim() || ""}</td>
-  </tr>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
-    <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
-    <td style="border-right:${B};padding:2px 6px;">${recipient.fax}</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
-    <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
-    <td style="padding:2px 6px;">${(supplier.telFax || "").split("/")[1]?.trim() || ""}</td>
-  </tr>
-</table>
-
-<!-- 품목 테이블 -->
-<table style="margin-top:0;">
   <thead>
+    <tr><td colspan="10" style="padding:0;border:0;">
+      <!-- 제목 + 발주번호 -->
+      <table style="border:${B};margin-bottom:0;width:100%;border-collapse:collapse;">
+        <tr>
+          <td colspan="4" style="text-align:center;font-size:22px;font-weight:700;letter-spacing:0.5em;padding:8px 6px;border-bottom:${B};">구 매 발 주 서</td>
+        </tr>
+        <tr>
+          ${td(`padding:3px 6px;width:26%;`,"발주번호 : "+po.poNumber)}
+          ${td(`padding:3px 6px;width:30%;`,"발주일자 : "+createdDate)}
+          ${td(`padding:3px 6px;width:36%;`,"")}
+          ${td(`padding:3px 6px;width:8%;text-align:right;`,"")}
+        </tr>
+      </table>
+      <!-- 공급받는자 / 공급자 -->
+      <table style="margin-top:0;border:${B};border-bottom:0;table-layout:fixed;width:100%;border-collapse:collapse;">
+        <colgroup>
+          <col style="width:16px;"><col style="width:48px;"><col style="width:calc(50% - 64px);">
+          <col style="width:16px;"><col style="width:48px;"><col>
+        </colgroup>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.companyName}</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
+          <td style="border-bottom:${B};padding:2px 6px;">${supplier.companyName}</td>
+        </tr>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.representative}&nbsp;(인)</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
+          <td style="border-bottom:${B};padding:2px 6px;">${supplier.representative || "김상용"}&nbsp;&nbsp;구매처 번호 : ${supplier.purchaserNo}</td>
+        </tr>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">받</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.address}</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
+          <td style="border-bottom:${B};padding:2px 6px;">${supplier.address || "경상남도 김해시 진례면 테크로밸리로 108"}</td>
+        </tr>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">는</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;">${recipient.tel}</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
+          <td style="border-bottom:${B};padding:2px 6px;">${(supplier.telFax || "").split("/")[0]?.trim() || ""}</td>
+        </tr>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
+          <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
+          <td style="border-right:${B};padding:2px 6px;">${recipient.fax}</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
+          <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
+          <td style="padding:2px 6px;">${(supplier.telFax || "").split("/")[1]?.trim() || ""}</td>
+        </tr>
+      </table>
+    </td></tr>
+    <!-- 컬럼 헤더 -->
     <tr>
-      ${th("border:"+B+";padding:3px 2px;text-align:center;width:4%;","순서")}
-      ${th("border:"+B+";padding:3px 4px;width:13%;","품목번호")}
-      ${th("border:"+B+";padding:3px 4px;width:18%;","품명")}
-      ${th("border:"+B+";padding:3px 4px;width:13%;","거래처품목번호")}
-      ${th("border:"+B+";padding:3px 4px;width:10%;","규격")}
-      ${th("border:"+B+";padding:3px 4px;width:13%;","납품요구일자")}
-      ${th("border:"+B+";padding:3px 4px;text-align:center;width:9%;","차종")}
-      ${th("border:"+B+";padding:3px 4px;text-align:right;width:7%;","수량")}
-      ${th("border:"+B+";padding:3px 4px;text-align:center;width:5%;","단위")}
-      ${th("border:"+B+";padding:3px 4px;width:8%;","비고")}
+      ${th("border:"+B+";padding:3px 2px;text-align:center;","순서")}
+      ${th("border:"+B+";padding:3px 4px;","품목번호")}
+      ${th("border:"+B+";padding:3px 4px;","품명")}
+      ${th("border:"+B+";padding:3px 4px;","거래처품목번호")}
+      ${th("border:"+B+";padding:3px 4px;","규격")}
+      ${th("border:"+B+";padding:3px 4px;","납품요구일자")}
+      ${th("border:"+B+";padding:3px 4px;text-align:center;","차종")}
+      ${th("border:"+B+";padding:3px 4px;text-align:right;","수량")}
+      ${th("border:"+B+";padding:3px 4px;text-align:center;","단위")}
+      ${th("border:"+B+";padding:3px 4px;","비고")}
     </tr>
   </thead>
   <tbody>
@@ -184,6 +192,7 @@ export function PODetailClient({ id }: { id: string }) {
   </tbody>
 </table>
 
+<div style="page-break-inside:avoid;">
 <!-- 합계 행 (품목 테이블과 동일한 10컬럼, 노란 배경) -->
 <table style="margin-top:0;">
   <tr>
@@ -239,6 +248,7 @@ export function PODetailClient({ id }: { id: string }) {
     </td>
   </tr>
 </table>
+</div>
 
 </body></html>`);
     win.document.close();

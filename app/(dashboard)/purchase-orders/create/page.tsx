@@ -916,7 +916,7 @@ export default function CreatePurchaseOrderPage() {
     const supply = totalOrderAmount;
     const vat = vatAmount;
     const total = supply + vat;
-    const EMPTY_ROWS = Math.max(0, 30 - filledSpec.length);
+    const EMPTY_ROWS = filledSpec.length > 20 ? 0 : Math.max(0, 30 - filledSpec.length);
 
     const B = "1px solid #000";
     const G = "background-color:#c6efce;";
@@ -952,6 +952,7 @@ export default function CreatePurchaseOrderPage() {
   .email-label { display:flex; align-items:center; gap:5px; font-size:11px; color:#374151; cursor:pointer; margin-right:4px; }
   .email-label input[type=checkbox] { width:14px; height:14px; cursor:pointer; accent-color:#1d4ed8; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  tbody td { white-space:nowrap; overflow:hidden; }
   @media print { .btn-bar { display:none; } }
 </style>
 </head><body>
@@ -975,86 +976,86 @@ export default function CreatePurchaseOrderPage() {
   <button class="btn-print" onclick="window.print()">인 쇄</button>
 </div>
 
-<!-- 제목 + 발주번호 -->
-<table style="border:${B};margin-bottom:0;">
-  <tr>
-    <td colspan="4" style="text-align:center;font-size:22px;font-weight:700;letter-spacing:0.5em;padding:8px 6px;border-bottom:${B};">구 매 발 주 서</td>
-  </tr>
-  <tr>
-    ${td(`padding:3px 6px;width:26%;`, "발주번호 : " + selectedOrderNumber)}
-    ${td(`padding:3px 6px;width:30%;`, "발주일자 : " + basicForm.orderDate)}
-    ${td(`padding:3px 6px;width:36%;`, "사업장 : " + businessPlaceLabel)}
-    ${td(`padding:3px 6px;width:8%;text-align:right;`, "Page : 1/1")}
-  </tr>
-</table>
-
-<!-- 공급받는자 / 공급자 -->
-<table style="margin-top:0;border:${B};table-layout:fixed;width:100%;">
-  <colgroup>
-    <col style="width:16px;"><col style="width:48px;"><col style="width:calc(50% - 64px);">
-    <col style="width:16px;"><col style="width:48px;"><col style="width:calc(50% - 64px);">
-  </colgroup>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.companyName}</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
-    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${basicForm.supplierName}</td>
-  </tr>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.representative}&nbsp;(인)</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
-    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.representativeName || ""}</td>
-  </tr>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">받</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.address}</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
-    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.address || ""}</td>
-  </tr>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">는</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.tel}</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
-    <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
-    <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.phoneNo || ""}</td>
-  </tr>
-  <tr>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
-    <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
-    <td style="border-right:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.fax}</td>
-    <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
-    <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
-    <td style="padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.faxNo || ""}</td>
-  </tr>
-</table>
-
-<!-- 발주조건 -->
-<table style="margin-top:0;border:${B};">
-  <tr>
-    <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:10%;">통화</td>
-    <td style="border:${B};padding:2px 6px;width:10%;">${labelOf(currencyOptions, basicForm.currencyCode)}</td>
-    <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:12%;">대금지급형태</td>
-    <td style="border:${B};padding:2px 6px;width:12%;">${labelOf(paymentFormOptions, basicForm.paymentType)}</td>
-    <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:12%;">대금지급조건</td>
-    <td style="border:${B};padding:2px 6px;width:12%;">${labelOf(paymentTermOptions, basicForm.paymentTerms)}</td>
-    <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:10%;">부가세율</td>
-    <td style="border:${B};padding:2px 6px;width:8%;">${basicForm.vatRate}%</td>
-    <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:10%;">수입구분</td>
-    <td style="border:${B};padding:2px 6px;">${labelOf(importTypeOptions, basicForm.importType)}</td>
-  </tr>
-</table>
-
-<!-- 품목 테이블 -->
-<table style="margin-top:0;">
+<!-- 단일 테이블: thead 가 인쇄 시 매 페이지 자동 반복 -->
+<table style="border-collapse:collapse;width:100%;">
   <thead>
+    <tr><td colspan="10" style="padding:0;border:0;">
+      <!-- 제목 + 발주번호 -->
+      <table style="border:${B};margin-bottom:0;width:100%;border-collapse:collapse;">
+        <tr>
+          <td colspan="4" style="text-align:center;font-size:22px;font-weight:700;letter-spacing:0.5em;padding:8px 6px;border-bottom:${B};">구 매 발 주 서</td>
+        </tr>
+        <tr>
+          ${td(`padding:3px 6px;width:26%;`, "발주번호 : " + selectedOrderNumber)}
+          ${td(`padding:3px 6px;width:30%;`, "발주일자 : " + basicForm.orderDate)}
+          ${td(`padding:3px 6px;width:36%;`, "사업장 : " + businessPlaceLabel)}
+          ${td(`padding:3px 6px;width:8%;text-align:right;`, "")}
+        </tr>
+      </table>
+      <!-- 공급받는자 / 공급자 -->
+      <table style="margin-top:0;border:${B};table-layout:fixed;width:100%;border-collapse:collapse;">
+        <colgroup>
+          <col style="width:16px;"><col style="width:48px;"><col style="width:calc(50% - 64px);">
+          <col style="width:16px;"><col style="width:48px;"><col>
+        </colgroup>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.companyName}</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">공</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">상 호</td>
+          <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${basicForm.supplierName}</td>
+        </tr>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.representative}&nbsp;(인)</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">대표자</td>
+          <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.representativeName || ""}</td>
+        </tr>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">받</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.address}</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">급</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">주 소</td>
+          <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.address || ""}</td>
+        </tr>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">는</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.tel}</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">&nbsp;</td>
+          <td style="border-right:${B};border-bottom:${B};padding:2px 6px;font-size:9px;">TEL</td>
+          <td style="border-bottom:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.phoneNo || ""}</td>
+        </tr>
+        <tr>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
+          <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
+          <td style="border-right:${B};padding:2px 6px;overflow:hidden;word-break:break-all;">${recipient.fax}</td>
+          <td style="border-right:${B};text-align:center;padding:2px 1px;font-weight:700;font-size:9px;">자</td>
+          <td style="border-right:${B};padding:2px 6px;font-size:9px;">FAX</td>
+          <td style="padding:2px 6px;overflow:hidden;word-break:break-all;">${purchaserRecord?.faxNo || ""}</td>
+        </tr>
+      </table>
+      <!-- 발주조건 -->
+      <table style="margin-top:0;border:${B};border-bottom:0;width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:10%;">통화</td>
+          <td style="border:${B};padding:2px 6px;width:10%;">${labelOf(currencyOptions, basicForm.currencyCode)}</td>
+          <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:12%;">대금지급형태</td>
+          <td style="border:${B};padding:2px 6px;width:12%;">${labelOf(paymentFormOptions, basicForm.paymentType)}</td>
+          <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:12%;">대금지급조건</td>
+          <td style="border:${B};padding:2px 6px;width:12%;">${labelOf(paymentTermOptions, basicForm.paymentTerms)}</td>
+          <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:10%;">부가세율</td>
+          <td style="border:${B};padding:2px 6px;width:8%;">${basicForm.vatRate}%</td>
+          <td style="${G}border:${B};padding:2px 6px;font-size:9px;width:10%;">수입구분</td>
+          <td style="border:${B};padding:2px 6px;">${labelOf(importTypeOptions, basicForm.importType)}</td>
+        </tr>
+      </table>
+    </td></tr>
+    <!-- 컬럼 헤더 -->
     <tr>
       ${th("border:" + B + ";padding:3px 2px;text-align:center;width:4%;", "순서")}
       ${th("border:" + B + ";padding:3px 4px;width:13%;", "품목번호")}
@@ -1104,6 +1105,7 @@ export default function CreatePurchaseOrderPage() {
   </tbody>
 </table>
 
+<div style="page-break-inside:avoid;">
 <!-- 공급가액/부가세/합계 -->
 <table class="price-section" style="margin-top:0;border:${B};">
   <tr>
@@ -1152,6 +1154,7 @@ export default function CreatePurchaseOrderPage() {
     </td>
   </tr>
 </table>
+</div>
 
 <script>
   function togglePrice(show) {

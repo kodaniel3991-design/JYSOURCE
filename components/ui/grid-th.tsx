@@ -59,7 +59,7 @@ export function GridTh({
   const handleResizeMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const th = (e.currentTarget as HTMLElement).closest("th") as HTMLElement;
+    const th = (e.currentTarget as HTMLElement).closest("th") as HTMLTableCellElement;
     const startWidth = th.offsetWidth;
     const startX = e.clientX;
 
