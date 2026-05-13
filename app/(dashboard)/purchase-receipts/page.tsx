@@ -642,11 +642,11 @@ export default function PurchaseReceiptsPage() {
         receiptNos.push(data.receiptNo);
       }
       setNotifyModal({ open: true, title: "입고처리 완료", message: `${targets.length}건의 입고처리가 완료되었습니다.\n(${receiptNos.join(", ")})` });
-      loadAllPending();
     } catch {
       setNotifyModal({ open: true, title: "오류", message: "입고처리 중 오류가 발생했습니다." });
     } finally {
       setIsReceiving(false);
+      loadAllPending();
     }
   };
 
@@ -695,11 +695,11 @@ export default function PurchaseReceiptsPage() {
         };
       }
       if (lastSlip) setReturnSlip(lastSlip);
-      loadAllPending();
     } catch {
       setNotifyModal({ open: true, title: "오류", message: "반품처리 중 오류가 발생했습니다." });
     } finally {
       setIsReturning(false);
+      loadAllPending();
     }
   };
 

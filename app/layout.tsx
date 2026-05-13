@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className={`h-full ${sora.variable} ${dmMono.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground font-sans antialiased">
+      <body className="h-full bg-background text-foreground font-sans antialiased">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

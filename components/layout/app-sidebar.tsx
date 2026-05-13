@@ -30,6 +30,12 @@ import {
   Receipt,
   Star,
   PanelTopOpen,
+  Landmark,
+  FilePlus2,
+  BadgeCheck,
+  Printer,
+  Book,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/lib/hooks/use-favorites";
@@ -80,6 +86,19 @@ const performanceNavGroup = {
     { href: "/purchase-orders/performance/purchase-input", label: "매입 실적 관리", icon: Receipt },
     { href: "/purchase-orders/performance/receipts", label: "발주대비 입고현황", icon: FileText },
     { href: "/purchase-orders/performance/closing", label: "차종별 / 형태별 마감현황", icon: FileText },
+  ],
+};
+
+const accountingNavGroup = {
+  label: "회계관리",
+  icon: Landmark,
+  children: [
+    { href: "/accounting/purchase-vouchers", label: "매입전표 일괄생성",   icon: FilePlus2 },
+    { href: "/accounting/vouchers",          label: "회계전표관리",       icon: FileText },
+    { href: "/accounting/voucher-approval",  label: "전표승인/해제관리",  icon: BadgeCheck },
+    { href: "/accounting/voucher-print",     label: "전표조회 및 출력",   icon: Printer },
+    { href: "/accounting/journal",           label: "분개장",            icon: Book },
+    { href: "/accounting/ledger",            label: "매입매출장",         icon: BookOpen },
   ],
 };
 
@@ -145,6 +164,7 @@ export function AppSidebar({ isAdmin = false, collapsed = false, onToggle, onNav
   const isPoActive = pathname.startsWith("/purchase-orders");
   const isReceiptActive = pathname.startsWith("/purchase-receipts");
   const isPerformanceActive = pathname.startsWith("/purchase-orders/performance");
+  const isAccountingActive  = pathname.startsWith("/accounting");
   const isSettingsActive = pathname.startsWith("/settings");
   const isAdminActive = pathname.startsWith("/admin");
 
@@ -152,6 +172,7 @@ export function AppSidebar({ isAdmin = false, collapsed = false, onToggle, onNav
   const [poOpen, setPoOpen] = useState(isPoActive);
   const [receiptOpen, setReceiptOpen] = useState(isReceiptActive);
   const [performanceOpen, setPerformanceOpen] = useState(isPerformanceActive);
+  const [accountingOpen,  setAccountingOpen]  = useState(isAccountingActive);
   const [settingsOpen, setSettingsOpen] = useState(isSettingsActive);
   const [adminOpen, setAdminOpen] = useState(isAdminActive);
 
@@ -159,6 +180,7 @@ export function AppSidebar({ isAdmin = false, collapsed = false, onToggle, onNav
   useEffect(() => { if (isPoActive) setPoOpen(true); }, [isPoActive]);
   useEffect(() => { if (isReceiptActive) setReceiptOpen(true); }, [isReceiptActive]);
   useEffect(() => { if (isPerformanceActive) setPerformanceOpen(true); }, [isPerformanceActive]);
+  useEffect(() => { if (isAccountingActive)  setAccountingOpen(true);  }, [isAccountingActive]);
   useEffect(() => { if (isSettingsActive) setSettingsOpen(true); }, [isSettingsActive]);
   useEffect(() => { if (isAdminActive) setAdminOpen(true); }, [isAdminActive]);
 
@@ -248,6 +270,7 @@ export function AppSidebar({ isAdmin = false, collapsed = false, onToggle, onNav
           {renderCollapsedGroup(purchaseOrderNavGroup.icon, purchaseOrderNavGroup.label, isPoActive && !isPerformanceActive)}
           {renderCollapsedGroup(receiptNavGroup.icon, receiptNavGroup.label, isReceiptActive)}
           {renderCollapsedGroup(performanceNavGroup.icon, performanceNavGroup.label, isPerformanceActive)}
+          {renderCollapsedGroup(accountingNavGroup.icon, accountingNavGroup.label, isAccountingActive)}
           {bottomNavItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href);
             return renderCollapsedIcon(item.icon, item.label, isActive);
@@ -500,6 +523,60 @@ export function AppSidebar({ isAdmin = false, collapsed = false, onToggle, onNav
             {performanceOpen && (
               <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
                 {performanceNavGroup.children.map((child) => {
+                  const isChildActive = pathname === child.href;
+                  const Icon = child.icon;
+                  const starred = isFavorite(child.href);
+                  return (
+                    <div key={child.href} className="group flex items-center">
+                      <Link
+                        href={child.href}
+                        onClick={onNavigate}
+                        className={cn(
+                          "flex flex-1 items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                          isChildActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {child.label}
+                      </Link>
+                      <button
+                        type="button"
+                        title={starred ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                        onClick={() => toggle({ href: child.href, label: child.label })}
+                        className={cn(
+                          "mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded transition-opacity",
+                          starred ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                          "hover:bg-muted"
+                        )}
+                      >
+                        <Star className={cn("h-3.5 w-3.5", starred ? "fill-amber-400 text-amber-400" : "text-muted-foreground")} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 회계관리 */}
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => setAccountingOpen((o) => !o)}
+              className={cn(
+                "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isAccountingActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <accountingNavGroup.icon className="h-5 w-5 shrink-0" />
+                <span>{accountingNavGroup.label}</span>
+              </div>
+              {accountingOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+            </button>
+            {accountingOpen && (
+              <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
+                {accountingNavGroup.children.map((child) => {
                   const isChildActive = pathname === child.href;
                   const Icon = child.icon;
                   const starred = isFavorite(child.href);

@@ -23,11 +23,11 @@ export function SidebarLayout({ children, username, factory, isAdmin }: SidebarL
         onNavigate={() => setCollapsed(true)}
       />
       <div
-        className="transition-[padding-left] duration-300"
+        className="flex flex-col h-screen transition-[padding-left] duration-300"
         style={{ paddingLeft: collapsed ? 64 : 256 }}
       >
         <AppHeader username={username} factory={factory} isAdmin={isAdmin} />
-        <main className="p-6">{children}</main>
+        <main className="flex-1 min-h-0 overflow-hidden p-6">{children}</main>
       </div>
     </div>
   );
