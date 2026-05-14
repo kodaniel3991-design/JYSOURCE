@@ -194,7 +194,7 @@ export default function CreatePurchaseOrderPage() {
   const supplierHighlightRef = useRef<HTMLTableRowElement>(null);
   const modelHighlightRef = useRef<HTMLTableRowElement>(null);
   const [onlyWithPrice, setOnlyWithPrice] = useState(false);
-  const [priceItemCodes, setPriceItemCodes] = useState<Set<string>>(new Set());
+  const [priceMap, setPriceMap] = useState<Map<string, number>>(new Map());
   const [itemHighlightIdx, setItemHighlightIdx] = useState(-1);
   const itemListScrollRef = useRef<HTMLDivElement>(null);
   const warehouseSelectRefs = useRef<(HTMLSelectElement | null)[]>([]);
@@ -360,16 +360,19 @@ export default function CreatePurchaseOrderPage() {
       .then((data) => {
         if (!data.ok) return;
         const supplierId = basicForm.supplierId.trim();
-        const codes = new Set<string>(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (data.items as any[])
-            .filter((p) => (p.supplierCode ?? "").trim() === supplierId)
-            .map((p) => String(p.itemCode))
-        );
-        setPriceItemCodes(codes);
+        const factoryCode = basicForm.businessPlace.trim();
+        const map = new Map<string, number>();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (data.items as any[])
+          .filter((p) =>
+            (p.supplierCode ?? "").trim() === supplierId &&
+            (!factoryCode || (p.businessUnit ?? "").startsWith(factoryCode))
+          )
+          .forEach((p) => { map.set(String(p.itemCode), Number(p.unitPrice)); });
+        setPriceMap(map);
       })
       .catch(() => {});
-  }, [isItemModalOpen, basicForm.supplierId]);
+  }, [isItemModalOpen, basicForm.supplierId, basicForm.businessPlace]);
 
   const distinctModels = useMemo(() => {
     const s = new Set<string>();
@@ -404,13 +407,13 @@ export default function CreatePurchaseOrderPage() {
     const modelKw = itemFilterModel.trim().toLowerCase();
     const supplierKw = itemFilterSupplierId.trim().toLowerCase();
     return itemMaster.filter((i) => {
-      if (onlyWithPrice && !priceItemCodes.has(i.itemCode)) return false;
+      if (onlyWithPrice && !priceMap.has(i.itemCode)) return false;
       if (keyword && !i.itemCode.toLowerCase().includes(keyword) && !i.itemName.toLowerCase().includes(keyword)) return false;
       if (modelKw && !(i.model ?? "").toLowerCase().includes(modelKw)) return false;
       if (supplierKw && !i.supplierId.toLowerCase().includes(supplierKw)) return false;
       return true;
     });
-  }, [itemSearch, itemFilterModel, itemFilterSupplierId, onlyWithPrice, priceItemCodes, itemMaster]);
+  }, [itemSearch, itemFilterModel, itemFilterSupplierId, onlyWithPrice, priceMap, itemMaster]);
 
   useEffect(() => { setItemHighlightIdx(-1); }, [filteredItems]);
 
@@ -676,7 +679,7 @@ export default function CreatePurchaseOrderPage() {
             (!factoryCode || (p.businessUnit ?? "").startsWith(factoryCode))
           )
           .forEach((p) => { priceMap.set(String(p.itemCode), Number(p.unitPrice)); });
-        setPriceItemCodes(new Set(priceMap.keys()));
+        setPriceMap(priceMap);
       }
     } catch { /* 로드 실패 시 빈 Map 유지 */ }
 
@@ -741,9 +744,9 @@ export default function CreatePurchaseOrderPage() {
         warehouse: item.warehouse ?? "",
         storageLocation: item.storageLocation ?? "",
         model: item.model ?? "",
-        unitPrice: item.unitPrice,
+        unitPrice: priceMap.get(item.itemCode) ?? item.unitPrice,
         quantity: qty,
-        amount: qty * item.unitPrice,
+        amount: qty * (priceMap.get(item.itemCode) ?? item.unitPrice),
         dueDate,
       };
       newRows.push(row);
@@ -861,7 +864,7 @@ export default function CreatePurchaseOrderPage() {
     updateSpecItem(rowIndex, "warehouse", item.warehouse ?? "");
     updateSpecItem(rowIndex, "storageLocation", item.storageLocation ?? "");
     updateSpecItem(rowIndex, "model", item.model ?? "");
-    updateSpecItem(rowIndex, "unitPrice", item.unitPrice);
+    updateSpecItem(rowIndex, "unitPrice", priceMap.get(item.itemCode) ?? item.unitPrice);
     setIsItemModalOpen(false);
     setItemSearch(""); setItemFilterModel(""); setItemFilterSupplierId(""); setItemFilterSupplierName("");
     setItemHighlightIdx(-1);
