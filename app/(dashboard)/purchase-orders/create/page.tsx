@@ -359,17 +359,17 @@ export default function CreatePurchaseOrderPage() {
       .then((r) => r.json())
       .then((data) => {
         if (!data.ok) return;
-        const supplierName = basicForm.supplierName.trim().toLowerCase();
+        const supplierId = basicForm.supplierId.trim();
         const codes = new Set<string>(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (data.items as any[])
-            .filter((p) => (p.supplierName ?? "").trim().toLowerCase() === supplierName)
+            .filter((p) => (p.supplierCode ?? "").trim() === supplierId)
             .map((p) => String(p.itemCode))
         );
         setPriceItemCodes(codes);
       })
       .catch(() => {});
-  }, [isItemModalOpen, basicForm.supplierName]);
+  }, [isItemModalOpen, basicForm.supplierId]);
 
   const distinctModels = useMemo(() => {
     const s = new Set<string>();
@@ -660,24 +660,27 @@ export default function CreatePurchaseOrderPage() {
       return;
     }
 
-    // 단가 등록 품목코드 로드 (캐시된 값 우선 사용)
-    let codes = priceItemCodes;
-    if (codes.size === 0) {
-      try {
-        const res = await fetch(apiPath("/api/purchase-prices"));
-        const data = await res.json();
-        if (data.ok) {
-          const supplierName = basicForm.supplierName.trim().toLowerCase();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          codes = new Set<string>((data.items as any[])
-            .filter((p) => (p.supplierName ?? "").trim().toLowerCase() === supplierName)
-            .map((p) => String(p.itemCode)));
-          setPriceItemCodes(codes);
-        }
-      } catch { /* 로드 실패 시 빈 Set 유지 */ }
-    }
+    // 단가 등록 품목 로드 (구매처가 바뀔 수 있으므로 매번 재조회, 단가도 PurchasePrice 기준 사용)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const priceMap = new Map<string, number>(); // itemCode → 구매처별 단가
+    try {
+      const res = await fetch(apiPath("/api/purchase-prices"));
+      const data = await res.json();
+      if (data.ok) {
+        const supplierId = basicForm.supplierId.trim();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const factoryCode = basicForm.businessPlace.trim();
+        (data.items as any[])
+          .filter((p) =>
+            (p.supplierCode ?? "").trim() === supplierId &&
+            (!factoryCode || (p.businessUnit ?? "").startsWith(factoryCode))
+          )
+          .forEach((p) => { priceMap.set(String(p.itemCode), Number(p.unitPrice)); });
+        setPriceItemCodes(new Set(priceMap.keys()));
+      }
+    } catch { /* 로드 실패 시 빈 Map 유지 */ }
 
-    const bulkItems = itemMaster.filter((i) => codes.has(i.itemCode));
+    const bulkItems = itemMaster.filter((i) => priceMap.has(i.itemCode));
     if (bulkItems.length === 0) {
       window.alert("선택된 구매처에 등록된 단가 품목이 없습니다.");
       return;
@@ -688,7 +691,10 @@ export default function CreatePurchaseOrderPage() {
       itemName: i.itemName,
       material: i.material ?? "",
       specification: i.spec ?? "",
-      unitPrice: i.unitPrice,
+      model: i.model ?? "",
+      warehouse: i.warehouse ?? "",
+      storageLocation: i.storageLocation ?? "",
+      unitPrice: priceMap.get(i.itemCode) ?? i.unitPrice,
       dueDate: basicForm.orderDate,
     }));
     setSpecItems((prev) => {

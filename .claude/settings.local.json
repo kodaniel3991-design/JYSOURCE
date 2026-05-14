@@ -10,7 +10,8 @@
       "Bash(findstr /i \"error TS\")",
       "Bash(grep -n \"thead\\\\|<th \\\\|<th$\\\\|<th>\" \"d:/JYS/app/\\(dashboard\\)/purchase-receipts/period/page.tsx\")",
       "Bash(python3 -c ' *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")"
     ],
     "additionalDirectories": [
       "d:\\JYS\\app\\api\\purchase-inputs\\[id]\\items\\[itemId]"

@@ -159,9 +159,10 @@ export async function POST(request: Request) {
       const itemResult = await pool.request()
         .input("PurchaseInputId", sql.Int, piId)
         .query(`
-          SELECT i.InputAmount,
+          SELECT i.InputAmount, i.ItemName,
                  ISNULL(itc.PurchaseAccount,     N'') AS PurchaseAccount,
-                 ISNULL(itc.PurchaseAccountName, N'') AS PurchaseAccountName
+                 ISNULL(itc.PurchaseAccountName, N'') AS PurchaseAccountName,
+                 ISNULL(itc.ItemTypeName,         N'') AS ItemTypeName
           FROM dbo.PurchaseInputItem i
           LEFT JOIN dbo.ItemMaster im    ON im.ItemNo       = i.ItemCode
           LEFT JOIN dbo.ItemTypeCode itc ON itc.ItemTypeCode = im.Form
@@ -176,18 +177,53 @@ export async function POST(request: Request) {
       const seq       = Number((cntRes.recordset[0] as Record<string, unknown>).Cnt) + 1;
       const voucherNo = `AV-${datePart}-${String(seq).padStart(4, "0")}`;
 
-      // Group items by PurchaseAccount → sum InputAmount
-      const accountAmountMap = new Map<string, { code: string; name: string; amount: number }>();
+      // Group items by PurchaseAccount → sum InputAmount + collect item names
+      const accountAmountMap = new Map<string, {
+        code: string; name: string; amount: number;
+        itemNames: string[]; itemTypeName: string;
+      }>();
       for (const item of itemResult.recordset as Record<string, unknown>[]) {
         const code = String(item.PurchaseAccount     || "") || DEFAULT_ACCOUNT_CODE;
         const name = String(item.PurchaseAccountName || "") || DEFAULT_ACCOUNT_NAME;
         const prev = accountAmountMap.get(code);
         if (prev) {
           prev.amount += Number(item.InputAmount ?? 0);
+          prev.itemNames.push(String(item.ItemName ?? ""));
         } else {
-          accountAmountMap.set(code, { code, name, amount: Number(item.InputAmount ?? 0) });
+          accountAmountMap.set(code, {
+            code, name,
+            amount:       Number(item.InputAmount    ?? 0),
+            itemNames:    [String(item.ItemName      ?? "")],
+            itemTypeName: String(item.ItemTypeName   ?? ""),
+          });
         }
       }
+
+      // 적요 헬퍼
+      const fmtNum = (n: number) =>
+        Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      const buildItemSummary = (names: string[]) => {
+        if (names.length === 0) return "";
+        if (names.length === 1) return names[0];
+        return `${names[0]} 외${names.length - 1}건`;
+      };
+
+      // 전표 헤더 적요: 외주품만 있으면 P2, 그 외(원재료 혼합) P1
+      const allTypes     = Array.from(accountAmountMap.values()).map((v) => v.itemTypeName);
+      const hasOutsource = allTypes.some((t) => t === "외주품");
+      const hasRaw       = allTypes.some((t) => t !== "외주품");
+      const supplierName = String(pi.SupplierName ?? "");
+      const headerSummary = (!hasRaw && hasOutsource)
+        ? `P2.외주품(내수)-${supplierName}`
+        : `P1.원재료(내수)-${supplierName}`;
+
+      // 대변 적요: 전체 품목 통합
+      const allItemNames   = Array.from(accountAmountMap.values()).flatMap((v) => v.itemNames);
+      const payableSummary = buildItemSummary(allItemNames);
+
+      // 부가세 적요: {공급가액합계} * 10%
+      const totalSupply = Array.from(accountAmountMap.values()).reduce((s, v) => s + v.amount, 0);
+      const vatSummary  = `${fmtNum(totalSupply)} * 10%`;
 
       const totalWithTax = Number(pi.TotalWithTax ?? 0);
       const taxAmount    = Number(pi.TaxAmount    ?? 0);
@@ -201,9 +237,9 @@ export async function POST(request: Request) {
         .input("DeptName",     sql.NVarChar(100), String(pi.DeptName     ?? ""))
         .input("SourceType",   sql.NVarChar(50),  "매입전표")
         .input("SourceId",     sql.Int,           piId)
-        .input("Summary",      sql.NVarChar(500), String(pi.Summary      ?? ""))
+        .input("Summary",      sql.NVarChar(500), headerSummary)
         .input("SupplierCode", sql.NVarChar(50),  String(pi.SupplierCode ?? ""))
-        .input("SupplierName", sql.NVarChar(200), String(pi.SupplierName ?? ""))
+        .input("SupplierName", sql.NVarChar(200), supplierName)
         .input("TotalDebit",   sql.Decimal(18,0), totalWithTax)
         .input("TotalCredit",  sql.Decimal(18,0), totalWithTax)
         .query(`
@@ -221,8 +257,8 @@ export async function POST(request: Request) {
 
       let seqNo = 0;
 
-      // 차변①: per distinct PurchaseAccount
-      for (const { code, name, amount } of Array.from(accountAmountMap.values())) {
+      // 차변①: per distinct PurchaseAccount (라인별 품목명 적요)
+      for (const { code, name, amount, itemNames } of Array.from(accountAmountMap.values())) {
         seqNo++;
         await pool.request()
           .input("VoucherId",    sql.Int,           voucherId)
@@ -231,8 +267,8 @@ export async function POST(request: Request) {
           .input("AccountCode",  sql.NVarChar(20),  code)
           .input("AccountName",  sql.NVarChar(100), name)
           .input("PartnerCode",  sql.NVarChar(50),  String(pi.SupplierCode ?? ""))
-          .input("PartnerName",  sql.NVarChar(200), String(pi.SupplierName ?? ""))
-          .input("Summary",      sql.NVarChar(500), String(pi.Summary ?? ""))
+          .input("PartnerName",  sql.NVarChar(200), supplierName)
+          .input("Summary",      sql.NVarChar(500), buildItemSummary(itemNames))
           .input("DebitAmount",  sql.Decimal(18,0), amount)
           .input("CreditAmount", sql.Decimal(18,0), 0)
           .query(`
@@ -245,7 +281,7 @@ export async function POST(request: Request) {
           `);
       }
 
-      // 차변②: 부가세대급금
+      // 차변②: 부가세대급금 ({공급가액합계} * 10%)
       if (taxAmount > 0) {
         seqNo++;
         await pool.request()
@@ -255,8 +291,8 @@ export async function POST(request: Request) {
           .input("AccountCode",  sql.NVarChar(20),  VAT_ACCOUNT.code)
           .input("AccountName",  sql.NVarChar(100), VAT_ACCOUNT.name)
           .input("PartnerCode",  sql.NVarChar(50),  String(pi.SupplierCode ?? ""))
-          .input("PartnerName",  sql.NVarChar(200), String(pi.SupplierName ?? ""))
-          .input("Summary",      sql.NVarChar(500), String(pi.Summary ?? ""))
+          .input("PartnerName",  sql.NVarChar(200), supplierName)
+          .input("Summary",      sql.NVarChar(500), vatSummary)
           .input("DebitAmount",  sql.Decimal(18,0), taxAmount)
           .input("CreditAmount", sql.Decimal(18,0), 0)
           .query(`
@@ -269,7 +305,7 @@ export async function POST(request: Request) {
           `);
       }
 
-      // 대변: 외상매입금
+      // 대변: 외상매입금 (전체 품목 통합 적요)
       seqNo++;
       await pool.request()
         .input("VoucherId",    sql.Int,           voucherId)
@@ -278,8 +314,8 @@ export async function POST(request: Request) {
         .input("AccountCode",  sql.NVarChar(20),  PAYABLE_ACCOUNT.code)
         .input("AccountName",  sql.NVarChar(100), PAYABLE_ACCOUNT.name)
         .input("PartnerCode",  sql.NVarChar(50),  String(pi.SupplierCode ?? ""))
-        .input("PartnerName",  sql.NVarChar(200), String(pi.SupplierName ?? ""))
-        .input("Summary",      sql.NVarChar(500), String(pi.Summary ?? ""))
+        .input("PartnerName",  sql.NVarChar(200), supplierName)
+        .input("Summary",      sql.NVarChar(500), payableSummary)
         .input("DebitAmount",  sql.Decimal(18,0), 0)
         .input("CreditAmount", sql.Decimal(18,0), totalWithTax)
         .query(`
@@ -301,5 +337,128 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[accounting/vouchers][POST]", error);
     return NextResponse.json({ ok: false, message: "전표 생성 실패" }, { status: 500 });
+  }
+}
+
+// 기존 전표 적요 소급 재계산
+export async function PUT(request: Request) {
+  try {
+    const factory = await getSessionFactory(request);
+    const pool    = await getDbPool();
+
+    const fmtNum = (n: number) =>
+      Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const buildItemSummary = (names: string[]) => {
+      if (names.length === 0) return "";
+      if (names.length === 1) return names[0];
+      return `${names[0]} 외${names.length - 1}건`;
+    };
+
+    // 해당 사업장의 매입전표 전체 조회
+    const voucherResult = await pool.request()
+      .input("BusinessPlace", sql.NVarChar(20), factory)
+      .query(`
+        SELECT Id, SourceId, SupplierName
+        FROM dbo.AccountingVoucher
+        WHERE SourceType = N'매입전표'
+          AND SourceId IS NOT NULL
+          AND (@BusinessPlace IS NULL OR BusinessPlace = @BusinessPlace)
+      `);
+
+    let updated = 0;
+
+    for (const v of voucherResult.recordset as Record<string, unknown>[]) {
+      const vId          = Number(v.Id);
+      const piId         = Number(v.SourceId);
+      const supplierName = String(v.SupplierName ?? "");
+
+      // 원 매입 품목 조회
+      const itemResult = await pool.request()
+        .input("PurchaseInputId", sql.Int, piId)
+        .query(`
+          SELECT i.InputAmount, i.ItemName,
+                 ISNULL(itc.PurchaseAccount,     N'') AS PurchaseAccount,
+                 ISNULL(itc.PurchaseAccountName, N'') AS PurchaseAccountName,
+                 ISNULL(itc.ItemTypeName,         N'') AS ItemTypeName
+          FROM dbo.PurchaseInputItem i
+          LEFT JOIN dbo.ItemMaster im    ON im.ItemNo       = i.ItemCode
+          LEFT JOIN dbo.ItemTypeCode itc ON itc.ItemTypeCode = im.Form
+          WHERE i.PurchaseInputId = @PurchaseInputId
+        `);
+
+      if (!itemResult.recordset.length) continue;
+
+      // 계정별 그룹핑
+      const accountAmountMap = new Map<string, {
+        code: string; name: string; amount: number;
+        itemNames: string[]; itemTypeName: string;
+      }>();
+      for (const item of itemResult.recordset as Record<string, unknown>[]) {
+        const code = String(item.PurchaseAccount     || "") || DEFAULT_ACCOUNT_CODE;
+        const name = String(item.PurchaseAccountName || "") || DEFAULT_ACCOUNT_NAME;
+        const prev = accountAmountMap.get(code);
+        if (prev) {
+          prev.amount += Number(item.InputAmount ?? 0);
+          prev.itemNames.push(String(item.ItemName ?? ""));
+        } else {
+          accountAmountMap.set(code, {
+            code, name,
+            amount:       Number(item.InputAmount  ?? 0),
+            itemNames:    [String(item.ItemName    ?? "")],
+            itemTypeName: String(item.ItemTypeName ?? ""),
+          });
+        }
+      }
+
+      const allTypes     = Array.from(accountAmountMap.values()).map((v) => v.itemTypeName);
+      const hasOutsource = allTypes.some((t) => t === "외주품");
+      const hasRaw       = allTypes.some((t) => t !== "외주품");
+      const headerSummary = (!hasRaw && hasOutsource)
+        ? `P2.외주품(내수)-${supplierName}`
+        : `P1.원재료(내수)-${supplierName}`;
+
+      const allItemNames   = Array.from(accountAmountMap.values()).flatMap((v) => v.itemNames);
+      const payableSummary = buildItemSummary(allItemNames);
+      const totalSupply    = Array.from(accountAmountMap.values()).reduce((s, v) => s + v.amount, 0);
+      const vatSummary     = `${fmtNum(totalSupply)} * 10%`;
+
+      // 전표 헤더 적요 업데이트
+      await pool.request()
+        .input("Id",      sql.Int,           vId)
+        .input("Summary", sql.NVarChar(500), headerSummary)
+        .query(`UPDATE dbo.AccountingVoucher SET Summary = @Summary WHERE Id = @Id`);
+
+      // 분개 라인 적요 업데이트
+      const lineResult = await pool.request()
+        .input("VoucherId", sql.Int, vId)
+        .query(`SELECT Id, AccountCode FROM dbo.AccountingVoucherLine WHERE VoucherId = @VoucherId`);
+
+      for (const line of lineResult.recordset as Record<string, unknown>[]) {
+        const lineId      = Number(line.Id);
+        const accountCode = String(line.AccountCode ?? "");
+
+        let lineSummary: string;
+        if (accountCode === VAT_ACCOUNT.code) {
+          lineSummary = vatSummary;
+        } else if (accountCode === PAYABLE_ACCOUNT.code) {
+          lineSummary = payableSummary;
+        } else {
+          const group = accountAmountMap.get(accountCode);
+          lineSummary = group ? buildItemSummary(group.itemNames) : "";
+        }
+
+        await pool.request()
+          .input("Id",      sql.Int,           lineId)
+          .input("Summary", sql.NVarChar(500), lineSummary)
+          .query(`UPDATE dbo.AccountingVoucherLine SET Summary = @Summary WHERE Id = @Id`);
+      }
+
+      updated++;
+    }
+
+    return NextResponse.json({ ok: true, updated });
+  } catch (error) {
+    console.error("[accounting/vouchers][PUT]", error);
+    return NextResponse.json({ ok: false, message: "소급 적용 실패" }, { status: 500 });
   }
 }

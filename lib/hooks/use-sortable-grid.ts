@@ -19,8 +19,13 @@ export function useSortableGrid<T extends object>(items: T[]) {
   }, [items, sortKey, sortDir]);
 
   const toggleSort = (key: keyof T) => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("asc"); }
+    if (sortKey === key) {
+      if (sortDir === "asc") setSortDir("desc");
+      else { setSortKey(null); setSortDir("asc"); }  // desc → 정렬 해제
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   };
 
   return { sortedItems, sortKey, sortDir, toggleSort };

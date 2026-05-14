@@ -10,6 +10,9 @@ import { Select } from "@/components/ui/select";
 import { Search, RotateCcw, FilePlus2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -58,6 +61,23 @@ const DEFAULT_ACCOUNT_CODE = "15300";
 const DEFAULT_ACCOUNT_NAME = "원재료";
 const VAT_ACCOUNT          = { code: "13500", name: "부가세대급금" };
 const PAYABLE_ACCOUNT      = { code: "25100", name: "외상매입금" };
+
+// ── 그리드 컬럼 정의 ──────────────────────────────────────────────────────────
+
+const CAND_COLS    = ["inputNo", "supplierName", "inputDate", "totalAmount", "taxAmount", "totalWithTax"] as const;
+const CAND_HEADERS: Record<string, string> = { inputNo: "매입번호", supplierName: "공급처명", inputDate: "매입일자", totalAmount: "공급가액", taxAmount: "부가세", totalWithTax: "합계금액" };
+const CAND_SORT    = new Set(["inputNo","supplierName","inputDate","totalAmount","taxAmount","totalWithTax"]);
+const CAND_ALIGN: Record<string, string> = { inputNo: "text-center", inputDate: "text-center", totalAmount: "text-right", taxAmount: "text-right", totalWithTax: "text-right" };
+
+const ITEM_COLS    = ["itemCode", "itemName", "unit", "inputQty", "inputAmount", "taxAmount", "purchaseType"] as const;
+const ITEM_HEADERS: Record<string, string> = { itemCode: "품목번호", itemName: "품목명", unit: "단위", inputQty: "수량", inputAmount: "공급가액", taxAmount: "부가세", purchaseType: "매입유형" };
+const ITEM_SORT    = new Set(["itemCode","itemName","unit","inputQty","inputAmount","taxAmount"]);
+const ITEM_ALIGN: Record<string, string> = { unit: "text-center", inputQty: "text-right", inputAmount: "text-right", taxAmount: "text-right", purchaseType: "text-center" };
+
+const JRNL_COLS    = ["lineType", "accountCode", "accountName", "debitAmount", "creditAmount"] as const;
+const JRNL_HEADERS: Record<string, string> = { lineType: "구분", accountCode: "계정코드", accountName: "계정명", debitAmount: "차변금액", creditAmount: "대변금액" };
+const JRNL_SORT    = new Set(["accountCode","accountName","debitAmount","creditAmount"]);
+const JRNL_ALIGN: Record<string, string> = { lineType: "text-center", accountCode: "text-center", debitAmount: "text-right", creditAmount: "text-right" };
 
 const PURCHASE_TYPE_LABELS: Record<string, string> = {
   "원재료": "원재료",
@@ -243,6 +263,26 @@ export default function PurchaseVouchersPage() {
     }
   };
 
+  // ── 그리드 훅 ───────────────────────────────────────────────────────────────
+
+  const { sortedItems: sortedCand, sortKey: candSortKey, sortDir: candSortDir, toggleSort: candToggleSort }
+    = useSortableGrid(list);
+  const { sortedItems: sortedItems_, sortKey: itemSortKey, sortDir: itemSortDir, toggleSort: itemToggleSort }
+    = useSortableGrid(selectedCandidate?.items ?? []);
+  const { sortedItems: sortedJrnl, sortKey: jrnlSortKey, sortDir: jrnlSortDir, toggleSort: jrnlToggleSort }
+    = useSortableGrid(journalLines);
+
+  const candCol  = useGridColumnSettings("accounting/purchase-vouchers/candidates", [...CAND_COLS]);
+  const itemCol  = useGridColumnSettings("accounting/purchase-vouchers/items",      [...ITEM_COLS]);
+  const jrnlCol  = useGridColumnSettings("accounting/purchase-vouchers/journal",    [...JRNL_COLS]);
+
+  const gtp = (c: ReturnType<typeof useGridColumnSettings>) => ({
+    dragKey: c.dragKey, dropTargetKey: c.dropTargetKey,
+    onResizeEnd: c.resize, onDragStartKey: c.setDragKey,
+    onDropKey: c.reorder, onDragEndKey: () => c.setDragKey(null),
+    onDragOverKey: c.setDropTargetKey,
+  });
+
   // ── 스타일 ──────────────────────────────────────────────────────────────────
 
   const TH = "bg-muted/80 text-xs font-medium text-muted-foreground border border-border px-2 py-1 whitespace-nowrap";
@@ -345,58 +385,55 @@ export default function PurchaseVouchersPage() {
           {/* 스크롤 테이블 */}
           <div className="flex-1 overflow-auto">
             <table className="w-full border-collapse text-xs min-w-[560px]">
+              <colgroup>
+                <col style={{ width: 32 }} />
+                {candCol.colOrder.map((k) => (
+                  <col key={k} style={{ width: candCol.colWidths[k] ? `${candCol.colWidths[k]}px` : undefined }} />
+                ))}
+              </colgroup>
               <thead className="sticky top-0 z-10">
                 <tr>
                   <th className={cn(TH, "w-8 text-center")}>
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5"
+                    <input type="checkbox" className="h-3.5 w-3.5"
                       checked={list.length > 0 && checkedIds.size === list.length}
-                      onChange={toggleAllChecked}
-                    />
+                      onChange={toggleAllChecked} />
                   </th>
-                  <th className={cn(TH, "text-center")}>매입번호</th>
-                  <th className={cn(TH)}>공급처명</th>
-                  <th className={cn(TH, "text-center")}>매입일자</th>
-                  <th className={cn(TH, "text-right")}>공급가액</th>
-                  <th className={cn(TH, "text-right")}>부가세</th>
-                  <th className={cn(TH, "text-right")}>합계금액</th>
+                  {candCol.colOrder.map((k) => (
+                    <GridTh key={k} colKey={k} {...gtp(candCol)}
+                      className={cn(TH, CAND_ALIGN[k])}
+                      sortKey={CAND_SORT.has(k) ? k : undefined}
+                      currentSortKey={candSortKey as string | null}
+                      sortDir={candSortDir}
+                      onSort={(sk) => candToggleSort(sk as keyof typeof sortedCand[0])}>
+                      {CAND_HEADERS[k]}
+                    </GridTh>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {loading && (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-muted-foreground text-xs">조회 중...</td>
-                  </tr>
+                  <tr><td colSpan={CAND_COLS.length + 1} className="text-center py-8 text-muted-foreground text-xs">조회 중...</td></tr>
                 )}
-                {!loading && list.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-muted-foreground text-xs">
-                      확정 상태의 매입 데이터가 없습니다.
-                    </td>
-                  </tr>
+                {!loading && sortedCand.length === 0 && (
+                  <tr><td colSpan={CAND_COLS.length + 1} className="text-center py-8 text-muted-foreground text-xs">확정 상태의 매입 데이터가 없습니다.</td></tr>
                 )}
-                {!loading && list.map((row) => (
-                  <tr
-                    key={row.id}
-                    className={cn(
-                      "cursor-pointer hover:bg-muted/40 transition-colors",
-                      selectedId === row.id && "bg-primary/10"
-                    )}
-                    onClick={() => setSelectedId(row.id)}
-                  >
-                    <td
-                      className={cn(TD, "text-center")}
-                      onClick={(e) => { e.stopPropagation(); toggleChecked(row.id); }}
-                    >
+                {!loading && sortedCand.map((row) => (
+                  <tr key={row.id}
+                    className={cn("cursor-pointer hover:bg-muted/40 transition-colors", selectedId === row.id && "bg-primary/10")}
+                    onClick={() => setSelectedId(row.id)}>
+                    <td className={cn(TD, "text-center")} onClick={(e) => { e.stopPropagation(); toggleChecked(row.id); }}>
                       <input type="checkbox" className="h-3.5 w-3.5" checked={checkedIds.has(row.id)} onChange={() => {}} />
                     </td>
-                    <td className={cn(TD, "text-center font-mono")}>{row.inputNo}</td>
-                    <td className={cn(TD)}>{row.supplierName}</td>
-                    <td className={cn(TD, "text-center")}>{row.inputDate}</td>
-                    <td className={cn(TD, "text-right")}>{fmt(row.totalAmount)}</td>
-                    <td className={cn(TD, "text-right")}>{fmt(row.taxAmount)}</td>
-                    <td className={cn(TD, "text-right font-medium")}>{fmt(row.totalWithTax)}</td>
+                    {candCol.colOrder.map((k) => {
+                      const base = cn(TD, CAND_ALIGN[k]);
+                      if (k === "inputNo")       return <td key={k} className={cn(base, "font-mono")}>{row.inputNo}</td>;
+                      if (k === "supplierName")   return <td key={k} className={base}>{row.supplierName}</td>;
+                      if (k === "inputDate")      return <td key={k} className={base}>{row.inputDate}</td>;
+                      if (k === "totalAmount")    return <td key={k} className={base}>{fmt(row.totalAmount)}</td>;
+                      if (k === "taxAmount")      return <td key={k} className={base}>{fmt(row.taxAmount)}</td>;
+                      if (k === "totalWithTax")   return <td key={k} className={cn(base, "font-medium")}>{fmt(row.totalWithTax)}</td>;
+                      return <td key={k} className={base} />;
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -422,7 +459,7 @@ export default function PurchaseVouchersPage() {
                 </span>
               </span>
             )}
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <Button
                 size="sm"
                 className="gap-1.5 h-8"
@@ -447,43 +484,53 @@ export default function PurchaseVouchersPage() {
             </div>
             <div className="flex-1 overflow-auto border rounded-lg">
               <table className="w-full border-collapse text-xs min-w-[480px]">
+                <colgroup>
+                  <col style={{ width: 32 }} />
+                  {itemCol.colOrder.map((k) => (
+                    <col key={k} style={{ width: itemCol.colWidths[k] ? `${itemCol.colWidths[k]}px` : undefined }} />
+                  ))}
+                </colgroup>
                 <thead className="sticky top-0 z-10">
                   <tr>
                     <th className={cn(TH, "text-center w-8")}>No</th>
-                    <th className={cn(TH)}>품목번호</th>
-                    <th className={cn(TH)}>품목명</th>
-                    <th className={cn(TH, "text-center")}>단위</th>
-                    <th className={cn(TH, "text-right")}>수량</th>
-                    <th className={cn(TH, "text-right")}>공급가액</th>
-                    <th className={cn(TH, "text-right")}>부가세</th>
-                    <th className={cn(TH, "text-center")}>매입유형</th>
+                    {itemCol.colOrder.map((k) => (
+                      <GridTh key={k} colKey={k} {...gtp(itemCol)}
+                        className={cn(TH, ITEM_ALIGN[k])}
+                        sortKey={ITEM_SORT.has(k) ? k : undefined}
+                        currentSortKey={itemSortKey as string | null}
+                        sortDir={itemSortDir}
+                        onSort={(sk) => itemToggleSort(sk as keyof typeof sortedItems_[0])}>
+                        {ITEM_HEADERS[k]}
+                      </GridTh>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {!selectedCandidate && (
-                    <tr><td colSpan={7} className="text-center py-6 text-muted-foreground text-xs">—</td></tr>
+                    <tr><td colSpan={ITEM_COLS.length + 1} className="text-center py-6 text-muted-foreground text-xs">—</td></tr>
                   )}
-                  {selectedCandidate?.items.map((item) => (
+                  {sortedItems_.map((item) => (
                     <tr key={item.id} className="hover:bg-muted/30">
                       <td className={cn(TD, "text-center")}>{item.seqNo}</td>
-                      <td className={cn(TD, "font-mono")}>{item.itemCode}</td>
-                      <td className={cn(TD)}>{item.itemName}</td>
-                      <td className={cn(TD, "text-center")}>{item.unit}</td>
-                      <td className={cn(TD, "text-right")}>
-                        {item.inputQty.toLocaleString("ko-KR", { maximumFractionDigits: 3 })}
-                      </td>
-                      <td className={cn(TD, "text-right")}>{fmt(item.inputAmount)}</td>
-                      <td className={cn(TD, "text-right")}>{fmt(item.taxAmount)}</td>
-                      <td className={cn(TD, "text-center")}>
-                        <span className={cn(
-                          "rounded px-1.5 py-0.5 text-xs font-medium",
-                          item.purchaseType === "원재료" && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-                          item.purchaseType === "외주품" && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-                          !item.purchaseType && "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-                        )}>
-                          {PURCHASE_TYPE_LABELS[item.purchaseType] ?? item.purchaseType}
-                        </span>
-                      </td>
+                      {itemCol.colOrder.map((k) => {
+                        const base = cn(TD, ITEM_ALIGN[k]);
+                        if (k === "itemCode")    return <td key={k} className={cn(base, "font-mono")}>{item.itemCode}</td>;
+                        if (k === "itemName")    return <td key={k} className={base}>{item.itemName}</td>;
+                        if (k === "unit")        return <td key={k} className={base}>{item.unit}</td>;
+                        if (k === "inputQty")    return <td key={k} className={base}>{item.inputQty.toLocaleString("ko-KR", { maximumFractionDigits: 3 })}</td>;
+                        if (k === "inputAmount") return <td key={k} className={base}>{fmt(item.inputAmount)}</td>;
+                        if (k === "taxAmount")   return <td key={k} className={base}>{fmt(item.taxAmount)}</td>;
+                        if (k === "purchaseType") return (
+                          <td key={k} className={base}>
+                            <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium",
+                              item.purchaseType === "원재료" && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+                              item.purchaseType === "외주품" && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+                              !item.purchaseType && "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+                            )}>{PURCHASE_TYPE_LABELS[item.purchaseType] ?? item.purchaseType}</span>
+                          </td>
+                        );
+                        return <td key={k} className={base} />;
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -498,41 +545,50 @@ export default function PurchaseVouchersPage() {
             </div>
             <div className="flex-1 overflow-auto border rounded-lg">
               <table className="w-full border-collapse text-xs">
+                <colgroup>
+                  <col style={{ width: 32 }} />
+                  {jrnlCol.colOrder.map((k) => (
+                    <col key={k} style={{ width: jrnlCol.colWidths[k] ? `${jrnlCol.colWidths[k]}px` : undefined }} />
+                  ))}
+                </colgroup>
                 <thead className="sticky top-0 z-10">
                   <tr>
                     <th className={cn(TH, "text-center w-8")}>No</th>
-                    <th className={cn(TH, "text-center w-14")}>구분</th>
-                    <th className={cn(TH, "text-center w-20")}>계정코드</th>
-                    <th className={cn(TH)}>계정명</th>
-                    <th className={cn(TH, "text-right")}>차변금액</th>
-                    <th className={cn(TH, "text-right")}>대변금액</th>
+                    {jrnlCol.colOrder.map((k) => (
+                      <GridTh key={k} colKey={k} {...gtp(jrnlCol)}
+                        className={cn(TH, JRNL_ALIGN[k])}
+                        sortKey={JRNL_SORT.has(k) ? k : undefined}
+                        currentSortKey={jrnlSortKey as string | null}
+                        sortDir={jrnlSortDir}
+                        onSort={(sk) => jrnlToggleSort(sk as keyof typeof sortedJrnl[0])}>
+                        {JRNL_HEADERS[k]}
+                      </GridTh>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {journalLines.length === 0 && (
-                    <tr><td colSpan={6} className="text-center py-6 text-muted-foreground text-xs">—</td></tr>
+                  {sortedJrnl.length === 0 && (
+                    <tr><td colSpan={JRNL_COLS.length + 1} className="text-center py-6 text-muted-foreground text-xs">—</td></tr>
                   )}
-                  {journalLines.map((line) => (
+                  {sortedJrnl.map((line) => (
                     <tr key={line.seqNo} className="hover:bg-muted/30">
                       <td className={cn(TD, "text-center")}>{line.seqNo}</td>
-                      <td className={cn(TD, "text-center")}>
-                        <span className={cn(
-                          "rounded px-1.5 py-0.5 text-xs font-semibold",
-                          line.lineType === "차변"
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
-                        )}>
-                          {line.lineType}
-                        </span>
-                      </td>
-                      <td className={cn(TD, "text-center font-mono")}>{line.accountCode}</td>
-                      <td className={cn(TD)}>{line.accountName}</td>
-                      <td className={cn(TD, "text-right font-medium")}>
-                        {line.debitAmount > 0 ? fmt(line.debitAmount) : ""}
-                      </td>
-                      <td className={cn(TD, "text-right font-medium")}>
-                        {line.creditAmount > 0 ? fmt(line.creditAmount) : ""}
-                      </td>
+                      {jrnlCol.colOrder.map((k) => {
+                        const base = cn(TD, JRNL_ALIGN[k]);
+                        if (k === "lineType") return (
+                          <td key={k} className={base}>
+                            <span className={cn("rounded px-1.5 py-0.5 text-xs font-semibold",
+                              line.lineType === "차변" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                            )}>{line.lineType}</span>
+                          </td>
+                        );
+                        if (k === "accountCode")  return <td key={k} className={cn(base, "font-mono")}>{line.accountCode}</td>;
+                        if (k === "accountName")  return <td key={k} className={base}>{line.accountName}</td>;
+                        if (k === "debitAmount")  return <td key={k} className={cn(base, "font-medium")}>{line.debitAmount  > 0 ? fmt(line.debitAmount)  : ""}</td>;
+                        if (k === "creditAmount") return <td key={k} className={cn(base, "font-medium")}>{line.creditAmount > 0 ? fmt(line.creditAmount) : ""}</td>;
+                        return <td key={k} className={base} />;
+                      })}
                     </tr>
                   ))}
                   {journalLines.length > 0 && (

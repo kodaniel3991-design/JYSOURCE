@@ -9,6 +9,9 @@ import { DateInput } from "@/components/ui/date-input";
 import { Search, RotateCcw, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -53,6 +56,16 @@ const firstOfMonthStr = () => {
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
 const VAT_ACCOUNT_CODE = "13500";
+
+const VA_VCOLS    = ["voucherDate","voucherNo","summary","supplierName","totalDebit","status"] as const;
+const VA_VHEADERS: Record<string, string> = { voucherDate: "전표일자", voucherNo: "전표번호", summary: "적요", supplierName: "공급처명", totalDebit: "차변금액", status: "상태" };
+const VA_VSORT    = new Set(["voucherDate","voucherNo","summary","supplierName","totalDebit"]);
+const VA_VALIGN: Record<string, string>  = { voucherDate: "text-center", voucherNo: "text-center", totalDebit: "text-right", status: "text-center" };
+
+const VA_LCOLS    = ["seqNo","lineType","accountCode","accountName","partnerCode","partnerName","amount","summary"] as const;
+const VA_LHEADERS: Record<string, string> = { seqNo: "순번", lineType: "구분", accountCode: "계정코드", accountName: "계정명", partnerCode: "코드", partnerName: "거래처명", amount: "금액", summary: "적요" };
+const VA_LSORT    = new Set(["seqNo","accountCode","accountName","partnerCode","partnerName"]);
+const VA_LALIGN: Record<string, string>  = { seqNo: "text-center", lineType: "text-center", accountCode: "text-center", partnerCode: "text-center", amount: "text-right" };
 
 // ── 페이지 ────────────────────────────────────────────────────────────────────
 
@@ -195,6 +208,23 @@ export default function VoucherApprovalPage() {
     );
   };
 
+  // ── 그리드 훅 ───────────────────────────────────────────────────────────────
+
+  const { sortedItems: sortedVouchers, sortKey: vSortKey, sortDir: vSortDir, toggleSort: vToggleSort }
+    = useSortableGrid(list);
+  const { sortedItems: sortedLines, sortKey: lSortKey, sortDir: lSortDir, toggleSort: lToggleSort }
+    = useSortableGrid(selectedVoucher?.lines ?? []);
+
+  const vaVCol = useGridColumnSettings("accounting/voucher-approval/vouchers", [...VA_VCOLS]);
+  const vaLCol = useGridColumnSettings("accounting/voucher-approval/lines",    [...VA_LCOLS]);
+
+  const gtp = (c: ReturnType<typeof useGridColumnSettings>) => ({
+    dragKey: c.dragKey, dropTargetKey: c.dropTargetKey,
+    onResizeEnd: c.resize, onDragStartKey: c.setDragKey,
+    onDropKey: c.reorder, onDragEndKey: () => c.setDragKey(null),
+    onDragOverKey: c.setDropTargetKey,
+  });
+
   // ── 스타일 ──────────────────────────────────────────────────────────────────
 
   const TH = "bg-muted/80 text-xs font-medium text-muted-foreground border border-border px-2 py-1 whitespace-nowrap";
@@ -293,6 +323,9 @@ export default function VoucherApprovalPage() {
         </CardContent>
       </Card>
 
+      {/* ── 스크롤 가능한 본문 영역 ──────────────────────────────────── */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3">
+
       {/* ── 전표 목록 그리드 ────────────────────────────────────────── */}
       <div className="shrink-0 border rounded-lg overflow-hidden bg-card" style={{ height: 220 }}>
         <div className="flex flex-col h-full">
@@ -305,6 +338,12 @@ export default function VoucherApprovalPage() {
           </div>
           <div className="flex-1 overflow-auto">
             <table className="w-full border-collapse text-xs min-w-[600px]">
+              <colgroup>
+                <col style={{ width: 32 }} />
+                {vaVCol.colOrder.map((k) => (
+                  <col key={k} style={{ width: vaVCol.colWidths[k] ? `${vaVCol.colWidths[k]}px` : undefined }} />
+                ))}
+              </colgroup>
               <thead className="sticky top-0 z-10">
                 <tr>
                   <th className={cn(TH, "w-8 text-center")}>
@@ -312,45 +351,49 @@ export default function VoucherApprovalPage() {
                       checked={list.length > 0 && checkedIds.size === list.length}
                       onChange={toggleAll} />
                   </th>
-                  <th className={cn(TH, "text-center")}>전표일자</th>
-                  <th className={cn(TH, "text-center")}>전표번호</th>
-                  <th className={cn(TH)}>적요</th>
-                  <th className={cn(TH)}>공급처명</th>
-                  <th className={cn(TH, "text-right")}>차변금액</th>
-                  <th className={cn(TH, "text-center")}>상태</th>
+                  {vaVCol.colOrder.map((k) => (
+                    <GridTh key={k} colKey={k} {...gtp(vaVCol)}
+                      className={cn(TH, VA_VALIGN[k])}
+                      sortKey={VA_VSORT.has(k) ? k : undefined}
+                      currentSortKey={vSortKey as string | null}
+                      sortDir={vSortDir}
+                      onSort={(sk) => vToggleSort(sk as keyof typeof sortedVouchers[0])}>
+                      {VA_VHEADERS[k]}
+                    </GridTh>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {loading && (
-                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground text-xs">조회 중...</td></tr>
+                  <tr><td colSpan={VA_VCOLS.length + 1} className="text-center py-8 text-muted-foreground text-xs">조회 중...</td></tr>
                 )}
-                {!loading && list.length === 0 && (
-                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground text-xs">조회된 전표가 없습니다.</td></tr>
+                {!loading && sortedVouchers.length === 0 && (
+                  <tr><td colSpan={VA_VCOLS.length + 1} className="text-center py-8 text-muted-foreground text-xs">조회된 전표가 없습니다.</td></tr>
                 )}
-                {!loading && list.map((row) => (
-                  <tr
-                    key={row.id}
+                {!loading && sortedVouchers.map((row) => (
+                  <tr key={row.id}
                     className={cn("cursor-pointer hover:bg-muted/40 transition-colors", selectedId === row.id && "bg-primary/10")}
-                    onClick={() => { setSelectedId(row.id); setSelectedLineId(null); }}
-                  >
+                    onClick={() => { setSelectedId(row.id); setSelectedLineId(null); }}>
                     <td className={cn(TD, "text-center")} onClick={(e) => { e.stopPropagation(); toggleCheck(row.id); }}>
                       <input type="checkbox" className="h-3.5 w-3.5" checked={checkedIds.has(row.id)} onChange={() => {}} />
                     </td>
-                    <td className={cn(TD, "text-center")}>{row.voucherDate}</td>
-                    <td className={cn(TD, "text-center font-mono")}>{row.voucherNo}</td>
-                    <td className={cn(TD)}>{row.summary}</td>
-                    <td className={cn(TD)}>{row.supplierName}</td>
-                    <td className={cn(TD, "text-right")}>{fmt(row.totalDebit)}</td>
-                    <td className={cn(TD, "text-center")}>
-                      <span className={cn(
-                        "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                        row.status === "승인"
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                      )}>
-                        {row.status === "미승인" ? "미결" : row.status}
-                      </span>
-                    </td>
+                    {vaVCol.colOrder.map((k) => {
+                      const base = cn(TD, VA_VALIGN[k]);
+                      if (k === "voucherDate")  return <td key={k} className={base}>{row.voucherDate}</td>;
+                      if (k === "voucherNo")    return <td key={k} className={cn(base, "font-mono")}>{row.voucherNo}</td>;
+                      if (k === "summary")      return <td key={k} className={base}>{row.summary}</td>;
+                      if (k === "supplierName") return <td key={k} className={base}>{row.supplierName}</td>;
+                      if (k === "totalDebit")   return <td key={k} className={base}>{fmt(row.totalDebit)}</td>;
+                      if (k === "status")       return (
+                        <td key={k} className={base}>
+                          <span className={cn("inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                            row.status === "승인" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                                 : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                          )}>{row.status === "미승인" ? "미결" : row.status}</span>
+                        </td>
+                      );
+                      return <td key={k} className={base} />;
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -370,50 +413,55 @@ export default function VoucherApprovalPage() {
           </div>
           <div className="flex-1 overflow-auto">
             <table className="w-full border-collapse text-xs min-w-[700px]">
+              <colgroup>
+                {vaLCol.colOrder.map((k) => (
+                  <col key={k} style={{ width: vaLCol.colWidths[k] ? `${vaLCol.colWidths[k]}px` : undefined }} />
+                ))}
+              </colgroup>
               <thead className="sticky top-0 z-10">
                 <tr>
-                  <th className={cn(TH, "text-center w-10")}>순번</th>
-                  <th className={cn(TH, "text-center w-14")}>구분</th>
-                  <th className={cn(TH, "text-center w-20")}>계정코드</th>
-                  <th className={cn(TH, "w-28")}>계정명</th>
-                  <th className={cn(TH, "text-center w-20")}>코드</th>
-                  <th className={cn(TH, "w-32")}>거래처명</th>
-                  <th className={cn(TH, "text-right w-28")}>금액</th>
-                  <th className={cn(TH)}>적요</th>
+                  {vaLCol.colOrder.map((k) => (
+                    <GridTh key={k} colKey={k} {...gtp(vaLCol)}
+                      className={cn(TH, VA_LALIGN[k])}
+                      sortKey={VA_LSORT.has(k) ? k : undefined}
+                      currentSortKey={lSortKey as string | null}
+                      sortDir={lSortDir}
+                      onSort={(sk) => lToggleSort(sk as keyof typeof sortedLines[0])}>
+                      {VA_LHEADERS[k]}
+                    </GridTh>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {!selectedVoucher && (
-                  <tr><td colSpan={8} className="text-center py-6 text-muted-foreground text-xs">상단 목록에서 전표를 선택하세요.</td></tr>
+                  <tr><td colSpan={VA_LCOLS.length} className="text-center py-6 text-muted-foreground text-xs">상단 목록에서 전표를 선택하세요.</td></tr>
                 )}
-                {selectedVoucher && selectedVoucher.lines.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-6 text-muted-foreground text-xs">분개 내역이 없습니다.</td></tr>
+                {selectedVoucher && sortedLines.length === 0 && (
+                  <tr><td colSpan={VA_LCOLS.length} className="text-center py-6 text-muted-foreground text-xs">분개 내역이 없습니다.</td></tr>
                 )}
-                {selectedVoucher && selectedVoucher.lines.map((line) => (
-                  <tr
-                    key={line.lineId}
+                {selectedVoucher && sortedLines.map((line) => (
+                  <tr key={line.lineId}
                     className={cn("cursor-pointer hover:bg-muted/30 transition-colors", selectedLineId === line.lineId && "bg-primary/10")}
-                    onClick={() => setSelectedLineId(line.lineId)}
-                  >
-                    <td className={cn(TD, "text-center")}>{line.seqNo}</td>
-                    <td className={cn(TD, "text-center")}>
-                      <span className={cn(
-                        "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                        line.lineType === "차변"
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                      )}>
-                        {line.lineType === "차변" ? "D.차변" : "C.대변"}
-                      </span>
-                    </td>
-                    <td className={cn(TD, "text-center font-mono")}>{line.accountCode}</td>
-                    <td className={cn(TD)}>{line.accountName}</td>
-                    <td className={cn(TD, "text-center font-mono")}>{line.partnerCode}</td>
-                    <td className={cn(TD)}>{line.partnerName}</td>
-                    <td className={cn(TD, "text-right font-mono")}>
-                      {fmt(line.lineType === "차변" ? line.debitAmount : line.creditAmount)}
-                    </td>
-                    <td className={cn(TD)}>{line.summary}</td>
+                    onClick={() => setSelectedLineId(line.lineId)}>
+                    {vaLCol.colOrder.map((k) => {
+                      const base = cn(TD, VA_LALIGN[k]);
+                      if (k === "seqNo")       return <td key={k} className={base}>{line.seqNo}</td>;
+                      if (k === "lineType")    return (
+                        <td key={k} className={base}>
+                          <span className={cn("inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                            line.lineType === "차변" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          )}>{line.lineType === "차변" ? "D.차변" : "C.대변"}</span>
+                        </td>
+                      );
+                      if (k === "accountCode") return <td key={k} className={cn(base, "font-mono")}>{line.accountCode}</td>;
+                      if (k === "accountName") return <td key={k} className={base}>{line.accountName}</td>;
+                      if (k === "partnerCode") return <td key={k} className={cn(base, "font-mono")}>{line.partnerCode}</td>;
+                      if (k === "partnerName") return <td key={k} className={base}>{line.partnerName}</td>;
+                      if (k === "amount")      return <td key={k} className={cn(base, "font-mono")}>{fmt(line.lineType === "차변" ? line.debitAmount : line.creditAmount)}</td>;
+                      if (k === "summary")     return <td key={k} className={base}>{line.summary}</td>;
+                      return <td key={k} className={base} />;
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -423,10 +471,7 @@ export default function VoucherApprovalPage() {
       </div>
 
       {/* ── 부가세 정보 (부가세대급금 라인 선택 시) ─────────────────── */}
-      <div className={cn(
-        "shrink-0 border rounded-lg bg-card overflow-hidden transition-all duration-200",
-        isVatLine ? "opacity-100" : "opacity-40 pointer-events-none"
-      )}>
+      <div className="shrink-0 border rounded-lg bg-card overflow-hidden">
         <div className="shrink-0 px-3 py-2 border-b bg-muted/30">
           <span className="text-xs font-medium">부가세 정보</span>
         </div>
@@ -434,16 +479,16 @@ export default function VoucherApprovalPage() {
           {/* row 1 */}
           <div className="flex items-center gap-2">
             <label className={cn(LB, "w-24 shrink-0")}>사업장구분</label>
-            <Input value={myFactoryName} readOnly className={cn(FI, "flex-1")} />
+            <Input value={isVatLine ? myFactoryName : ""} readOnly className={cn(FI, "flex-1")} />
           </div>
           <div className="flex items-center gap-2">
             <label className={cn(LB, "w-24 shrink-0")}>세무구분</label>
-            <Input value="21" readOnly className={cn(FI, "w-12")} />
-            <Input value="과세매입" readOnly className={cn(FI, "flex-1")} />
+            <Input value={isVatLine ? "21" : ""} readOnly className={cn(FI, "w-12")} />
+            <Input value={isVatLine ? "과세매입" : ""} readOnly className={cn(FI, "flex-1")} />
           </div>
           <div className="flex items-center gap-2">
             <label className={cn(LB, "w-24 shrink-0")}>신고기준일</label>
-            <Input value={selectedVoucher?.voucherDate ?? ""} readOnly className={cn(FI, "flex-1")} />
+            <Input value={isVatLine ? (selectedVoucher?.voucherDate ?? "") : ""} readOnly className={cn(FI, "flex-1")} />
           </div>
           {/* row 2 */}
           <div className="flex items-center gap-2">
@@ -459,15 +504,15 @@ export default function VoucherApprovalPage() {
           {/* row 3 */}
           <div className="flex items-center gap-2">
             <label className={cn(LB, "w-24 shrink-0")}>공급가액</label>
-            <Input value={vatFormData ? fmt(vatFormData.supply) : ""} readOnly className={cn(FI, "flex-1 text-right")} />
+            <Input value={isVatLine && vatFormData ? fmt(vatFormData.supply) : ""} readOnly className={cn(FI, "flex-1 text-right")} />
           </div>
           <div className="flex items-center gap-2">
             <label className={cn(LB, "w-24 shrink-0")}>세액</label>
-            <Input value={vatFormData ? fmt(vatFormData.tax) : ""} readOnly className={cn(FI, "flex-1 text-right")} />
+            <Input value={isVatLine && vatFormData ? fmt(vatFormData.tax) : ""} readOnly className={cn(FI, "flex-1 text-right")} />
           </div>
           <div className="flex items-center gap-2">
             <label className={cn(LB, "w-24 shrink-0")}>합계</label>
-            <Input value={vatFormData ? fmt(vatFormData.total) : ""} readOnly className={cn(FI, "flex-1 text-right font-semibold")} />
+            <Input value={isVatLine && vatFormData ? fmt(vatFormData.total) : ""} readOnly className={cn(FI, "flex-1 text-right font-semibold")} />
           </div>
         </div>
       </div>
@@ -528,6 +573,8 @@ export default function VoucherApprovalPage() {
           </div>
         </div>
       </div>
+
+      </div>{/* end 스크롤 영역 */}
 
       {/* ── 다이얼로그 ──────────────────────────────────────────────── */}
       {dialog && (

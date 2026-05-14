@@ -10,6 +10,9 @@ import { Select } from "@/components/ui/select";
 import { Search, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
+import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { GridTh } from "@/components/ui/grid-th";
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -65,6 +68,20 @@ const STATUS_OPTIONS = [
   { value: "미결", label: "미결" },
   { value: "승인", label: "승인" },
 ];
+
+const VP_COLS    = ["voucherDate","voucherNo","status","seqNo","lineType","accountCode","accountName","partnerCode","partnerName","summary","debitAmount","creditAmount"] as const;
+const VP_HEADERS: Record<string, string> = {
+  voucherDate: "전표일자", voucherNo: "전표번호", status: "상태", seqNo: "순번",
+  lineType: "구분", accountCode: "계정코드", accountName: "계정명",
+  partnerCode: "코드", partnerName: "거래처", summary: "적요",
+  debitAmount: "차변금액", creditAmount: "대변금액",
+};
+const VP_SORT    = new Set(["voucherDate","voucherNo","seqNo","accountCode","accountName","partnerCode","partnerName","debitAmount","creditAmount"]);
+const VP_ALIGN: Record<string, string> = {
+  voucherDate: "text-center", voucherNo: "text-center", status: "text-center",
+  seqNo: "text-center", lineType: "text-center", accountCode: "text-center",
+  partnerCode: "text-center", debitAmount: "text-right", creditAmount: "text-right",
+};
 
 // ── 페이지 ────────────────────────────────────────────────────────────────────
 
@@ -135,6 +152,18 @@ export default function VoucherPrintPage() {
     debit:  rows.reduce((s, r) => s + r.debitAmount,  0),
     credit: rows.reduce((s, r) => s + r.creditAmount, 0),
   }), [rows]);
+
+  // ── 그리드 훅 ───────────────────────────────────────────────────────────────
+
+  const { sortedItems: sortedRows, sortKey: vpSortKey, sortDir: vpSortDir, toggleSort: vpToggleSort }
+    = useSortableGrid(rows);
+  const vpCol = useGridColumnSettings("accounting/voucher-print", [...VP_COLS]);
+  const gtp = {
+    dragKey: vpCol.dragKey, dropTargetKey: vpCol.dropTargetKey,
+    onResizeEnd: vpCol.resize, onDragStartKey: vpCol.setDragKey,
+    onDropKey: vpCol.reorder, onDragEndKey: () => vpCol.setDragKey(null),
+    onDragOverKey: vpCol.setDropTargetKey,
+  };
 
   // ── 스타일 ──────────────────────────────────────────────────────────────────
 
@@ -230,76 +259,76 @@ export default function VoucherPrintPage() {
 
         <div className="flex-1 overflow-auto">
           <table className="w-full border-collapse text-xs min-w-[900px]">
+            <colgroup>
+              {vpCol.colOrder.map((k) => (
+                <col key={k} style={{ width: vpCol.colWidths[k] ? `${vpCol.colWidths[k]}px` : undefined }} />
+              ))}
+            </colgroup>
             <thead className="sticky top-0 z-10">
               <tr>
-                <th className={cn(TH, "text-center")}>전표일자</th>
-                <th className={cn(TH, "text-center")}>전표번호</th>
-                <th className={cn(TH, "text-center")}>상태</th>
-                <th className={cn(TH, "text-center w-10")}>순번</th>
-                <th className={cn(TH, "text-center w-14")}>구분</th>
-                <th className={cn(TH, "text-center w-20")}>계정코드</th>
-                <th className={cn(TH, "w-28")}>계정명</th>
-                <th className={cn(TH, "text-center w-20")}>코드</th>
-                <th className={cn(TH, "w-32")}>거래처</th>
-                <th className={cn(TH)}>적요</th>
-                <th className={cn(TH, "text-right w-28")}>차변금액</th>
-                <th className={cn(TH, "text-right w-28")}>대변금액</th>
+                {vpCol.colOrder.map((k) => (
+                  <GridTh key={k} colKey={k} {...gtp}
+                    className={cn(TH, VP_ALIGN[k])}
+                    sortKey={VP_SORT.has(k) ? k : undefined}
+                    currentSortKey={vpSortKey as string | null}
+                    sortDir={vpSortDir}
+                    onSort={(sk) => vpToggleSort(sk as keyof typeof sortedRows[0])}>
+                    {VP_HEADERS[k]}
+                  </GridTh>
+                ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td colSpan={12} className="text-center py-8 text-muted-foreground text-xs">조회 중...</td>
-                </tr>
+                <tr><td colSpan={VP_COLS.length} className="text-center py-8 text-muted-foreground text-xs">조회 중...</td></tr>
               )}
-              {!loading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={12} className="text-center py-8 text-muted-foreground text-xs">
-                    조회된 전표가 없습니다.
-                  </td>
-                </tr>
+              {!loading && sortedRows.length === 0 && (
+                <tr><td colSpan={VP_COLS.length} className="text-center py-8 text-muted-foreground text-xs">조회된 전표가 없습니다.</td></tr>
               )}
-              {!loading && rows.map((row, idx) => (
+              {!loading && sortedRows.map((row, idx) => (
                 <tr key={`${row.voucherId}-${row.lineId}-${idx}`} className="hover:bg-muted/30 transition-colors">
-                  <td className={cn(TD, "text-center")}>{row.voucherDate}</td>
-                  <td className={cn(TD, "text-center font-mono")}>{row.voucherNo}</td>
-                  <td className={cn(TD, "text-center")}>
-                    <span className={cn(
-                      "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                      row.status === "승인"
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-                    )}>
-                      {row.status === "미승인" ? "미결" : row.status}
-                    </span>
-                  </td>
-                  <td className={cn(TD, "text-center")}>{row.seqNo}</td>
-                  <td className={cn(TD, "text-center")}>
-                    <span className={cn(
-                      "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
-                      row.lineType === "차변"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                    )}>
-                      {row.lineType}
-                    </span>
-                  </td>
-                  <td className={cn(TD, "text-center font-mono")}>{row.accountCode}</td>
-                  <td className={cn(TD)}>{row.accountName}</td>
-                  <td className={cn(TD, "text-center font-mono")}>{row.partnerCode}</td>
-                  <td className={cn(TD)}>{row.partnerName}</td>
-                  <td className={cn(TD)}>{row.summary}</td>
-                  <td className={cn(TD, "text-right")}>{row.debitAmount  > 0 ? fmt(row.debitAmount)  : ""}</td>
-                  <td className={cn(TD, "text-right")}>{row.creditAmount > 0 ? fmt(row.creditAmount) : ""}</td>
+                  {vpCol.colOrder.map((k) => {
+                    const base = cn(TD, VP_ALIGN[k]);
+                    if (k === "voucherDate")  return <td key={k} className={base}>{row.voucherDate}</td>;
+                    if (k === "voucherNo")    return <td key={k} className={cn(base, "font-mono")}>{row.voucherNo}</td>;
+                    if (k === "status")       return (
+                      <td key={k} className={base}>
+                        <span className={cn("inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          row.status === "승인" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                               : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                        )}>{row.status === "미승인" ? "미결" : row.status}</span>
+                      </td>
+                    );
+                    if (k === "seqNo")        return <td key={k} className={base}>{row.seqNo}</td>;
+                    if (k === "lineType")     return (
+                      <td key={k} className={base}>
+                        <span className={cn("inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          row.lineType === "차변" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                                 : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        )}>{row.lineType}</span>
+                      </td>
+                    );
+                    if (k === "accountCode")  return <td key={k} className={cn(base, "font-mono")}>{row.accountCode}</td>;
+                    if (k === "accountName")  return <td key={k} className={base}>{row.accountName}</td>;
+                    if (k === "partnerCode")  return <td key={k} className={cn(base, "font-mono")}>{row.partnerCode}</td>;
+                    if (k === "partnerName")  return <td key={k} className={base}>{row.partnerName}</td>;
+                    if (k === "summary")      return <td key={k} className={base}>{row.summary}</td>;
+                    if (k === "debitAmount")  return <td key={k} className={base}>{row.debitAmount  > 0 ? fmt(row.debitAmount)  : ""}</td>;
+                    if (k === "creditAmount") return <td key={k} className={base}>{row.creditAmount > 0 ? fmt(row.creditAmount) : ""}</td>;
+                    return <td key={k} className={base} />;
+                  })}
                 </tr>
               ))}
             </tbody>
-            {rows.length > 0 && (
+            {sortedRows.length > 0 && (
               <tfoot>
                 <tr className="bg-muted/50">
-                  <td colSpan={10} className={cn(TD, "text-right font-medium")}>합 계</td>
-                  <td className={cn(TD, "text-right font-semibold")}>{fmt(totals.debit)}</td>
-                  <td className={cn(TD, "text-right font-semibold")}>{fmt(totals.credit)}</td>
+                  {vpCol.colOrder.map((k) => {
+                    if (k === "debitAmount")  return <td key={k} className={cn(TD, "text-right font-semibold")}>{fmt(totals.debit)}</td>;
+                    if (k === "creditAmount") return <td key={k} className={cn(TD, "text-right font-semibold")}>{fmt(totals.credit)}</td>;
+                    if (k === "summary")      return <td key={k} className={cn(TD, "text-right font-medium")}>합 계</td>;
+                    return <td key={k} className={TD} />;
+                  })}
                 </tr>
               </tfoot>
             )}
