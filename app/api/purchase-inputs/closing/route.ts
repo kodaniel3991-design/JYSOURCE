@@ -24,10 +24,10 @@ export async function GET(request: Request) {
           ISNULL(NULLIF(im.VehicleModel, ''), N'(미지정)')           AS VehicleModel,
           ISNULL(NULLIF(itc.ItemTypeName, ''),
             ISNULL(NULLIF(im.Form, ''), N'(미지정)'))                AS Form,
-          rh.Qty                                                     AS InputQty,
-          ROUND(rh.Qty * ISNULL(poi.UnitPrice, 0), 0)               AS InputAmount,
-          ROUND(rh.Qty * ISNULL(poi.UnitPrice, 0) * 0.1, 0)         AS TaxAmount,
-          ROUND(rh.Qty * ISNULL(poi.UnitPrice, 0) * 1.1, 0)         AS TotalWithTax,
+          CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END   AS InputQty,
+          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(poi.UnitPrice, 0), 0)         AS InputAmount,
+          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(poi.UnitPrice, 0) * 0.1, 0)   AS TaxAmount,
+          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(poi.UnitPrice, 0) * 1.1, 0)   AS TotalWithTax,
           CONVERT(NVARCHAR(10), rh.ReceiptDate, 23)                  AS InputDate
         FROM dbo.ReceiptHistory rh
         JOIN dbo.PurchaseOrder po
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
           ON im.ItemNo = rh.ItemCode
         LEFT JOIN dbo.ItemTypeCode itc
           ON itc.ItemTypeCode = im.Form
-        WHERE rh.Type = N'입고'
+        WHERE rh.Type IN (N'입고', N'반품')
           AND (@BusinessPlace IS NULL OR po.BusinessPlace = @BusinessPlace)
           AND (@DateFrom      IS NULL OR rh.ReceiptDate  >= @DateFrom)
           AND (@DateTo        IS NULL OR rh.ReceiptDate  <= @DateTo)

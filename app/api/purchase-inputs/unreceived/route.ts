@@ -57,11 +57,11 @@ export async function GET(request: Request) {
           rh.ReceiptNo,
           rh.ItemCode,
           rh.ItemName,
-          rh.Qty,
-          CONVERT(NVARCHAR(10), rh.ReceiptDate, 23)    AS ReceiptDate,
+          rh.Qty - ISNULL(ret.ReturnQty, 0)                                           AS Qty,
+          CONVERT(NVARCHAR(10), rh.ReceiptDate, 23)                                   AS ReceiptDate,
           im.Unit,
-          ISNULL(rh.UnitPrice, poi.UnitPrice)          AS UnitPrice,
-          rh.Qty * ISNULL(rh.UnitPrice, poi.UnitPrice) AS ReceiptAmount,
+          ISNULL(rh.UnitPrice, poi.UnitPrice)                                         AS UnitPrice,
+          (rh.Qty - ISNULL(ret.ReturnQty, 0)) * ISNULL(rh.UnitPrice, poi.UnitPrice)  AS ReceiptAmount,
           po.PoNumber,
           po.SupplierCode,
           po.SupplierName,
@@ -73,8 +73,23 @@ export async function GET(request: Request) {
           ON poi.PurchaseOrderId = rh.PurchaseOrderId AND poi.ItemCode = rh.ItemCode
         LEFT JOIN dbo.ItemMaster im
           ON im.ItemNo = rh.ItemCode
+        LEFT JOIN (
+          SELECT
+            PurchaseOrderId,
+            ItemCode,
+            SeqNo,
+            SUM(Qty) AS ReturnQty
+          FROM dbo.ReceiptHistory
+          WHERE Type = N'반품'
+          GROUP BY PurchaseOrderId, ItemCode, SeqNo
+        ) ret ON ret.PurchaseOrderId = rh.PurchaseOrderId
+             AND ret.ItemCode = rh.ItemCode
+             AND (
+               (rh.SeqNo IS NOT NULL AND ret.SeqNo = rh.SeqNo)
+               OR (rh.SeqNo IS NULL AND ret.SeqNo IS NULL)
+             )
         WHERE po.SupplierCode = @SupplierCode
-          AND rh.Type = '입고'
+          AND rh.Type = N'입고'
           AND (@BusinessPlace IS NULL OR po.BusinessPlace = @BusinessPlace)
           AND NOT EXISTS (
             SELECT 1 FROM dbo.PurchaseInputItem pii WHERE pii.ReceiptHistoryId = rh.Id
@@ -84,6 +99,7 @@ export async function GET(request: Request) {
           AND (@ItemCodeFrom IS NULL OR rh.ItemCode    >= @ItemCodeFrom)
           AND (@ItemCodeTo   IS NULL OR rh.ItemCode    <= @ItemCodeTo)
           AND (@Model        IS NULL OR im.VehicleModel LIKE '%' + @Model + '%')
+          AND rh.Qty - ISNULL(ret.ReturnQty, 0) > 0
         ORDER BY rh.ReceiptDate DESC, rh.ItemCode
       `);
 
