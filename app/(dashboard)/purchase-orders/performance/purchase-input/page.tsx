@@ -119,7 +119,7 @@ export default function PurchaseInputPage() {
 
   // 선택된 항목
   const [selectedId, setSelectedId] = useCachedState<string | null>("purchase-input/selectedId", null);
-  const [isNew,      setIsNew]      = useState(false);
+  const [isNew,      setIsNew]      = useCachedState<boolean>("purchase-input/isNew", false);
 
   // 우측 헤더 폼
   const [header, setHeader] = useCachedState<HeaderForm>("purchase-input/header", emptyHeader());
