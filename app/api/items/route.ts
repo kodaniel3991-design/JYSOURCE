@@ -6,24 +6,26 @@ export async function GET() {
     const pool = await getDbPool();
     const result = await pool.request().query(`
       SELECT
-        ItemId, ItemNo, ItemName, Specification, Form, Type, Unit,
-        SupplierItemNo, DrawingNo, SupplierCode, SupplierName,
-        ItemStatusCategory, SalesUnitCode, UnitConversion,
-        ItemWeight, WorkingItemNo, ItemSelection, Owner,
-        ItemUserCategoryCode, Material, VehicleModel,
-        ItemUsageClassificationCode, BusinessUnit, PackQty,
-        PurchaseUnitPrice, CurrencyCode, LastReceiptDate,
-        Warehouse, StorageLocation, UpdatedBy, UpdatedAt,
-        ValueCategoryCode, MaterialOrderPolicyCode,
-        ProcurementLeadTime, StandardLotSize, MinLotSize, MaxLotSize,
-        SafetyStock, ReorderPoint, AvgDefectRate, InventoryCountCycle,
-        LastReceiptUnitPrice, SalesUnitPrice, StandardCost, InternalUnitPrice,
-        DrawingSize, ManufacturerName, BuyerCode, SalesRepCode, RequirementRepCode,
-        ProductId, UnitProductionQty, HsCode, HNoDiameter, LNoSpecificGravity,
-        YieldRate, CustomerWarehouse, DeliveryContainer, ReceiptContainer,
-        RegisteredAt, RevisionDate
-      FROM dbo.ItemMaster
-      ORDER BY UpdatedAt DESC
+        im.ItemId, im.ItemNo, im.ItemName, im.Specification, im.Form, im.Type, im.Unit,
+        im.SupplierItemNo, im.DrawingNo, im.SupplierCode,
+        ISNULL(p.PurchaserName, im.SupplierName) AS SupplierName,
+        im.ItemStatusCategory, im.SalesUnitCode, im.UnitConversion,
+        im.ItemWeight, im.WorkingItemNo, im.ItemSelection, im.Owner,
+        im.ItemUserCategoryCode, im.Material, im.VehicleModel,
+        im.ItemUsageClassificationCode, im.BusinessUnit, im.PackQty,
+        im.PurchaseUnitPrice, im.CurrencyCode, im.LastReceiptDate,
+        im.Warehouse, im.StorageLocation, im.UpdatedBy, im.UpdatedAt,
+        im.ValueCategoryCode, im.MaterialOrderPolicyCode,
+        im.ProcurementLeadTime, im.StandardLotSize, im.MinLotSize, im.MaxLotSize,
+        im.SafetyStock, im.ReorderPoint, im.AvgDefectRate, im.InventoryCountCycle,
+        im.LastReceiptUnitPrice, im.SalesUnitPrice, im.StandardCost, im.InternalUnitPrice,
+        im.DrawingSize, im.ManufacturerName, im.BuyerCode, im.SalesRepCode, im.RequirementRepCode,
+        im.ProductId, im.UnitProductionQty, im.HsCode, im.HNoDiameter, im.LNoSpecificGravity,
+        im.YieldRate, im.CustomerWarehouse, im.DeliveryContainer, im.ReceiptContainer,
+        im.RegisteredAt, im.RevisionDate
+      FROM dbo.ItemMaster im
+      LEFT JOIN dbo.Purchaser p ON p.PurchaserNo = im.SupplierCode
+      ORDER BY im.UpdatedAt DESC
     `);
     return NextResponse.json({ ok: true, items: result.recordset });
   } catch (error) {

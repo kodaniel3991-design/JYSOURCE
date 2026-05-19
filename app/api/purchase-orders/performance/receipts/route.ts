@@ -29,7 +29,7 @@ export async function GET(request: Request) {
           po.OrderStatus,
           poi.SpecNo,
           poi.ItemCode,
-          poi.ItemName,
+          ISNULL(im.ItemName, poi.ItemName)         AS ItemName,
           ISNULL(poi.Specification, '')             AS Specification,
           ISNULL(im.Unit, '')                       AS Unit,
           ISNULL(im.VehicleModel, '')               AS VehicleModel,
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
           AND (@OrderDateTo    IS NULL OR po.OrderDate     <= @OrderDateTo)
         GROUP BY
           po.PoNumber, po.SupplierCode, po.SupplierName, po.OrderDate, po.OrderStatus,
-          poi.SpecNo, poi.ItemCode, poi.ItemName, poi.Specification,
+          poi.SpecNo, poi.ItemCode, ISNULL(im.ItemName, poi.ItemName), poi.Specification,
           im.Unit, im.VehicleModel,
           poi.Quantity, poi.UnitPrice, poi.Amount, poi.DueDate
         ORDER BY po.PoNumber, poi.SpecNo

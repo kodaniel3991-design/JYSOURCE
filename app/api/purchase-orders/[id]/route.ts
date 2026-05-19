@@ -44,7 +44,7 @@ export async function GET(
       .input("PurchaseOrderId", sql.Int, Number(params.id))
       .query(`
         SELECT
-          poi.SpecNo, poi.ItemCode, poi.ItemName, poi.Material, poi.Specification,
+          poi.SpecNo, poi.ItemCode, ISNULL(im.ItemName, poi.ItemName) AS ItemName, poi.Material, poi.Specification,
           poi.Warehouse, poi.Quantity, poi.ReceivedQty, poi.UnitPrice, poi.Amount,
           poi.IsProvisionalPrice,
           CONVERT(NVARCHAR(10), poi.DueDate, 23) AS DueDate,

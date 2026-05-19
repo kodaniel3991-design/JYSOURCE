@@ -59,7 +59,7 @@ export async function GET() {
     const pool = await getDbPool();
     const result = await pool.request().query(`
       SELECT
-        pp.Id, pp.ItemCode, pp.ItemName, pp.ItemSpec, pp.SupplierName,
+        pp.Id, pp.ItemCode, ISNULL(im.ItemName, pp.ItemName) AS ItemName, pp.ItemSpec, pp.SupplierName,
         pp.ApplyDate, pp.ExpireDate, pp.UnitPrice, pp.DevUnitPrice, pp.DiscountRate,
         pp.Currency, pp.Remarks,
         ISNULL(

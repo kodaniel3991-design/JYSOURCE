@@ -159,7 +159,7 @@ export async function POST(request: Request) {
       const itemResult = await pool.request()
         .input("PurchaseInputId", sql.Int, piId)
         .query(`
-          SELECT i.InputAmount, i.ItemName,
+          SELECT i.InputAmount, ISNULL(im.ItemName, i.ItemName) AS ItemName,
                  ISNULL(itc.PurchaseAccount,     N'') AS PurchaseAccount,
                  ISNULL(itc.PurchaseAccountName, N'') AS PurchaseAccountName,
                  ISNULL(itc.ItemTypeName,         N'') AS ItemTypeName
@@ -376,7 +376,7 @@ export async function PUT(request: Request) {
       const itemResult = await pool.request()
         .input("PurchaseInputId", sql.Int, piId)
         .query(`
-          SELECT i.InputAmount, i.ItemName,
+          SELECT i.InputAmount, ISNULL(im.ItemName, i.ItemName) AS ItemName,
                  ISNULL(itc.PurchaseAccount,     N'') AS PurchaseAccount,
                  ISNULL(itc.PurchaseAccountName, N'') AS PurchaseAccountName,
                  ISNULL(itc.ItemTypeName,         N'') AS ItemTypeName

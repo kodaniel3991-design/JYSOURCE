@@ -23,7 +23,7 @@ export async function GET(request: Request) {
           CONVERT(NVARCHAR(10), p.InputDate, 23) AS InputDate,
           p.TotalAmount, p.TaxAmount, p.TotalWithTax,
           p.DeptCode, p.DeptName, p.Summary, p.BusinessPlace,
-          i.Id AS ItemId, i.SeqNo, i.ItemCode, i.ItemName, i.Unit,
+          i.Id AS ItemId, i.SeqNo, i.ItemCode, ISNULL(im.ItemName, i.ItemName) AS ItemName, i.Unit,
           i.InputQty,
           i.InputAmount  AS ItemInputAmount,
           i.TaxAmount    AS ItemTaxAmount,

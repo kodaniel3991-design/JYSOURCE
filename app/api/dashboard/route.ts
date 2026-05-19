@@ -68,11 +68,12 @@ export async function GET(request: Request) {
         SELECT TOP 10
           po.PoNumber,
           po.SupplierName,
-          poi.ItemName,
+          ISNULL(im6.ItemName, poi.ItemName) AS ItemName,
           CONVERT(NVARCHAR(10), poi.DueDate, 23) AS DueDate,
           DATEDIFF(DAY, poi.DueDate, @Today) AS DelayDays
         FROM dbo.PurchaseOrder po
         JOIN dbo.PurchaseOrderItem poi ON poi.PurchaseOrderId = po.Id
+        LEFT JOIN dbo.ItemMaster im6 ON im6.ItemNo = poi.ItemCode
         WHERE poi.DueDate < @Today
           AND po.OrderStatus NOT IN ('received','closed','cancelled')
           AND (@BusinessPlace IS NULL OR po.BusinessPlace = @BusinessPlace)
@@ -88,14 +89,15 @@ export async function GET(request: Request) {
 
         -- 8) 품목별 발주 TOP 3
         SELECT TOP 3
-          poi.ItemName,
+          ISNULL(im8.ItemName, poi.ItemName) AS ItemName,
           COUNT(DISTINCT poi.PurchaseOrderId) AS OrderCount,
           SUM(poi.Amount) AS Amount
         FROM dbo.PurchaseOrderItem poi
         JOIN dbo.PurchaseOrder po ON po.Id = poi.PurchaseOrderId
+        LEFT JOIN dbo.ItemMaster im8 ON im8.ItemNo = poi.ItemCode
         WHERE po.OrderStatus NOT IN ('cancelled')
           AND (@BusinessPlace IS NULL OR po.BusinessPlace = @BusinessPlace)
-        GROUP BY poi.ItemName
+        GROUP BY ISNULL(im8.ItemName, poi.ItemName)
         ORDER BY Amount DESC;
       `);
 

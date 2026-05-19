@@ -46,7 +46,7 @@ export async function GET(
       .input("PurchaseOrderId", sql.Int, poId)
       .query(`
         SELECT
-          poi.SpecNo, poi.ItemCode, poi.ItemName, poi.Specification, poi.Warehouse,
+          poi.SpecNo, poi.ItemCode, ISNULL(im.ItemName, poi.ItemName) AS ItemName, poi.Specification, poi.Warehouse,
           poi.Quantity AS OrderedQty,
           ISNULL(poi.UnitPrice, 0) AS UnitPrice,
           ISNULL(rh_agg.ReceivedQty, 0) AS ReceivedQty,
@@ -95,7 +95,7 @@ export async function GET(
         SELECT
           rh.Id, rh.ReceiptNo,
           CONVERT(NVARCHAR(16), rh.ProcessedAt, 120) AS ProcessedAt,
-          rh.Type, rh.ItemCode, rh.ItemName,
+          rh.Type, rh.ItemCode, ISNULL(im.ItemName, rh.ItemName) AS ItemName,
           rh.Qty,
           CONVERT(NVARCHAR(10), rh.ReceiptDate, 23) AS ReceiptDate,
           rh.Warehouse, rh.LotNo, rh.Note, rh.SeqNo,

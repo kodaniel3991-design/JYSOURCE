@@ -18,23 +18,26 @@ export async function GET(request: Request) {
     }
 
     let where = "WHERE 1=1";
-    if (itemCode.trim())     where += ` AND ItemCode    LIKE '%' + '${itemCode.trim().replace(/'/g,"''")}' + '%'`;
-    if (supplierName.trim()) where += ` AND SupplierName LIKE '%' + '${supplierName.trim().replace(/'/g,"''")}' + '%'`;
+    if (itemCode.trim())     where += ` AND pph.ItemCode    LIKE '%' + '${itemCode.trim().replace(/'/g,"''")}' + '%'`;
+    if (supplierName.trim()) where += ` AND pph.SupplierName LIKE '%' + '${supplierName.trim().replace(/'/g,"''")}' + '%'`;
 
     const result = await pool.request().query(`
       SELECT TOP 500
-        Id, PurchasePriceId, ItemCode, ItemName, SupplierName,
-        PreviousUnitPrice, NewUnitPrice,
-        CONVERT(NVARCHAR(10), PreviousApplyDate, 23)  AS PreviousApplyDate,
-        CONVERT(NVARCHAR(10), NewApplyDate, 23)        AS NewApplyDate,
-        CONVERT(NVARCHAR(10), PreviousExpireDate, 23)  AS PreviousExpireDate,
-        CONVERT(NVARCHAR(10), NewExpireDate, 23)        AS NewExpireDate,
-        ChangeType,
-        Reason,
-        CONVERT(NVARCHAR(16), ChangedAt, 120)          AS ChangedAt
-      FROM dbo.PurchasePriceHistory
+        pph.Id, pph.PurchasePriceId, pph.ItemCode,
+        ISNULL(im.ItemName, pph.ItemName) AS ItemName,
+        pph.SupplierName,
+        pph.PreviousUnitPrice, pph.NewUnitPrice,
+        CONVERT(NVARCHAR(10), pph.PreviousApplyDate, 23)  AS PreviousApplyDate,
+        CONVERT(NVARCHAR(10), pph.NewApplyDate, 23)        AS NewApplyDate,
+        CONVERT(NVARCHAR(10), pph.PreviousExpireDate, 23)  AS PreviousExpireDate,
+        CONVERT(NVARCHAR(10), pph.NewExpireDate, 23)        AS NewExpireDate,
+        pph.ChangeType,
+        pph.Reason,
+        CONVERT(NVARCHAR(16), pph.ChangedAt, 120)          AS ChangedAt
+      FROM dbo.PurchasePriceHistory pph
+      LEFT JOIN dbo.ItemMaster im ON im.ItemNo = pph.ItemCode
       ${where}
-      ORDER BY ChangedAt DESC, Id DESC
+      ORDER BY pph.ChangedAt DESC, pph.Id DESC
     `);
 
     const items = result.recordset.map((r: Record<string, unknown>) => ({

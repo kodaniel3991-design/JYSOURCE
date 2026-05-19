@@ -35,7 +35,6 @@ import {
   BadgeCheck,
   Printer,
   Book,
-  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/lib/hooks/use-favorites";
@@ -98,7 +97,6 @@ const accountingNavGroup = {
     { href: "/accounting/voucher-approval",  label: "전표승인/해제관리",  icon: BadgeCheck },
     { href: "/accounting/voucher-print",     label: "전표조회 및 출력",   icon: Printer },
     { href: "/accounting/journal",           label: "분개장",            icon: Book },
-    { href: "/accounting/ledger",            label: "매입매출장",         icon: BookOpen },
   ],
 };
 

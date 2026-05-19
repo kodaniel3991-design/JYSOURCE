@@ -10,6 +10,21 @@ export async function getSessionFactory(request: Request): Promise<string | null
   return session?.factory || null;
 }
 
+// API route에서 username + factory 모두 반환하는 헬퍼
+export async function getSessionUser(
+  request: Request
+): Promise<{ username: string; factory: string | null }> {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const match = cookieHeader.match(/(?:^|;\s*)jys_session=([^;]+)/);
+  const token = match ? decodeURIComponent(match[1]) : "";
+  if (!token) return { username: "", factory: null };
+  const session = await verifyToken(token);
+  return {
+    username: session?.username ?? "",
+    factory:  session?.factory || null,
+  };
+}
+
 const SECRET = process.env.AUTH_SECRET ?? "jysource-procurement-hub-2026";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8시간
 export const SESSION_COOKIE = "jys_session";

@@ -40,7 +40,7 @@ export async function GET(request: Request) {
         po.SupplierName,
         poi.SpecNo,
         poi.ItemCode,
-        poi.ItemName,
+        ISNULL(im.ItemName, poi.ItemName) AS ItemName,
         poi.Quantity,
         poi.UnitPrice                  AS PoUnitPrice,
         pp.UnitPrice                   AS CurrentUnitPrice,

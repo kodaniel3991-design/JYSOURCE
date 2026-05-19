@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDbPool, sql } from "@/lib/db";
-import { getSessionFactory } from "@/lib/auth/session";
+import { getSessionUser } from "@/lib/auth/session";
 
 export async function GET(request: Request) {
   try {
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const dateTo    = searchParams.get("dateTo")    || null;
     const statusRaw = searchParams.get("status")    || null;
 
-    const factory = await getSessionFactory(request);
+    const { factory } = await getSessionUser(request);
     const pool    = await getDbPool();
 
     // "미결" → DB '미승인', "승인" → DB '승인', null → 전체
@@ -115,21 +115,32 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ ok: false, message: "잘못된 요청입니다." }, { status: 400 });
     }
 
-    const factory = await getSessionFactory(request);
+    const { factory, username } = await getSessionUser(request);
     const pool    = await getDbPool();
+
+    // ApprovedAt, ApprovedBy 컬럼이 없으면 추가
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.AccountingVoucher') AND name = 'ApprovedAt')
+        ALTER TABLE dbo.AccountingVoucher ADD ApprovedAt DATETIME2 NULL;
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.AccountingVoucher') AND name = 'ApprovedBy')
+        ALTER TABLE dbo.AccountingVoucher ADD ApprovedBy NVARCHAR(100) NULL;
+    `);
 
     const newStatus    = action === "승인" ? "승인" : "미승인";
     const idList       = ids.map(Number).filter(Boolean);
     const placeholders = idList.map((_, i) => `@Id${i}`).join(",");
 
     const req = pool.request()
-      .input("Status",        sql.NVarChar(20), newStatus)
-      .input("BusinessPlace", sql.NVarChar(20), factory);
+      .input("Status",        sql.NVarChar(20),  newStatus)
+      .input("BusinessPlace", sql.NVarChar(20),  factory)
+      .input("ApprovedBy",    sql.NVarChar(100), action === "승인" ? (username || null) : null);
     idList.forEach((id, i) => req.input(`Id${i}`, sql.Int, id));
 
     await req.query(`
       UPDATE dbo.AccountingVoucher
-      SET Status = @Status
+      SET Status     = @Status,
+          ApprovedAt = CASE WHEN @Status = N'승인' THEN GETDATE() ELSE NULL END,
+          ApprovedBy = @ApprovedBy
       WHERE Id IN (${placeholders})
         AND SourceType = N'매입전표'
         AND (@BusinessPlace IS NULL OR BusinessPlace = @BusinessPlace)

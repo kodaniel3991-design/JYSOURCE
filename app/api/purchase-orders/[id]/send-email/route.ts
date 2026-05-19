@@ -103,14 +103,16 @@ export async function POST(
     const itemsResult = await pool.request()
       .input("PurchaseOrderId", sql.Int, poId)
       .query(`
-        SELECT SpecNo, ItemCode, ItemName,
-               ISNULL(Material, '')      AS Material,
-               ISNULL(Specification, '') AS Specification,
-               CONVERT(NVARCHAR(10), DueDate, 23) AS DueDate,
-               Quantity, UnitPrice, Amount
-        FROM dbo.PurchaseOrderItem
-        WHERE PurchaseOrderId = @PurchaseOrderId
-        ORDER BY SpecNo
+        SELECT poi.SpecNo, poi.ItemCode,
+               ISNULL(im.ItemName, poi.ItemName) AS ItemName,
+               ISNULL(poi.Material, '')      AS Material,
+               ISNULL(poi.Specification, '') AS Specification,
+               CONVERT(NVARCHAR(10), poi.DueDate, 23) AS DueDate,
+               poi.Quantity, poi.UnitPrice, poi.Amount
+        FROM dbo.PurchaseOrderItem poi
+        LEFT JOIN dbo.ItemMaster im ON im.ItemNo = poi.ItemCode
+        WHERE poi.PurchaseOrderId = @PurchaseOrderId
+        ORDER BY poi.SpecNo
       `);
 
     const items = itemsResult.recordset as Record<string, unknown>[];

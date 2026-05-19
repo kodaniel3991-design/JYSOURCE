@@ -59,7 +59,7 @@ export async function GET(request: Request) {
         CONVERT(NVARCHAR(16), rh.ProcessedAt, 120) AS ProcessedAt,
         rh.Type,
         rh.ItemCode,
-        rh.ItemName,
+        ISNULL(im.ItemName, rh.ItemName) AS ItemName,
         rh.Qty,
         CONVERT(NVARCHAR(10), rh.ReceiptDate, 23) AS ReceiptDate,
         rh.Warehouse,

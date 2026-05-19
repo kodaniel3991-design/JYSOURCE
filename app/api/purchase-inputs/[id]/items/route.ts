@@ -13,13 +13,14 @@ export async function GET(
     const result = await pool.request()
       .input("PurchaseInputId", sql.Int, id)
       .query(`
-        SELECT Id, SeqNo, ReceiptHistoryId, ReceiptNo,
-               ItemCode, ItemName, Unit,
-               InputQty, InputAmount, ConvertedAmount,
-               TaxAmount, TotalWithTax, Note, PurchaseOrderNo
-        FROM dbo.PurchaseInputItem
-        WHERE PurchaseInputId = @PurchaseInputId
-        ORDER BY SeqNo
+        SELECT pii.Id, pii.SeqNo, pii.ReceiptHistoryId, pii.ReceiptNo,
+               pii.ItemCode, ISNULL(im.ItemName, pii.ItemName) AS ItemName, pii.Unit,
+               pii.InputQty, pii.InputAmount, pii.ConvertedAmount,
+               pii.TaxAmount, pii.TotalWithTax, pii.Note, pii.PurchaseOrderNo
+        FROM dbo.PurchaseInputItem pii
+        LEFT JOIN dbo.ItemMaster im ON im.ItemNo = pii.ItemCode
+        WHERE pii.PurchaseInputId = @PurchaseInputId
+        ORDER BY pii.SeqNo
       `);
 
     const items = result.recordset.map((r: Record<string, unknown>) => ({

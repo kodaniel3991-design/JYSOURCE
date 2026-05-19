@@ -56,7 +56,7 @@ export async function GET(request: Request) {
           rh.Id,
           rh.ReceiptNo,
           rh.ItemCode,
-          rh.ItemName,
+          ISNULL(im.ItemName, rh.ItemName) AS ItemName,
           rh.Qty - ISNULL(ret.ReturnQty, 0)                                           AS Qty,
           CONVERT(NVARCHAR(10), rh.ReceiptDate, 23)                                   AS ReceiptDate,
           im.Unit,

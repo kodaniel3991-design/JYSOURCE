@@ -32,7 +32,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     // Procurement
     req.input("SupplierCode", sql.NVarChar(50), it.supplierCode || null);
-    req.input("SupplierName", sql.NVarChar(200), it.supplierName || null);
     req.input("SupplierItemNo", sql.NVarChar(100), it.supplierItemNo || null);
     req.input("BuyerCode", sql.NVarChar(50), it.buyerCode || null);
     req.input("SalesRepCode", sql.NVarChar(50), it.salesRepCode || null);
@@ -85,7 +84,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         ItemUsageClassificationCode = @ItemUsageClassificationCode,
         Material = @Material, ManufacturerName = @ManufacturerName,
         ProductId = @ProductId, ValueCategoryCode = @ValueCategoryCode,
-        SupplierCode = @SupplierCode, SupplierName = @SupplierName,
+        SupplierCode = @SupplierCode,
         SupplierItemNo = @SupplierItemNo, BuyerCode = @BuyerCode,
         SalesRepCode = @SalesRepCode, RequirementRepCode = @RequirementRepCode,
         PurchaseUnitPrice = @PurchaseUnitPrice, SalesUnitPrice = @SalesUnitPrice,

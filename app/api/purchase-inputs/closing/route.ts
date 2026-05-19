@@ -20,7 +20,7 @@ export async function GET(request: Request) {
           po.SupplierCode,
           po.SupplierName,
           rh.ItemCode,
-          ISNULL(rh.ItemName, im.ItemName)                           AS ItemName,
+          ISNULL(im.ItemName, rh.ItemName)                           AS ItemName,
           ISNULL(NULLIF(im.VehicleModel, ''), N'(미지정)')           AS VehicleModel,
           ISNULL(NULLIF(itc.ItemTypeName, ''),
             ISNULL(NULLIF(im.Form, ''), N'(미지정)'))                AS Form,

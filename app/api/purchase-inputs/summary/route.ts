@@ -24,7 +24,7 @@ export async function GET(request: Request) {
           pi.SupplierCode,
           pi.SupplierName,
           pii.ItemCode,
-          pii.ItemName,
+          ISNULL(im.ItemName, pii.ItemName) AS ItemName,
           pii.Unit,
           SUM(pii.InputQty)     AS TotalQty,
           SUM(pii.InputAmount)  AS TotalAmount,
@@ -32,12 +32,13 @@ export async function GET(request: Request) {
           SUM(pii.TotalWithTax) AS TotalWithTax
         FROM dbo.PurchaseInput pi
         JOIN dbo.PurchaseInputItem pii ON pii.PurchaseInputId = pi.Id
+        LEFT JOIN dbo.ItemMaster im ON im.ItemNo = pii.ItemCode
         WHERE (@BusinessPlace IS NULL OR pi.BusinessPlace = @BusinessPlace)
           AND (@DateFrom      IS NULL OR pi.InputDate >= @DateFrom)
           AND (@DateTo        IS NULL OR pi.InputDate <= @DateTo)
           AND (@SupplierCode  IS NULL OR pi.SupplierCode = @SupplierCode)
           AND (@ItemCode      IS NULL OR pii.ItemCode LIKE '%' + @ItemCode + '%')
-        GROUP BY pi.SupplierCode, pi.SupplierName, pii.ItemCode, pii.ItemName, pii.Unit
+        GROUP BY pi.SupplierCode, pi.SupplierName, pii.ItemCode, ISNULL(im.ItemName, pii.ItemName), pii.Unit
         ORDER BY pi.SupplierCode, pii.ItemCode
       `);
 

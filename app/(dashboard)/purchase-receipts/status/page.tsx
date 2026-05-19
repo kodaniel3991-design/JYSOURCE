@@ -314,9 +314,9 @@ export default function ReceiptStatusPage() {
   const combinedItems = useMemo<CombinedItem[]>(() => {
     const map = new Map<string, CombinedItem>();
 
-    // 1) 입고 데이터 집계 (type=입고만, 반품 제외)
+    // 1) 입고 데이터 집계 (반품은 차감)
     for (const item of items) {
-      if (item.type !== "입고") continue;
+      if (item.type !== "입고" && item.type !== "반품") continue;
       const key = `${item.supplierCode}||${item.itemCode}`;
       if (!map.has(key)) {
         map.set(key, {
@@ -336,8 +336,9 @@ export default function ReceiptStatusPage() {
         });
       }
       const r = map.get(key)!;
-      r.receiptQty    += item.qty;
-      r.receiptAmount += item.receiptAmount;
+      const sign = item.type === "반품" ? -1 : 1;
+      r.receiptQty    += sign * Math.abs(item.qty);
+      r.receiptAmount += sign * Math.abs(item.receiptAmount);
     }
 
     // 2) 매입 데이터 병합
