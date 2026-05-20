@@ -69,8 +69,14 @@ export async function GET(request: Request) {
         FROM dbo.ReceiptHistory rh
         JOIN dbo.PurchaseOrder po
           ON po.Id = rh.PurchaseOrderId
-        LEFT JOIN dbo.PurchaseOrderItem poi
-          ON poi.PurchaseOrderId = rh.PurchaseOrderId AND poi.ItemCode = rh.ItemCode
+        OUTER APPLY (
+          SELECT TOP 1 UnitPrice
+          FROM dbo.PurchaseOrderItem
+          WHERE PurchaseOrderId = rh.PurchaseOrderId
+            AND ItemCode = rh.ItemCode
+            AND (rh.SeqNo IS NULL OR SpecNo = rh.SeqNo)
+          ORDER BY SpecNo
+        ) poi
         LEFT JOIN dbo.ItemMaster im
           ON im.ItemNo = rh.ItemCode
         LEFT JOIN (

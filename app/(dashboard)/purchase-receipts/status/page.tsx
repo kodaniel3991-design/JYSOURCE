@@ -273,7 +273,7 @@ export default function ReceiptStatusPage() {
       }
     }
     for (const r of Array.from(map.values())) {
-      r.receiptAmountVat = Math.round(r.receiptAmount * 1.1);
+      r.receiptAmountVat = r.receiptAmount + Math.floor(r.receiptAmount * 0.1);
     }
     return Array.from(map.values()).sort((a, b) => {
       const poCmp = a.poNumber.localeCompare(b.poNumber);
@@ -299,16 +299,20 @@ export default function ReceiptStatusPage() {
       }
       const g = map.get(key)!;
       g.rows.push(item);
-      g.totalQty       += item.qty;
-      g.totalAmount    += item.receiptAmount;
-      g.totalAmountVat += item.receiptAmountVat;
+      g.totalQty    += item.qty;
+      g.totalAmount += item.receiptAmount;
+    }
+    // 구매처 계 VAT: 행별 합산이 아닌 소계 금액 기준으로 절삭 계산
+    for (const g of Array.from(map.values())) {
+      g.totalAmountVat = Math.floor(g.totalAmount * 1.1);
     }
     return Array.from(map.values());
   }, [mergedItems]);
 
-  const grandTotalQty       = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalQty, 0),       [supplierGroups]);
-  const grandTotalAmount    = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalAmount, 0),    [supplierGroups]);
-  const grandTotalAmountVat = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalAmountVat, 0), [supplierGroups]);
+  const grandTotalQty    = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalQty,    0), [supplierGroups]);
+  const grandTotalAmount = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalAmount, 0), [supplierGroups]);
+  // 총 계 VAT: 총 입고금액 기준으로 절삭 계산
+  const grandTotalAmountVat = useMemo(() => Math.floor(grandTotalAmount * 1.1), [grandTotalAmount]);
 
   // ── 합계 뷰 집계: 구매처+품목 기준 (입고+매입 결합) ──────────────────
   const combinedItems = useMemo<CombinedItem[]>(() => {
@@ -403,27 +407,33 @@ export default function ReceiptStatusPage() {
       g.rows.push(item);
       g.totalReceiptQty        += item.receiptQty;
       g.totalReceiptAmount     += item.receiptAmount;
-      g.totalReceiptAmountVat  += item.receiptAmountVat;
       g.totalInputQty          += item.inputQty;
       g.totalInputAmount       += item.inputAmount;
       g.totalUnprocessedQty    += item.unprocessedQty;
       g.totalUnprocessedAmount += item.unprocessedAmount;
     }
+    // 구매처 계 VAT: 소계 금액 기준으로 절삭 계산
+    for (const g of Array.from(map.values())) {
+      g.totalReceiptAmountVat = Math.floor(g.totalReceiptAmount * 1.1);
+    }
     return Array.from(map.values());
   }, [combinedItems]);
 
-  const grandCombined = useMemo(() => combinedGroups.reduce(
-    (acc, g) => ({
-      receiptQty:        acc.receiptQty        + g.totalReceiptQty,
-      receiptAmount:     acc.receiptAmount     + g.totalReceiptAmount,
-      receiptAmountVat:  acc.receiptAmountVat  + g.totalReceiptAmountVat,
-      inputQty:          acc.inputQty          + g.totalInputQty,
-      inputAmount:       acc.inputAmount       + g.totalInputAmount,
-      unprocessedQty:    acc.unprocessedQty    + g.totalUnprocessedQty,
-      unprocessedAmount: acc.unprocessedAmount + g.totalUnprocessedAmount,
-    }),
-    { receiptQty:0, receiptAmount:0, receiptAmountVat:0, inputQty:0, inputAmount:0, unprocessedQty:0, unprocessedAmount:0 }
-  ), [combinedGroups]);
+  const grandCombined = useMemo(() => {
+    const sums = combinedGroups.reduce(
+      (acc, g) => ({
+        receiptQty:        acc.receiptQty        + g.totalReceiptQty,
+        receiptAmount:     acc.receiptAmount     + g.totalReceiptAmount,
+        inputQty:          acc.inputQty          + g.totalInputQty,
+        inputAmount:       acc.inputAmount       + g.totalInputAmount,
+        unprocessedQty:    acc.unprocessedQty    + g.totalUnprocessedQty,
+        unprocessedAmount: acc.unprocessedAmount + g.totalUnprocessedAmount,
+      }),
+      { receiptQty:0, receiptAmount:0, inputQty:0, inputAmount:0, unprocessedQty:0, unprocessedAmount:0 }
+    );
+    // 총 계 VAT: 총 입고금액 기준으로 절삭 계산
+    return { ...sums, receiptAmountVat: Math.floor(sums.receiptAmount * 1.1) };
+  }, [combinedGroups]);
 
   const handleExport = () => {
     if (mergedItems.length === 0) return;

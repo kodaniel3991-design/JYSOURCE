@@ -105,14 +105,14 @@ export async function POST(
         `);
     }
 
-    // 헤더 합계 재계산 + 상태를 "확정"으로 변경
+    // 헤더 합계 재계산 + 상태를 "확정"으로 변경 (부가세/합계는 총 매입금액 기준 절삭)
     await pool.request()
       .input("Id", sql.Int, id)
       .query(`
         UPDATE dbo.PurchaseInput SET
-          TotalAmount  = (SELECT ISNULL(SUM(InputAmount),0)  FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
-          TaxAmount    = (SELECT ISNULL(SUM(TaxAmount),0)    FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
-          TotalWithTax = (SELECT ISNULL(SUM(TotalWithTax),0) FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
+          TotalAmount  = (SELECT ISNULL(SUM(InputAmount),0) FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id),
+          TaxAmount    = FLOOR((SELECT ISNULL(SUM(InputAmount),0) FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id) * 0.1),
+          TotalWithTax = FLOOR((SELECT ISNULL(SUM(InputAmount),0) FROM dbo.PurchaseInputItem WHERE PurchaseInputId=@Id) * 1.1),
           Status       = N'확정'
         WHERE Id=@Id
       `);

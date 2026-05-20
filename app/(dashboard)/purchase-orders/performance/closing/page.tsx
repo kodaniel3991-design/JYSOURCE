@@ -166,13 +166,13 @@ export default function ClosingStatusPage() {
       g.totalWithTax += item.totalWithTax;
     });
 
-    const groupedItems: GroupedItem[] = Array.from(supplierGroupMap.values()).map(({ first, count, inputAmount, taxAmount, totalWithTax }) => ({
+    const groupedItems: GroupedItem[] = Array.from(supplierGroupMap.values()).map(({ first, count, inputAmount }) => ({
       ...first,
-      itemName:  count > 1 ? `${first.itemName} 외 ${count - 1}건` : first.itemName,
-      itemCount: count,
+      itemName:    count > 1 ? `${first.itemName} 외 ${count - 1}건` : first.itemName,
+      itemCount:   count,
       inputAmount,
-      taxAmount,
-      totalWithTax,
+      taxAmount:    Math.floor(inputAmount * 0.1),
+      totalWithTax: Math.floor(inputAmount * 1.1),
     }));
 
     // ── 2단계: 차종별 평탄 그룹화 (형태 중첩 없이) ──────────────────────────
@@ -245,8 +245,8 @@ export default function ClosingStatusPage() {
           subtotalFormKind: formKey,
           isFirstFormSubtotalForModel: idx === 0,
           inputAmount: ft.inputAmount,
-          taxAmount: ft.taxAmount,
-          totalAmount: ft.totalWithTax,
+          taxAmount:   Math.floor(ft.inputAmount * 0.1),
+          totalAmount: Math.floor(ft.inputAmount * 1.1),
         });
       });
 
@@ -258,8 +258,8 @@ export default function ClosingStatusPage() {
         mergeKey: `subtotal-model-${modelCode}`,
         firstInGroup: false,
         inputAmount: modelInputAmount,
-        taxAmount: modelTaxAmount,
-        totalAmount: modelTotal,
+        taxAmount:   Math.floor(modelInputAmount * 0.1),
+        totalAmount: Math.floor(modelInputAmount * 1.1),
       });
     }
 
@@ -288,8 +288,8 @@ export default function ClosingStatusPage() {
         firstInGroup: idx === 0,
         subtotalFormKind: formKey,
         inputAmount: t.inputAmount,
-        taxAmount:   t.taxAmount,
-        totalAmount: t.totalWithTax,
+        taxAmount:   Math.floor(t.inputAmount * 0.1),
+        totalAmount: Math.floor(t.inputAmount * 1.1),
       });
     });
 
@@ -313,8 +313,8 @@ export default function ClosingStatusPage() {
         mergeKey: `total-model-${modelCode}`,
         firstInGroup: idx === 0,
         inputAmount: t.inputAmount,
-        taxAmount:   t.taxAmount,
-        totalAmount: t.totalWithTax,
+        taxAmount:   Math.floor(t.inputAmount * 0.1),
+        totalAmount: Math.floor(t.inputAmount * 1.1),
       });
     });
 
@@ -326,8 +326,8 @@ export default function ClosingStatusPage() {
       mergeKey: "total-all",
       firstInGroup: false,
       inputAmount: grandInputAmount,
-      taxAmount:   grandTaxAmount,
-      totalAmount: grandTotal,
+      taxAmount:   Math.floor(grandInputAmount * 0.1),
+      totalAmount: Math.floor(grandInputAmount * 1.1),
     });
 
     return result;

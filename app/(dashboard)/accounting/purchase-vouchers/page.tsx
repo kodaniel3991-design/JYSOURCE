@@ -114,15 +114,19 @@ function buildJournalLines(candidate: Candidate): JournalLine[] {
     }
   }
 
+  const totalSupply  = Array.from(accountAmountMap.values()).reduce((s, v) => s + v.amount, 0);
+  const taxAmount    = Math.floor(totalSupply * 0.1);
+  const totalWithTax = Math.floor(totalSupply * 1.1);
+
   for (const { code, name, amount } of Array.from(accountAmountMap.values())) {
     lines.push({ seqNo: ++seqNo, lineType: "차변", accountCode: code, accountName: name, debitAmount: amount, creditAmount: 0 });
   }
 
-  if (candidate.taxAmount > 0) {
-    lines.push({ seqNo: ++seqNo, lineType: "차변", accountCode: VAT_ACCOUNT.code, accountName: VAT_ACCOUNT.name, debitAmount: candidate.taxAmount, creditAmount: 0 });
+  if (taxAmount > 0) {
+    lines.push({ seqNo: ++seqNo, lineType: "차변", accountCode: VAT_ACCOUNT.code, accountName: VAT_ACCOUNT.name, debitAmount: taxAmount, creditAmount: 0 });
   }
 
-  lines.push({ seqNo: ++seqNo, lineType: "대변", accountCode: PAYABLE_ACCOUNT.code, accountName: PAYABLE_ACCOUNT.name, debitAmount: 0, creditAmount: candidate.totalWithTax });
+  lines.push({ seqNo: ++seqNo, lineType: "대변", accountCode: PAYABLE_ACCOUNT.code, accountName: PAYABLE_ACCOUNT.name, debitAmount: 0, creditAmount: totalWithTax });
 
   return lines;
 }
@@ -208,11 +212,14 @@ export default function PurchaseVouchersPage() {
     [selectedCandidate]
   );
 
-  const listTotals = useMemo(() => ({
-    totalAmount:  list.reduce((s, r) => s + r.totalAmount,  0),
-    taxAmount:    list.reduce((s, r) => s + r.taxAmount,    0),
-    totalWithTax: list.reduce((s, r) => s + r.totalWithTax, 0),
-  }), [list]);
+  const listTotals = useMemo(() => {
+    const totalAmount = list.reduce((s, r) => s + r.totalAmount, 0);
+    return {
+      totalAmount,
+      taxAmount:    Math.floor(totalAmount * 0.1),
+      totalWithTax: Math.floor(totalAmount * 1.1),
+    };
+  }, [list]);
 
   const toggleAllChecked = () => {
     if (checkedIds.size === list.length) setCheckedIds(new Set());
@@ -534,6 +541,23 @@ export default function PurchaseVouchersPage() {
                     </tr>
                   ))}
                 </tbody>
+                {selectedCandidate && selectedCandidate.items.length > 0 && (() => {
+                  const totalInputAmount = selectedCandidate.items.reduce((s, i) => s + i.inputAmount, 0);
+                  const totalTaxAmount   = Math.floor(totalInputAmount * 0.1);
+                  return (
+                    <tfoot className="sticky bottom-0 bg-yellow-50/80 dark:bg-yellow-500/10 font-semibold">
+                      <tr>
+                        <td className={cn(TD, "text-center border-t border-border")}>합계</td>
+                        {itemCol.colOrder.map((k) => {
+                          const base = cn(TD, ITEM_ALIGN[k], "border-t border-border");
+                          if (k === "inputAmount") return <td key={k} className={base}>{fmt(totalInputAmount)}</td>;
+                          if (k === "taxAmount")   return <td key={k} className={base}>{fmt(totalTaxAmount)}</td>;
+                          return <td key={k} className="border-t border-border" />;
+                        })}
+                      </tr>
+                    </tfoot>
+                  );
+                })()}
               </table>
             </div>
           </div>

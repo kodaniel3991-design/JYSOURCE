@@ -567,7 +567,7 @@ export default function PurchaseInputPage() {
                   </td>
                   <td className="px-2 py-1 text-center border-r border-border">{item.inputDate}</td>
                   <td className="px-2 py-1 text-right border-r border-border tabular-nums text-blue-600 dark:text-blue-400 font-semibold">
-                    {fmt(item.totalWithTax)}
+                    {fmt(Math.floor(item.totalAmount * 1.1))}
                   </td>
                   <td className={cn("px-2 py-1 text-center text-[11px]",
                     item.status === "확정" ? "text-emerald-600 dark:text-emerald-400 font-semibold" :
@@ -584,7 +584,7 @@ export default function PurchaseInputPage() {
         <div className="shrink-0 border-t px-3 py-1.5 flex items-center justify-between text-xs bg-muted/30">
           <span className="text-muted-foreground">총 <b className="text-foreground">{list.length.toLocaleString("ko-KR")}</b>건</span>
           <span className="text-muted-foreground">부가세포함 총 금액 : <b className="tabular-nums font-semibold text-blue-600 dark:text-blue-400">
-            {list.reduce((s, i) => s + i.totalWithTax, 0).toLocaleString("ko-KR")}
+            {Math.floor(list.reduce((s, i) => s + i.totalAmount, 0) * 1.1).toLocaleString("ko-KR")}
           </b></span>
         </div>
 
@@ -886,21 +886,27 @@ export default function PurchaseInputPage() {
                         </tr>
                       ))}
                     </tbody>
-                    {inputItems.length > 0 && (
-                      <tfoot className="sticky bottom-0 bg-yellow-50/80 dark:bg-yellow-500/10 font-semibold">
-                        <tr>
-                          <td colSpan={2} className="px-3 py-1.5 text-right border-t border-r border-border">합&nbsp;&nbsp;계</td>
-                          {inColSettings.colOrder.map((k) => {
-                            if (k === "inputQty")        return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.inputQty, 0))}</td>;
-                            if (k === "inputAmount")     return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.inputAmount, 0))}</td>;
-                            if (k === "convertedAmount") return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.convertedAmount, 0))}</td>;
-                            if (k === "taxAmount")       return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.taxAmount, 0))}</td>;
-                            if (k === "totalWithTax")    return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums text-blue-600 dark:text-blue-400">{fmt(inputItems.reduce((s, i) => s + i.totalWithTax, 0))}</td>;
-                            return <td key={k} className="border-t" />;
-                          })}
-                        </tr>
-                      </tfoot>
-                    )}
+                    {inputItems.length > 0 && (() => {
+                      const totalInputAmount     = inputItems.reduce((s, i) => s + i.inputAmount, 0);
+                      const totalConvertedAmount = inputItems.reduce((s, i) => s + i.convertedAmount, 0);
+                      const totalTaxAmount       = Math.floor(totalInputAmount * 0.1);
+                      const totalWithTax         = Math.floor(totalInputAmount * 1.1);
+                      return (
+                        <tfoot className="sticky bottom-0 bg-yellow-50/80 dark:bg-yellow-500/10 font-semibold">
+                          <tr>
+                            <td colSpan={2} className="px-3 py-1.5 text-right border-t border-r border-border">합&nbsp;&nbsp;계</td>
+                            {inColSettings.colOrder.map((k) => {
+                              if (k === "inputQty")        return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(inputItems.reduce((s, i) => s + i.inputQty, 0))}</td>;
+                              if (k === "inputAmount")     return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(totalInputAmount)}</td>;
+                              if (k === "convertedAmount") return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(totalConvertedAmount)}</td>;
+                              if (k === "taxAmount")       return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums">{fmt(totalTaxAmount)}</td>;
+                              if (k === "totalWithTax")    return <td key={k} className="px-2 py-1.5 text-right border-t border-r border-border tabular-nums text-blue-600 dark:text-blue-400">{fmt(totalWithTax)}</td>;
+                              return <td key={k} className="border-t" />;
+                            })}
+                          </tr>
+                        </tfoot>
+                      );
+                    })()}
                   </table>
                 </div>
               </div>
@@ -1080,6 +1086,24 @@ export default function PurchaseInputPage() {
                         </tr>
                       ))}
                     </tbody>
+                    {unreceivedItems.length > 0 && (() => {
+                      const totalReceiptAmount = unreceivedItems.reduce((s, i) => s + Math.round(i.inputQty * i.unitPrice), 0);
+                      const totalTaxAmount     = Math.floor(totalReceiptAmount * 0.1);
+                      return (
+                        <tfoot className="sticky bottom-0 bg-yellow-50/80 dark:bg-yellow-500/10 font-semibold">
+                          <tr>
+                            <td className="px-2 py-1.5 text-center border-t border-r border-border">-</td>
+                            {unColSettings.colOrder.map((k) => {
+                              const base = "px-2 py-1.5 border-t border-r border-border tabular-nums";
+                              if (k === "receiptNo") return <td key={k} className={`${base} text-right`}>합&nbsp;&nbsp;계</td>;
+                              if (k === "receiptAmount") return <td key={k} className={`${base} text-right text-blue-600 dark:text-blue-400`}>{fmt(totalReceiptAmount)}</td>;
+                              if (k === "taxAmount")     return <td key={k} className={`${base} text-right`}>{fmt(totalTaxAmount)}</td>;
+                              return <td key={k} className="border-t" />;
+                            })}
+                          </tr>
+                        </tfoot>
+                      );
+                    })()}
                   </table>
                 </div>
               </div>

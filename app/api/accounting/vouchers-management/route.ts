@@ -11,6 +11,22 @@ export async function GET(request: Request) {
     const factory = await getSessionFactory(request);
     const pool    = await getDbPool();
 
+    // 테이블이 없으면 빈 결과 반환
+    const tableCheck = await pool.request().query(
+      `SELECT 1 AS HasTable WHERE OBJECT_ID(N'dbo.AccountingVoucher') IS NOT NULL`
+    );
+    if (!tableCheck.recordset.length) {
+      return NextResponse.json({ ok: true, items: [] });
+    }
+
+    // ApprovedAt / ApprovedBy 컬럼이 없으면 추가
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.AccountingVoucher') AND name = 'ApprovedAt')
+        ALTER TABLE dbo.AccountingVoucher ADD ApprovedAt DATETIME2 NULL;
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.AccountingVoucher') AND name = 'ApprovedBy')
+        ALTER TABLE dbo.AccountingVoucher ADD ApprovedBy NVARCHAR(100) NULL;
+    `);
+
     const result = await pool.request()
       .input("DateFrom",      sql.Date,         dateFrom)
       .input("DateTo",        sql.Date,         dateTo)
@@ -112,5 +128,63 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("[accounting/vouchers-management][GET]", error);
     return NextResponse.json({ ok: false, message: "조회 실패" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json() as { ids: string[] };
+    const { ids } = body;
+    if (!ids?.length) {
+      return NextResponse.json({ ok: false, message: "삭제할 전표를 선택하세요." }, { status: 400 });
+    }
+
+    const factory  = await getSessionFactory(request);
+    const pool     = await getDbPool();
+    const idList   = ids.map(Number).filter(Boolean);
+    const ph       = idList.map((_, i) => `@Id${i}`).join(",");
+
+    const req = pool.request().input("BusinessPlace", sql.NVarChar(20), factory);
+    idList.forEach((id, i) => req.input(`Id${i}`, sql.Int, id));
+
+    // 미승인 전표만 조회 (승인된 것은 제외)
+    const check = await req.query(`
+      SELECT Id, SourceId FROM dbo.AccountingVoucher
+      WHERE Id IN (${ph})
+        AND Status = N'미승인'
+        AND (@BusinessPlace IS NULL OR BusinessPlace = @BusinessPlace)
+    `);
+
+    if (!check.recordset.length) {
+      return NextResponse.json({ ok: false, message: "삭제 가능한 전표가 없습니다. (미승인 상태만 삭제 가능)" }, { status: 400 });
+    }
+
+    const deletableIds  = (check.recordset as Record<string, unknown>[]).map((r) => Number(r.Id));
+    const sourceIds     = (check.recordset as Record<string, unknown>[])
+      .map((r) => Number(r.SourceId))
+      .filter(Boolean);
+
+    const delPh = deletableIds.map((_, i) => `@DelId${i}`).join(",");
+    const delReq = pool.request();
+    deletableIds.forEach((id, i) => delReq.input(`DelId${i}`, sql.Int, id));
+
+    // AccountingVoucher 삭제 (AccountingVoucherLine은 CASCADE)
+    await delReq.query(`DELETE FROM dbo.AccountingVoucher WHERE Id IN (${delPh})`);
+
+    // 연결된 PurchaseInput 상태 복원: 회계처리 → 확정
+    if (sourceIds.length) {
+      const srcPh  = sourceIds.map((_, i) => `@SrcId${i}`).join(",");
+      const srcReq = pool.request();
+      sourceIds.forEach((id, i) => srcReq.input(`SrcId${i}`, sql.Int, id));
+      await srcReq.query(`
+        UPDATE dbo.PurchaseInput SET Status = N'확정'
+        WHERE Id IN (${srcPh}) AND Status = N'회계처리'
+      `);
+    }
+
+    return NextResponse.json({ ok: true, count: deletableIds.length });
+  } catch (error) {
+    console.error("[accounting/vouchers-management][DELETE]", error);
+    return NextResponse.json({ ok: false, message: "삭제 실패" }, { status: 500 });
   }
 }

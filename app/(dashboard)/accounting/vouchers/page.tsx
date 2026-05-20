@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateInput } from "@/components/ui/date-input";
-import { Search, RotateCcw } from "lucide-react";
+import { Search, RotateCcw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
@@ -91,8 +91,12 @@ export default function VouchersPage() {
   const [list, setList]       = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [selectedId,     setSelectedId]     = useState<string | null>(null);
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [selectedId,      setSelectedId]      = useState<string | null>(null);
+  const [selectedLineId,  setSelectedLineId]  = useState<string | null>(null);
+  const [checkedIds,      setCheckedIds]      = useState<Set<string>>(new Set());
+  const [deleting,        setDeleting]        = useState(false);
+  const [confirmMsg,      setConfirmMsg]      = useState<string | null>(null);
+  const [onConfirm,       setOnConfirm]       = useState<(() => void) | null>(null);
 
   const [myFactoryCode, setMyFactoryCode] = useState("");
   const [myFactoryName, setMyFactoryName] = useState("");
@@ -180,6 +184,39 @@ export default function VouchersPage() {
   const balanceDiff = selectedVoucher
     ? selectedVoucher.totalDebit - selectedVoucher.totalCredit
     : 0;
+
+  // 삭제 가능 여부: 선택된 것 중 미승인만
+  const deletableIds = useMemo(
+    () => Array.from(checkedIds).filter((id) => list.find((v) => v.id === id)?.status === "미승인"),
+    [checkedIds, list],
+  );
+
+  // 전표 삭제
+  const handleDelete = () => {
+    if (!deletableIds.length) return;
+    const msg = `선택한 ${deletableIds.length}건의 전표를 삭제하시겠습니까?\n연결된 매입 실적 상태가 확정으로 복원됩니다.`;
+    setConfirmMsg(msg);
+    setOnConfirm(() => async () => {
+      setDeleting(true);
+      try {
+        const res  = await fetch(apiPath("/api/accounting/vouchers-management"), {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: deletableIds }),
+        });
+        const data = await res.json();
+        if (!data.ok) { alert(data.message || "삭제 실패"); return; }
+        setCheckedIds(new Set());
+        setSelectedId(null);
+        setSelectedLineId(null);
+        loadList();
+      } finally {
+        setDeleting(false);
+        setConfirmMsg(null);
+        setOnConfirm(null);
+      }
+    });
+  };
 
   // ── 그리드 훅 ───────────────────────────────────────────────────────────────
 
@@ -281,9 +318,31 @@ export default function VouchersPage() {
           <div className="flex flex-col h-full">
             <div className="shrink-0 px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
               <span className="text-xs font-medium">전표 목록</span>
-              <span className="text-xs text-muted-foreground">
-                총 <span className="font-semibold text-foreground">{list.length}</span>건
-              </span>
+              <div className="flex items-center gap-2">
+                {checkedIds.size > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    선택 <span className="font-semibold text-foreground">{checkedIds.size}</span>건
+                    {checkedIds.size !== deletableIds.length && (
+                      <span className="text-amber-600 dark:text-amber-400 ml-1">
+                        (미승인 {deletableIds.length}건만 삭제 가능)
+                      </span>
+                    )}
+                  </span>
+                )}
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-6 px-2 text-xs"
+                  disabled={deletableIds.length === 0 || deleting}
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="mr-1 h-3 w-3" />
+                  삭제
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  총 <span className="font-semibold text-foreground">{list.length}</span>건
+                </span>
+              </div>
             </div>
 
             <div className="flex flex-1 min-h-0">
@@ -357,12 +416,22 @@ export default function VouchersPage() {
               <div className="flex-1 overflow-auto">
                 <table className="w-full border-collapse text-xs min-w-[580px]">
                   <colgroup>
+                    <col style={{ width: "32px" }} />
                     {vCol.colOrder.map((k) => (
                       <col key={k} style={{ width: vCol.colWidths[k] ? `${vCol.colWidths[k]}px` : undefined }} />
                     ))}
                   </colgroup>
                   <thead className="sticky top-0 z-10">
                     <tr>
+                      <th className={cn(TH, "text-center w-8")}>
+                        <input type="checkbox"
+                          checked={list.length > 0 && checkedIds.size === list.length}
+                          onChange={() => {
+                            if (checkedIds.size === list.length) setCheckedIds(new Set());
+                            else setCheckedIds(new Set(list.map((v) => v.id)));
+                          }}
+                        />
+                      </th>
                       {vCol.colOrder.map((k) => (
                         <GridTh
                           key={k}
@@ -382,12 +451,12 @@ export default function VouchersPage() {
                   <tbody>
                     {loading && (
                       <tr>
-                        <td colSpan={VCOLS.length} className="text-center py-8 text-muted-foreground text-xs">조회 중...</td>
+                        <td colSpan={VCOLS.length + 1} className="text-center py-8 text-muted-foreground text-xs">조회 중...</td>
                       </tr>
                     )}
                     {!loading && sortedVouchers.length === 0 && (
                       <tr>
-                        <td colSpan={VCOLS.length} className="text-center py-8 text-muted-foreground text-xs">조회된 전표가 없습니다.</td>
+                        <td colSpan={VCOLS.length + 1} className="text-center py-8 text-muted-foreground text-xs">조회된 전표가 없습니다.</td>
                       </tr>
                     )}
                     {!loading && sortedVouchers.map((row) => (
@@ -396,9 +465,20 @@ export default function VouchersPage() {
                         className={cn(
                           "cursor-pointer hover:bg-muted/40 transition-colors",
                           selectedId === row.id && "bg-primary/10",
+                          checkedIds.has(row.id) && "bg-primary/5",
                         )}
                         onClick={() => { setSelectedId(row.id); setSelectedLineId(null); }}
                       >
+                        <td className={cn(TD, "text-center")} onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox"
+                            checked={checkedIds.has(row.id)}
+                            onChange={(e) => {
+                              const s = new Set(checkedIds);
+                              e.target.checked ? s.add(row.id) : s.delete(row.id);
+                              setCheckedIds(s);
+                            }}
+                          />
+                        </td>
                         {vCol.colOrder.map((k) => {
                           const base = cn(TD, VALIGN[k]);
                           if (k === "voucherDate")  return <td key={k} className={base}>{row.voucherDate}</td>;
@@ -615,6 +695,25 @@ export default function VouchersPage() {
         </div>
 
       </div>{/* end 스크롤 영역 */}
+
+      {/* ── 삭제 확인 모달 ─────────────────────────────────────── */}
+      {confirmMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-80 rounded-lg bg-background shadow-xl border p-5 flex flex-col gap-4">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">{confirmMsg}</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm"
+                onClick={() => { setConfirmMsg(null); setOnConfirm(null); }}>
+                취소
+              </Button>
+              <Button variant="destructive" size="sm" disabled={deleting}
+                onClick={() => onConfirm?.()}>
+                {deleting ? "삭제 중..." : "삭제"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

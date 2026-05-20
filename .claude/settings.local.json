@@ -12,7 +12,8 @@
       "Bash(python3 -c ' *)",
       "Bash(node -e ' *)",
       "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
-      "Bash(not exist *)"
+      "Bash(not exist *)",
+      "Read(//d/JYS/app/api/purchase-inputs/**)"
     ],
     "additionalDirectories": [
       "d:\\JYS\\app\\api\\purchase-inputs\\[id]\\items\\[itemId]"

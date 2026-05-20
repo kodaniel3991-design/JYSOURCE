@@ -14,6 +14,22 @@ export async function GET(request: Request) {
     const factory = await getSessionFactory(request);
     const pool    = await getDbPool();
 
+    // 테이블이 없으면 빈 결과 반환
+    const tableCheck = await pool.request().query(
+      `SELECT 1 AS HasTable WHERE OBJECT_ID(N'dbo.AccountingVoucher') IS NOT NULL`
+    );
+    if (!tableCheck.recordset.length) {
+      return NextResponse.json({ ok: true, items: [] });
+    }
+
+    // ApprovedAt / ApprovedBy 컬럼이 없으면 추가 (승인 전 조회 시 대비)
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.AccountingVoucher') AND name = 'ApprovedAt')
+        ALTER TABLE dbo.AccountingVoucher ADD ApprovedAt DATETIME2 NULL;
+      IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.AccountingVoucher') AND name = 'ApprovedBy')
+        ALTER TABLE dbo.AccountingVoucher ADD ApprovedBy NVARCHAR(100) NULL;
+    `);
+
     const result = await pool.request()
       .input("DateFrom",      sql.Date,          dateFrom)
       .input("DateTo",        sql.Date,          dateTo)

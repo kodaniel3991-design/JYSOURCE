@@ -14,6 +14,14 @@ export async function GET(request: Request) {
     const businessPlace = bpParam ?? factory;
     const pool          = await getDbPool();
 
+    // 테이블이 아직 생성되지 않은 경우 빈 결과 반환
+    const tableCheck = await pool.request().query(
+      `SELECT 1 AS HasTable WHERE OBJECT_ID(N'dbo.AccountingVoucher') IS NOT NULL`
+    );
+    if (!tableCheck.recordset.length) {
+      return NextResponse.json({ ok: true, items: [] });
+    }
+
     // "미결" → DB '미승인', "승인" → DB '승인', 그 외 전체
     const statusFilter = statusRaw === "미결" ? "미승인" : statusRaw === "승인" ? "승인" : null;
 
