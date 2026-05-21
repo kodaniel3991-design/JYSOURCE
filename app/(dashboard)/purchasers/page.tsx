@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -75,6 +76,7 @@ function Field({
 }
 
 export default function PurchasersPage() {
+  const promptFilename = useFilenameDialog();
   const [rows, setRows] = useCachedState<PurchaserRecord[]>("purchasers/rows", []);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useCachedState<boolean>("purchasers/hasSearched", false);
@@ -621,7 +623,7 @@ export default function PurchasersPage() {
     [rows]
   );
 
-  const exportCsv = useCallback(() => {
+  const exportCsv = useCallback(async () => {
     const cols = visibleColumns;
     const rows = paged;
     const escape = (v: unknown) => {
@@ -642,8 +644,10 @@ export default function PurchasersPage() {
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+    const _saveName = await promptFilename(`purchasers_${new Date().toISOString().slice(0, 10)}.csv`);
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
     a.href = url;
-    a.download = `purchasers_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a);
     a.click();
     a.remove();

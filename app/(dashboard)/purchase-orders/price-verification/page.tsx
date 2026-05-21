@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { fmtCsvNum } from "@/lib/utils";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
@@ -54,6 +56,7 @@ const PV_HEADER: Record<string, string> = {
 
 export default function PriceVerificationPage() {
   // ── 검색 조건 ────────────────────────────────────────────────────────────────
+  const promptFilename = useFilenameDialog();
   const [dateFrom,           setDateFrom]           = useCachedState("price-verify/dateFrom",           FIRST_OF_MONTH);
   const [dateTo,             setDateTo]             = useCachedState("price-verify/dateTo",             TODAY_STR);
   const [priceApplyDateFrom, setPriceApplyDateFrom] = useCachedState("price-verify/priceApplyDateFrom", "");
@@ -109,20 +112,22 @@ export default function PriceVerificationPage() {
     });
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (items.length === 0) return;
     const header = ["구매오더번호","발주일자","구매처코드","구매처명","품목번호","품목명","모델","수량","발주단가","현재단가","단가차액","차액율(%)","금액차이","상태"];
     const rows = items.map((r) => [
       r.poNumber, r.orderDate, r.supplierCode, r.supplierName,
-      r.itemCode, r.itemName, r.vehicleModel, String(r.quantity),
-      String(r.poUnitPrice), String(r.currentUnitPrice ?? ""),
-      String(r.diff ?? ""), String(r.diffRate ?? ""), String(r.amountDiff ?? ""), r.status,
+      r.itemCode, r.itemName, r.vehicleModel, fmtCsvNum(r.quantity),
+      fmtCsvNum(r.poUnitPrice), fmtCsvNum(r.currentUnitPrice),
+      fmtCsvNum(r.diff), String(r.diffRate ?? ""), fmtCsvNum(r.amountDiff), r.status,
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const csv = [header.join(","), rows].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "price-verification.csv";
+    const _saveName = await promptFilename("price-verification.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
+    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };

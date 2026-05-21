@@ -225,8 +225,8 @@ export async function POST(request: Request) {
       const totalSupply = Array.from(accountAmountMap.values()).reduce((s, v) => s + v.amount, 0);
       const vatSummary  = `${fmtNum(totalSupply)} * 10%`;
 
-      const totalWithTax = Number(pi.TotalWithTax ?? 0);
-      const taxAmount    = Number(pi.TaxAmount    ?? 0);
+      const taxAmount    = Math.floor(totalSupply * 0.1);
+      const totalWithTax = Math.floor(totalSupply * 1.1);
       const bp           = String(pi.BusinessPlace ?? factory ?? "");
 
       const vRes = await pool.request()

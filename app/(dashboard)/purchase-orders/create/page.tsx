@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
@@ -14,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { POStatusBadge } from "@/components/common/status-badge";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, fmtCsvNum } from "@/lib/utils";
 import { suppliers } from "@/lib/mock/suppliers";
 import { poStatusLabels } from "@/lib/mock/purchase-orders";
 import type { PurchaserRecord } from "@/types/purchaser";
@@ -105,6 +106,7 @@ type ItemMaster = {
 
 
 export default function CreatePurchaseOrderPage() {
+  const promptFilename = useFilenameDialog();
   const [activeTab, setActiveTab] = useCachedState<"basic" | "spec">("po-create/activeTab", "basic");
   const [basicInfoList, setBasicInfoList] = useCachedState<BasicInfoListItem[]>("po-create/basicInfoList", []);
   const [listSearch, setListSearch] = useCachedState("po-create/listSearch", {
@@ -1226,20 +1228,22 @@ export default function CreatePurchaseOrderPage() {
     setSpecItems((prev) => prev.map((r) => ({ ...r, dueDate: bulkDueDate })));
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const filled = specItems.filter((r) => r.itemCode);
     if (filled.length === 0) return;
     const header = ["명세번호","품목번호","품목명","규격","창고","저장위치","모델","발주량","구매단가","발주금액","입고예정일자"];
     const rows = filled.map((r, i) => [
       String(i + 1), r.itemCode, r.itemName, r.specification ?? "",
       r.warehouse ?? "", r.storageLocation ?? "", r.model ?? "",
-      String(r.quantity), String(r.unitPrice), String(r.amount), r.dueDate,
+      fmtCsvNum(r.quantity), fmtCsvNum(r.unitPrice), fmtCsvNum(r.amount), r.dueDate,
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const csv = [header.join(","), rows].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "purchase-order-spec.csv";
+    const _saveName = await promptFilename("purchase-order-spec.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
+    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };

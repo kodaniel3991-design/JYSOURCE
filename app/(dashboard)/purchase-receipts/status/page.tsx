@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
 import { GridTh } from "@/components/ui/grid-th";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
@@ -17,7 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
-import { cn } from "@/lib/utils";
+import { cn, fmtCsvNum } from "@/lib/utils";
 
 // ── 타입 ───────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,7 @@ export default function ReceiptStatusPage() {
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
   // ── 조회 조건 ──────────────────────────────────────────────────────────
+  const promptFilename = useFilenameDialog();
   const [dateFrom,     setDateFrom]     = useCachedState("receipt-status/dateFrom",     firstOfMonth);
   const [dateTo,       setDateTo]       = useCachedState("receipt-status/dateTo",       todayStr);
   const [itemCode,     setItemCode]     = useCachedState("receipt-status/itemCode",     "");
@@ -435,19 +437,112 @@ export default function ReceiptStatusPage() {
     return { ...sums, receiptAmountVat: Math.floor(sums.receiptAmount * 1.1) };
   }, [combinedGroups]);
 
-  const handleExport = () => {
-    if (mergedItems.length === 0) return;
-    const header = ["구매처번호","구매처명","구매오더","명세","품목번호","품목명","입고일자","단위","입고단가","입고량","입고금액","통화","구분"];
-    const rows = mergedItems.map((r) => [
-      r.supplierCode, r.supplierName, r.poNumber, String(r.specNo),
-      r.itemCode, r.itemName, r.receiptDate, r.unit,
-      String(r.unitPrice ?? ""), String(r.qty), String(r.receiptAmount ?? ""), "KRW", r.type,
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const csv = [header.join(","), rows].join("\n");
+  const handleExport = async () => {
+    const isEmpty = viewMode === "detail" ? mergedItems.length === 0 : combinedItems.length === 0;
+    if (isEmpty) return;
+
+    const cs = viewMode === "detail" ? detailCols : summaryCols;
+    const headerMap = viewMode === "detail" ? DETAIL_HEADER : SUMMARY_HEADER;
+    const orderedCols = cs.colOrder.filter((k) => !LOCKED_SUPPLIER.includes(k));
+    const headerRow = ["구매처번호", "구매처명", ...orderedCols.map((k) => headerMap[k] ?? k)];
+    const dataRows: string[][] = [];
+
+    if (viewMode === "detail") {
+      for (const group of supplierGroups) {
+        for (const item of group.rows) {
+          const cells: string[] = [group.supplierCode, group.supplierName];
+          for (const k of orderedCols) {
+            switch (k) {
+              case "itemCode":         cells.push(item.itemCode); break;
+              case "itemName":         cells.push(item.itemName); break;
+              case "poNumber":         cells.push(item.poNumber); break;
+              case "specNo":           cells.push(String(item.specNo || "")); break;
+              case "unitPrice":        cells.push(fmtCsvNum(item.unitPrice)); break;
+              case "qty":              cells.push(fmtCsvNum(item.qty)); break;
+              case "unit":             cells.push(item.unit || ""); break;
+              case "receiptAmount":    cells.push(fmtCsvNum(item.receiptAmount)); break;
+              case "receiptAmountVat": cells.push(fmtCsvNum(item.receiptAmountVat)); break;
+              case "receiptDate":      cells.push(item.receiptDate); break;
+              case "currency":         cells.push("KRW"); break;
+              default:                 cells.push("");
+            }
+          }
+          dataRows.push(cells);
+        }
+        const sub: string[] = ["구매처 계", ""];
+        for (const k of orderedCols) {
+          if (k === "qty")                   sub.push(fmtCsvNum(group.totalQty));
+          else if (k === "receiptAmount")    sub.push(fmtCsvNum(group.totalAmount));
+          else if (k === "receiptAmountVat") sub.push(fmtCsvNum(group.totalAmountVat));
+          else sub.push("");
+        }
+        dataRows.push(sub);
+      }
+      const total: string[] = ["총 계", ""];
+      for (const k of orderedCols) {
+        if (k === "qty")                   total.push(fmtCsvNum(grandTotalQty));
+        else if (k === "receiptAmount")    total.push(fmtCsvNum(grandTotalAmount));
+        else if (k === "receiptAmountVat") total.push(fmtCsvNum(grandTotalAmountVat));
+        else total.push("");
+      }
+      dataRows.push(total);
+    } else {
+      for (const group of combinedGroups) {
+        for (const item of group.rows) {
+          const cells: string[] = [group.supplierCode, group.supplierName];
+          for (const k of orderedCols) {
+            switch (k) {
+              case "itemCode":          cells.push(item.itemCode); break;
+              case "itemName":          cells.push(item.itemName); break;
+              case "receiptQty":        cells.push(fmtCsvNum(item.receiptQty)); break;
+              case "unit":              cells.push(item.unit || ""); break;
+              case "receiptAmount":     cells.push(fmtCsvNum(item.receiptAmount)); break;
+              case "receiptAmountVat":  cells.push(fmtCsvNum(item.receiptAmountVat)); break;
+              case "inputQty":          cells.push(fmtCsvNum(item.inputQty)); break;
+              case "inputAmount":       cells.push(fmtCsvNum(item.inputAmount)); break;
+              case "unprocessedQty":    cells.push(fmtCsvNum(item.unprocessedQty)); break;
+              case "unprocessedAmount": cells.push(fmtCsvNum(item.unprocessedAmount)); break;
+              default:                  cells.push("");
+            }
+          }
+          dataRows.push(cells);
+        }
+        const sub: string[] = ["구매처 계", ""];
+        for (const k of orderedCols) {
+          if (k === "receiptQty")             sub.push(fmtCsvNum(group.totalReceiptQty));
+          else if (k === "receiptAmount")     sub.push(fmtCsvNum(group.totalReceiptAmount));
+          else if (k === "receiptAmountVat")  sub.push(fmtCsvNum(group.totalReceiptAmountVat));
+          else if (k === "inputQty")          sub.push(fmtCsvNum(group.totalInputQty));
+          else if (k === "inputAmount")       sub.push(fmtCsvNum(group.totalInputAmount));
+          else if (k === "unprocessedQty")    sub.push(fmtCsvNum(group.totalUnprocessedQty));
+          else if (k === "unprocessedAmount") sub.push(fmtCsvNum(group.totalUnprocessedAmount));
+          else sub.push("");
+        }
+        dataRows.push(sub);
+      }
+      const total: string[] = ["총 계", ""];
+      for (const k of orderedCols) {
+        if (k === "receiptQty")             total.push(fmtCsvNum(grandCombined.receiptQty));
+        else if (k === "receiptAmount")     total.push(fmtCsvNum(grandCombined.receiptAmount));
+        else if (k === "receiptAmountVat")  total.push(fmtCsvNum(grandCombined.receiptAmountVat));
+        else if (k === "inputQty")          total.push(fmtCsvNum(grandCombined.inputQty));
+        else if (k === "inputAmount")       total.push(fmtCsvNum(grandCombined.inputAmount));
+        else if (k === "unprocessedQty")    total.push(fmtCsvNum(grandCombined.unprocessedQty));
+        else if (k === "unprocessedAmount") total.push(fmtCsvNum(grandCombined.unprocessedAmount));
+        else total.push("");
+      }
+      dataRows.push(total);
+    }
+
+    const csv = [headerRow, ...dataRows]
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "receipt-status.csv";
+    const _saveName = await promptFilename("receipt-status.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
+    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };
@@ -1088,7 +1183,7 @@ export default function ReceiptStatusPage() {
             {gridSettingsTab === "export" && (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">조회된 입고현황 데이터를 CSV 파일로 다운로드합니다.</p>
-                <Button size="sm" onClick={handleExport} disabled={mergedItems.length === 0}>CSV 내보내기</Button>
+                <Button size="sm" onClick={handleExport} disabled={viewMode === "detail" ? mergedItems.length === 0 : combinedItems.length === 0}>CSV 내보내기</Button>
               </div>
             )}
             {gridSettingsTab === "view" && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -54,6 +55,7 @@ interface PurchasePriceChangeLog {
 }
 
 export default function PurchasePricesPage() {
+  const promptFilename = useFilenameDialog();
   const [rows, setRows] = useCachedState<PurchasePriceRecord[]>("purchase-prices/rows", []);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useCachedState<boolean>("purchase-prices/hasSearched", false);
@@ -341,7 +343,7 @@ export default function PurchasePricesPage() {
 
   const toggleSortDir = () => setSortDir((d) => (d === "asc" ? "desc" : "asc"));
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (filteredList.length === 0) return;
 
     const header = [
@@ -406,8 +408,10 @@ export default function PurchasePricesPage() {
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
+    const _saveName = await promptFilename("purchase-prices.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
     link.href = url;
-    link.download = "purchase-prices.csv";
+    link.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

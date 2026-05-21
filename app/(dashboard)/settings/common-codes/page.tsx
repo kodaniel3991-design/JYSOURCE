@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -30,6 +31,7 @@ interface CodeItem {
 }
 
 export default function CommonCodesPage() {
+  const promptFilename = useFilenameDialog();
   const [categories, setCategories] = useCachedState<Category[]>("common-codes/categories", []);
   const [selectedKey, setSelectedKey] = useCachedState<string>("common-codes/selectedKey", "");
   const [codes, setCodes] = useCachedState<CodeItem[]>("common-codes/codes", []);
@@ -283,7 +285,7 @@ export default function CommonCodesPage() {
           {gridSettingsTab === "export" && (
             <div className="space-y-3">
               <p className="text-[11px] text-muted-foreground">현재 선택된 분류의 코드 목록을 CSV 파일로 다운로드합니다.</p>
-              <Button size="sm" disabled={codes.length === 0} onClick={() => {
+              <Button size="sm" disabled={codes.length === 0} onClick={async () => {
                 if (codes.length === 0) return;
                 const header = ["코드","명칭"];
                 const rows = codes.map((c) => [`"${c.Code}"`, `"${c.Name}"`].join(",")).join("\n");
@@ -291,7 +293,9 @@ export default function CommonCodesPage() {
                 const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
-                a.href = url; a.download = `common-codes-${selectedKey}.csv`;
+                const _saveName = await promptFilename(`common-codes-${selectedKey}.csv`);
+                if (!_saveName) { URL.revokeObjectURL(url); return; }
+                a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
                 document.body.appendChild(a); a.click();
                 document.body.removeChild(a); URL.revokeObjectURL(url);
               }}>CSV 내보내기</Button>

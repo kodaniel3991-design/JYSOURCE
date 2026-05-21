@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { fmtCsvNum } from "@/lib/utils";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -114,6 +116,7 @@ export default function ReceiptPeriodPage() {
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
   // ── 검색 조건 ──────────────────────────────────────────────────────────────
+  const promptFilename = useFilenameDialog();
   const [viewType,     setViewType]     = useCachedState<ViewType>("receipt-period/viewType",    "내역");
   const [dateFrom,     setDateFrom]     = useCachedState("receipt-period/dateFrom",     firstOfMonth);
   const [dateTo,       setDateTo]       = useCachedState("receipt-period/dateTo",       todayStr);
@@ -316,18 +319,20 @@ export default function ReceiptPeriodPage() {
 
   const colCount = viewType === "내역" ? 15 : viewType === "업체+품목" ? 11 : 6;
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (items.length === 0) return;
     const header = ["거래처번호","거래처명","입고일자","전표번호","품목번호","품목명","단위","입고수량","입고금액","구분"];
     const rows = items.map((r) => [
       r.supplierCode, r.supplierName, r.receiptDate, r.receiptNo,
-      r.itemCode, r.itemName, r.unit, String(r.qty), String(r.receiptAmount), r.type,
+      r.itemCode, r.itemName, r.unit, fmtCsvNum(r.qty), fmtCsvNum(r.receiptAmount), r.type,
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const csv = [header.join(","), rows].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "receipt-period.csv";
+    const _saveName = await promptFilename("receipt-period.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
+    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };

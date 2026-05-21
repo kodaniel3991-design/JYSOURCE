@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
 import { GridTh } from "@/components/ui/grid-th";
@@ -81,6 +82,7 @@ const EMPTY_PW: PwDraft = { newPassword: "", confirm: "", showNew: false, showCo
 const EMPTY_MAIL_PW: MailPwDraft = { emailPassword: "", show: false };
 
 export default function AdminUsersPage() {
+  const promptFilename = useFilenameDialog();
   const [rows, setRows] = useCachedState<UserRow[]>("admin/users/rows", []);
   const { sortedItems: sortedUsers, sortKey: userSortKey, sortDir: userSortDir, toggleSort: userToggleSort } = useSortableGrid(rows);
   const userColSettings = useGridColumnSettings("admin/users/list", [...USER_COLS]);
@@ -429,7 +431,7 @@ export default function AdminUsersPage() {
             {gridSettingsTab === "export" && (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">현재 사용자 목록을 CSV 파일로 다운로드합니다.</p>
-                <Button size="sm" disabled={rows.length === 0} onClick={() => {
+                <Button size="sm" disabled={rows.length === 0} onClick={async () => {
                   if (rows.length === 0) return;
                   const header = ["아이디", "사용자명", "사번", "직책", "전화번호", "이메일", "입사일자", "소속공장", "상태"];
                   const csvRows = rows.map((r) => [
@@ -447,7 +449,9 @@ export default function AdminUsersPage() {
                   const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
-                  a.href = url; a.download = "users.csv";
+                  const _saveName = await promptFilename("users.csv");
+                  if (!_saveName) { URL.revokeObjectURL(url); return; }
+                  a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
                   document.body.appendChild(a); a.click();
                   document.body.removeChild(a); URL.revokeObjectURL(url);
                 }}>CSV 내보내기</Button>

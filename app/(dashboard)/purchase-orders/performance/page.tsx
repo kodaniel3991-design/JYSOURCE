@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { getPageState } from "@/lib/page-state-cache";
 import { PageHeader } from "@/components/common/page-header";
@@ -11,7 +12,7 @@ import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, fmtCsvNum } from "@/lib/utils";
 import { suppliers } from "@/lib/mock/suppliers";
 import type { PurchaseOrderSummary } from "@/types/purchase";
 import type { SelectOption } from "@/components/ui/select";
@@ -31,6 +32,7 @@ type SupplierSummaryRow = {
 };
 
 export default function PurchasePerformancePage() {
+  const promptFilename = useFilenameDialog();
   const [list, setList] = useCachedState<PurchaseOrderSummary[]>("perf/list", []);
   const [loading, setLoading] = useState(!getPageState("perf/list"));
   const [selectedPoId,       setSelectedPoId]       = useState<string | null>(null);
@@ -124,18 +126,20 @@ export default function PurchasePerformancePage() {
       ? 0
       : Math.round(((totalOrders - delayedOrders) / totalOrders) * 100);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (filtered.length === 0) return;
     const header = ["PO번호","공급사","품목수","발주금액","납기일"];
     const rows = filtered.map((r) => [
-      r.poNumber, r.supplierName, String(r.itemCount),
-      String(r.totalAmount), r.dueDate ?? "",
+      r.poNumber, r.supplierName, fmtCsvNum(r.itemCount),
+      fmtCsvNum(r.totalAmount), r.dueDate ?? "",
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const csv = [header.join(","), rows].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "purchase-performance.csv";
+    const _saveName = await promptFilename("purchase-performance.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
+    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };

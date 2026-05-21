@@ -17,6 +17,7 @@ export type ItemModalItem = {
   model: string;
   unitPrice: number;
   supplierId: string;
+  supplierName: string;
 };
 
 interface ItemSelectModalProps {
@@ -59,13 +60,14 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName, in
         if (!data.ok) return;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setItemMaster(data.items.map((x: any) => ({
-          itemCode:   x.ItemNo ?? "",
-          itemName:   x.ItemName ?? "",
-          material:   x.Material ?? "",
-          spec:       x.Specification ?? "",
-          model:      x.VehicleModel ?? "",
-          unitPrice:  Number(x.PurchaseUnitPrice ?? 0),
-          supplierId: x.SupplierCode ?? "",
+          itemCode:     x.ItemNo ?? "",
+          itemName:     x.ItemName ?? "",
+          material:     x.Material ?? "",
+          spec:         x.Specification ?? "",
+          model:        x.VehicleModel ?? "",
+          unitPrice:    Number(x.PurchaseUnitPrice ?? 0),
+          supplierId:   x.SupplierCode ?? "",
+          supplierName: x.SupplierName ?? "",
         })));
       })
       .catch(() => {});
@@ -289,6 +291,7 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName, in
             <colgroup>
               <col style={{ width: "8rem" }} />
               <col />
+              <col style={{ width: "8rem" }} />
               <col style={{ width: "7rem" }} />
               <col style={{ width: "6rem" }} />
             </colgroup>
@@ -296,13 +299,14 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName, in
               <tr>
                 <th className="px-3 py-2 text-left whitespace-nowrap">품목번호</th>
                 <th className="px-3 py-2 text-left">품목명</th>
+                <th className="px-3 py-2 text-left whitespace-nowrap">거래처</th>
                 <th className="px-3 py-2 text-left whitespace-nowrap">모델</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">기준단가</th>
               </tr>
             </thead>
             <tbody>
               {filteredItems.length === 0 ? (
-                <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">조건에 맞는 품목이 없습니다.</td></tr>
+                <tr><td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">조건에 맞는 품목이 없습니다.</td></tr>
               ) : (() => {
                 const vitems = virtualizer.getVirtualItems();
                 const totalSize = virtualizer.getTotalSize();
@@ -310,7 +314,7 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName, in
                 const paddingBottom = vitems.length > 0 ? totalSize - vitems[vitems.length - 1].end : 0;
                 return (
                   <>
-                    {paddingTop > 0 && <tr style={{ height: paddingTop }}><td colSpan={4} /></tr>}
+                    {paddingTop > 0 && <tr style={{ height: paddingTop }}><td colSpan={5} /></tr>}
                     {vitems.map((vRow) => {
                       const i = filteredItems[vRow.index];
                       return (
@@ -321,12 +325,13 @@ export function ItemSelectModal({ open, onOpenChange, onSelect, supplierName, in
                         >
                           <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">{i.itemCode}</td>
                           <td className="px-3 py-1.5 overflow-hidden text-ellipsis">{i.itemName}</td>
+                          <td className="px-3 py-1.5 overflow-hidden text-ellipsis">{i.supplierName || "-"}</td>
                           <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis">{i.model || "-"}</td>
                           <td className="px-3 py-1.5 text-right whitespace-nowrap">{formatCurrency(i.unitPrice)}</td>
                         </tr>
                       );
                     })}
-                    {paddingBottom > 0 && <tr style={{ height: paddingBottom }}><td colSpan={4} /></tr>}
+                    {paddingBottom > 0 && <tr style={{ height: paddingBottom }}><td colSpan={5} /></tr>}
                   </>
                 );
               })()}

@@ -437,8 +437,8 @@ export default function PurchaseVouchersPage() {
                       if (k === "supplierName")   return <td key={k} className={base}>{row.supplierName}</td>;
                       if (k === "inputDate")      return <td key={k} className={base}>{row.inputDate}</td>;
                       if (k === "totalAmount")    return <td key={k} className={base}>{fmt(row.totalAmount)}</td>;
-                      if (k === "taxAmount")      return <td key={k} className={base}>{fmt(row.taxAmount)}</td>;
-                      if (k === "totalWithTax")   return <td key={k} className={cn(base, "font-medium")}>{fmt(row.totalWithTax)}</td>;
+                      if (k === "taxAmount")      return <td key={k} className={base}>{fmt(Math.floor(row.totalAmount * 0.1))}</td>;
+                      if (k === "totalWithTax")   return <td key={k} className={cn(base, "font-medium")}>{fmt(Math.floor(row.totalAmount * 1.1))}</td>;
                       return <td key={k} className={base} />;
                     })}
                   </tr>
@@ -462,7 +462,7 @@ export default function PurchaseVouchersPage() {
             {checkedIds.size > 0 && (
               <span className="text-xs text-muted-foreground">
                 · 선택합계 <span className="font-semibold text-foreground">
-                  {fmt(list.filter(r => checkedIds.has(r.id)).reduce((s, r) => s + r.totalWithTax, 0))}
+                  {fmt(Math.floor(list.filter(r => checkedIds.has(r.id)).reduce((s, r) => s + r.totalAmount, 0) * 1.1))}
                 </span>
               </span>
             )}

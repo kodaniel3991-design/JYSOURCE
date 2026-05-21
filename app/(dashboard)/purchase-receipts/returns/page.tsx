@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { SupplierSelectPopup } from "@/components/common/supplier-select-popup";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, fmtCsvNum } from "@/lib/utils";
 import { Search, RotateCcw, Printer, X } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
@@ -85,6 +86,7 @@ export default function PurchaseReturnsPage() {
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
   // ── 검색 상태 ──────────────────────────────────────────────────────────────
+  const promptFilename = useFilenameDialog();
   const [dateFrom, setDateFrom]           = useCachedState("receipt-returns/dateFrom",     firstOfMonth);
   const [dateTo, setDateTo]               = useCachedState("receipt-returns/dateTo",       todayStr);
   const [itemCode, setItemCode]           = useCachedState("receipt-returns/itemCode",     "");
@@ -215,20 +217,22 @@ export default function PurchaseReturnsPage() {
     setReturnSlip(slip);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (items.length === 0) return;
     const header = ["구매오더번호","순번","입고일자","반품일자","품목번호","품목명","창고","저장위치","단위","모델","수량","단가","금액","거래처코드","거래처명"];
     const rows = items.map((h) => [
       h.poNumber, String(h.specNo), h.receiptDate, h.processedAt,
       h.itemCode, h.itemName, h.warehouse, h.storageLocation,
-      h.unit, h.vehicleModel, String(h.qty), String(h.unitPrice ?? ""),
-      String(h.receiptAmount ?? ""), h.supplierCode, h.supplierName,
+      h.unit, h.vehicleModel, fmtCsvNum(h.qty), fmtCsvNum(h.unitPrice),
+      fmtCsvNum(h.receiptAmount), h.supplierCode, h.supplierName,
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const csv = [header.join(","), rows].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "receipt-returns.csv";
+    const _saveName = await promptFilename("receipt-returns.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
+    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };

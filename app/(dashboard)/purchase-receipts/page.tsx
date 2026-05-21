@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { SupplierSelectPopup } from "@/components/common/supplier-select-popup";
 import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, fmtCsvNum } from "@/lib/utils";
 import { Search, RotateCcw, Save, PackageCheck, X, Printer, FileText, ChevronDown } from "lucide-react";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
@@ -264,6 +265,7 @@ function DropdownSelect({
 // ── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
 export default function PurchaseReceiptsPage() {
+  const promptFilename = useFilenameDialog();
   const [activeTab, setActiveTab] = useCachedState("receipt-process/activeTab", "history");
 
   const [warehouseOptions, setWarehouseOptions] = useState<{ value: string; label: string; displayLabel?: string }[]>([]);
@@ -600,19 +602,21 @@ export default function PurchaseReceiptsPage() {
     return groups;
   }, [filteredFlatRows, poList]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (flatRows.length === 0) return;
     const header = ["발주번호","순번","품목번호","품목명","창고","저장위치","단위","모델","발주량","입고량","입고잔량","입고수량"];
     const rows = flatRows.map((r) => [
       r.poNumber, String(r.seq), r.itemCode, r.itemName,
       r.warehouse, r.storageLocation, r.unit, r.vehicleModel,
-      String(r.orderedQty), String(r.receivedQty), String(r.pendingQty), String(r.inputQty),
+      fmtCsvNum(r.orderedQty), fmtCsvNum(r.receivedQty), fmtCsvNum(r.pendingQty), fmtCsvNum(r.inputQty),
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const csv = [header.join(","), rows].join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "receipt-process.csv";
+    const _saveName = await promptFilename("receipt-process.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
+    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };
@@ -2263,20 +2267,22 @@ export default function PurchaseReceiptsPage() {
           {histGridSettingsTab === "export" && (
             <div className="space-y-3">
               <p className="text-[11px] text-muted-foreground">조회된 입고 이력 데이터를 CSV 파일로 다운로드합니다.</p>
-              <Button size="sm" disabled={historyItems.length === 0} onClick={() => {
+              <Button size="sm" disabled={historyItems.length === 0} onClick={async () => {
                 if (historyItems.length === 0) return;
                 const header = ["구매오더번호", "순번", "구분", "입고일자", "품목번호", "품목명", "창고", "저장위치", "단위", "모델", "입고량", "입고단가", "입고금액", "거래처코드", "거래처명"];
                 const csvRows = historyItems.map((h) => [
                   h.poNumber, String(h.specNo || ""), h.type, h.receiptDate,
                   h.itemCode, h.itemName, h.warehouse, h.storageLocation, h.unit, h.vehicleModel,
-                  String(h.qty), String(h.unitPrice), String(h.receiptAmount),
+                  fmtCsvNum(h.qty), fmtCsvNum(h.unitPrice), fmtCsvNum(h.receiptAmount),
                   h.supplierCode, h.supplierName,
                 ]);
                 const csv = [header, ...csvRows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
                 const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
-                a.href = url; a.download = "receipt-history.csv";
+                const _saveName = await promptFilename("receipt-history.csv");
+                if (!_saveName) { URL.revokeObjectURL(url); return; }
+                a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
                 document.body.appendChild(a); a.click();
                 document.body.removeChild(a); URL.revokeObjectURL(url);
               }}>CSV 내보내기</Button>

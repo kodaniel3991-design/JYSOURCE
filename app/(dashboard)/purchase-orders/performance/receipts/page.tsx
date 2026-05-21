@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { MasterListGrid } from "@/components/common/master-list-grid";
@@ -8,7 +9,7 @@ import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, fmtCsvNum } from "@/lib/utils";
 import { SearchPanel } from "@/components/common/search-panel";
 import { DateInput } from "@/components/ui/date-input";
 import { apiPath } from "@/lib/api-path";
@@ -52,6 +53,7 @@ export default function PurchaseReceiptStatusPage() {
     toOrderDate: "",
   };
 
+  const promptFilename = useFilenameDialog();
   const [draft, setDraft] = useState<SearchParams>(initialParams);
   const [criteria, setCriteria] = useState<SearchParams>(initialParams);
   const [rawRows, setRawRows] = useState<ReceiptStatusRow[]>([]);
@@ -183,23 +185,25 @@ export default function PurchaseReceiptStatusPage() {
   const totalReceived = rawRows.reduce((s, r) => s + r.receiveAmount,  0);
   const overallRate   = totalOrdered === 0 ? 0 : Math.round((totalReceived / totalOrdered) * 100);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const dataRows = displayRows.filter((r) => r.rowKind === "data" || !r.rowKind);
     if (dataRows.length === 0) return;
     const header = ["차종/거래처", "품목번호", "품목명", "규격", "단위", "발주량", "발주금액", "입고량", "입고금액", "미입고량", "미입고금액", "입고율(%)"];
     const csvRows = dataRows.map((r) => [
       criteria.viewMode === "거래처별" ? r.supplierName : r.modelCode,
       r.itemCode, r.itemName, r.specification, r.unit,
-      String(r.orderQty),    String(r.orderAmount),
-      String(r.receiveQty),  String(r.receiveAmount),
-      String(r.unreceivedQty), String(r.unreceivedAmount),
+      fmtCsvNum(r.orderQty),    fmtCsvNum(r.orderAmount),
+      fmtCsvNum(r.receiveQty),  fmtCsvNum(r.receiveAmount),
+      fmtCsvNum(r.unreceivedQty), fmtCsvNum(r.unreceivedAmount),
       String(r.receiptRate),
     ]);
     const csv = [header, ...csvRows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
-    a.href = url; a.download = "receipt-status.csv";
+    const _saveName = await promptFilename("receipt-status.csv");
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
+    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/common/page-header";
@@ -14,6 +15,7 @@ import { formatDate } from "@/lib/utils";
 import { ChevronRight, Pencil, Send, FileDown } from "lucide-react";
 
 export function PODetailClient({ id }: { id: string }) {
+  const promptFilename = useFilenameDialog();
   const router = useRouter();
   const po = useMemo(() => getPurchaseOrderById(id), [id]);
   if (!po) notFound();
@@ -254,7 +256,7 @@ export function PODetailClient({ id }: { id: string }) {
     win.document.close();
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     // 데모용: 간단한 텍스트 내용을 가진 가짜 "PDF" 파일 다운로드
     const content = `PO 번호: ${po.poNumber}\n구매처: ${po.supplierName}\n총 금액: ${po.totalAmount.toLocaleString(
       "ko-KR"
@@ -262,8 +264,10 @@ export function PODetailClient({ id }: { id: string }) {
     const blob = new Blob([content], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+    const _saveName = await promptFilename(`${po.poNumber}.pdf`);
+    if (!_saveName) { URL.revokeObjectURL(url); return; }
     a.href = url;
-    a.download = `${po.poNumber}.pdf`;
+    a.download = _saveName.endsWith(".pdf") ? _saveName : _saveName + ".pdf";
     document.body.appendChild(a);
     a.click();
     a.remove();
