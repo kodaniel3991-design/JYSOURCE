@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -626,33 +627,16 @@ export default function PurchasersPage() {
   const exportCsv = useCallback(async () => {
     const cols = visibleColumns;
     const rows = paged;
-    const escape = (v: unknown) => {
-      const s = v == null ? "" : String(v);
-      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-      return s;
-    };
-    const header = cols.map((c) => escape(c.header)).join(",");
-    const body = rows
-      .map((r) =>
-        cols
-          .map((c) => escape((r as unknown as Record<string, unknown>)[c.key]))
-          .join(",")
-      )
-      .join("\n");
-    const csv = `${header}\n${body}\n`;
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const _saveName = await promptFilename(`purchasers_${new Date().toISOString().slice(0, 10)}.csv`);
-    if (!_saveName) { URL.revokeObjectURL(url); return; }
-    a.href = url;
-    a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }, [paged, visibleColumns]);
+    await downloadXlsx(promptFilename, `purchasers_${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      { cells: cols.map((c) => c.header), rowType: "header" },
+      ...rows.map((r) => ({
+        cells: cols.map((c) => {
+          const v = (r as unknown as Record<string, unknown>)[c.key];
+          return v == null ? "" : String(v);
+        }),
+      })),
+    ]);
+  }, [paged, visibleColumns, promptFilename]);
 
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col gap-6 overflow-hidden">
@@ -998,10 +982,10 @@ export default function PurchasersPage() {
             {gridSettingsTab === "export" && (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">
-                  현재 페이지({page}페이지) 데이터가 CSV로 다운로드됩니다.
+                  현재 페이지({page}페이지) 데이터가 Excel(xlsx)로 다운로드됩니다.
                 </p>
                 <Button size="sm" onClick={exportCsv}>
-                  CSV 내보내기
+                  Excel 내보내기
                 </Button>
               </div>
             )}

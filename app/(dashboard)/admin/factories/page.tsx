@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
 import { GridTh } from "@/components/ui/grid-th";
@@ -253,21 +254,14 @@ export default function AdminFactoriesPage() {
             </div>
             {gridSettingsTab === "export" && (
               <div className="space-y-3">
-                <p className="text-[11px] text-muted-foreground">현재 공장 목록을 CSV 파일로 다운로드합니다.</p>
+                <p className="text-[11px] text-muted-foreground">현재 공장 목록을 Excel(xlsx) 파일로 다운로드합니다.</p>
                 <Button size="sm" disabled={rows.length === 0} onClick={async () => {
                   if (rows.length === 0) return;
-                  const header = ["공장코드", "공장명", "정렬순서", "상태"];
-                  const csvRows = rows.map((r) => [r.FactoryCode, r.FactoryName, String(r.SortOrder), r.IsActive ? "활성" : "비활성"]);
-                  const csv = [header, ...csvRows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
-                  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  const _saveName = await promptFilename("factories.csv");
-                  if (!_saveName) { URL.revokeObjectURL(url); return; }
-                  a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-                  document.body.appendChild(a); a.click();
-                  document.body.removeChild(a); URL.revokeObjectURL(url);
-                }}>CSV 내보내기</Button>
+                  await downloadXlsx(promptFilename, "factories.xlsx", [
+                    { cells: ["공장코드", "공장명", "정렬순서", "상태"], rowType: "header" },
+                    ...rows.map((r) => ({ cells: [r.FactoryCode, r.FactoryName, r.SortOrder, r.IsActive ? "활성" : "비활성"] })),
+                  ]);
+                }}>Excel 내보내기</Button>
               </div>
             )}
           </div>

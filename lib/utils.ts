@@ -14,13 +14,6 @@ export function formatCurrency(amount: number, currency = "KRW"): string {
   }).format(amount);
 }
 
-export function fmtCsvNum(v: number | string | null | undefined): string {
-  if (v === null || v === undefined || v === "") return "";
-  const n = typeof v === "number" ? v : Number(v);
-  if (isNaN(n)) return String(v ?? "");
-  return n.toLocaleString("ko-KR");
-}
-
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return "";
   const d = new Date(date);

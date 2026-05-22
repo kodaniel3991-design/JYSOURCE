@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, RotateCcw, Plus, Save, Trash2, CheckSquare, X } from "lucide-react";
-import { cn, fmtCsvNum } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { apiPath } from "@/lib/api-path";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
@@ -325,21 +326,14 @@ export default function PurchaseInputPage() {
 
   const handleExport = async () => {
     if (inputItems.length === 0) return;
-    const header2 = ["순번","입고번호","품목코드","품목명","단위","매입량","매입금액","환산금액","부가세액","합계금액","입고번호","발주번호","비고"];
-    const rows = inputItems.map((r) => [
-      String(r.seqNo), r.receiptNo, r.itemCode, r.itemName, r.unit,
-      fmtCsvNum(r.inputQty), fmtCsvNum(r.inputAmount), fmtCsvNum(r.convertedAmount),
-      fmtCsvNum(r.taxAmount), fmtCsvNum(r.totalWithTax), r.receiptNo, r.purchaseOrderNo, r.note,
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const csv = [header2.join(","), rows].join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const _saveName = await promptFilename("purchase-input-items.csv");
-    if (!_saveName) { URL.revokeObjectURL(url); return; }
-    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+    await downloadXlsx(promptFilename, "purchase-input-items.xlsx", [
+      { cells: ["순번","입고번호","품목코드","품목명","단위","매입량","매입금액","환산금액","부가세액","합계금액","입고번호","발주번호","비고"], rowType: "header" },
+      ...inputItems.map((r) => ({ cells: [
+        r.seqNo, r.receiptNo, r.itemCode, r.itemName, r.unit,
+        r.inputQty, r.inputAmount, r.convertedAmount,
+        r.taxAmount, r.totalWithTax, r.receiptNo, r.purchaseOrderNo, r.note,
+      ] })),
+    ]);
   };
 
   // ── 신규 ─────────────────────────────────────────────────────────────────────
@@ -1324,8 +1318,8 @@ export default function PurchaseInputPage() {
           </div>
           {gridSettingsTab === "export" && (
             <div className="space-y-3">
-              <p className="text-[11px] text-muted-foreground">매입내역 품목 데이터를 CSV 파일로 다운로드합니다.</p>
-              <Button type="button" size="sm" onClick={handleExport} disabled={inputItems.length === 0}>CSV 내보내기</Button>
+              <p className="text-[11px] text-muted-foreground">매입내역 품목 데이터를 Excel(xlsx) 파일로 다운로드합니다.</p>
+              <Button type="button" size="sm" onClick={handleExport} disabled={inputItems.length === 0}>Excel 내보내기</Button>
             </div>
           )}
           {gridSettingsTab === "view" && (
@@ -1352,26 +1346,19 @@ export default function PurchaseInputPage() {
           </div>
           {unGridSettingsTab === "export" && (
             <div className="space-y-3">
-              <p className="text-[11px] text-muted-foreground">조회된 구매입고참조 목록을 CSV 파일로 다운로드합니다.</p>
+              <p className="text-[11px] text-muted-foreground">조회된 구매입고참조 목록을 Excel(xlsx) 파일로 다운로드합니다.</p>
               <Button type="button" size="sm" disabled={unreceivedItems.length === 0} onClick={async () => {
                 if (unreceivedItems.length === 0) return;
-                const header = ["입고번호", "품목번호", "품목명", "단위", "미매입량", "매입량", "입고일자", "입고단가", "입고금액", "부가세액", "합계금액", "발주번호", "업체코드", "업체명"];
-                const csvRows = unreceivedItems.map((r) => [
-                  r.receiptNo, r.itemCode, r.itemName, r.unit,
-                  fmtCsvNum(r.unreceiptQty), fmtCsvNum(r.inputQty), r.receiptDate,
-                  fmtCsvNum(r.unitPrice), fmtCsvNum(r.receiptAmount), fmtCsvNum(r.taxAmount), fmtCsvNum(r.totalWithTax),
-                  r.poNumber, r.supplierCode, r.supplierName,
+                await downloadXlsx(promptFilename, "purchase-input-history.xlsx", [
+                  { cells: ["입고번호", "품목번호", "품목명", "단위", "미매입량", "매입량", "입고일자", "입고단가", "입고금액", "부가세액", "합계금액", "발주번호", "업체코드", "업체명"], rowType: "header" },
+                  ...unreceivedItems.map((r) => ({ cells: [
+                    r.receiptNo, r.itemCode, r.itemName, r.unit,
+                    r.unreceiptQty, r.inputQty, r.receiptDate,
+                    r.unitPrice, r.receiptAmount, r.taxAmount, r.totalWithTax,
+                    r.poNumber, r.supplierCode, r.supplierName,
+                  ] })),
                 ]);
-                const csv = [header, ...csvRows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
-                const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                const _saveName = await promptFilename("purchase-input-history.csv");
-                if (!_saveName) { URL.revokeObjectURL(url); return; }
-                a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-                document.body.appendChild(a); a.click();
-                document.body.removeChild(a); URL.revokeObjectURL(url);
-              }}>CSV 내보내기</Button>
+              }}>Excel 내보내기</Button>
             </div>
           )}
         </div>

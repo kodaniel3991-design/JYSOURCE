@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -284,21 +285,15 @@ export default function CommonCodesPage() {
           </div>
           {gridSettingsTab === "export" && (
             <div className="space-y-3">
-              <p className="text-[11px] text-muted-foreground">현재 선택된 분류의 코드 목록을 CSV 파일로 다운로드합니다.</p>
+              <p className="text-[11px] text-muted-foreground">현재 선택된 분류의 코드 목록을 Excel(xlsx) 파일로 다운로드합니다.</p>
               <Button size="sm" disabled={codes.length === 0} onClick={async () => {
                 if (codes.length === 0) return;
                 const header = ["코드","명칭"];
-                const rows = codes.map((c) => [`"${c.Code}"`, `"${c.Name}"`].join(",")).join("\n");
-                const csv = [header.join(","), rows].join("\n");
-                const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                const _saveName = await promptFilename(`common-codes-${selectedKey}.csv`);
-                if (!_saveName) { URL.revokeObjectURL(url); return; }
-                a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-                document.body.appendChild(a); a.click();
-                document.body.removeChild(a); URL.revokeObjectURL(url);
-              }}>CSV 내보내기</Button>
+                await downloadXlsx(promptFilename, `common-codes-${selectedKey}.xlsx`, [
+                  { cells: ["코드", "명칭"], rowType: "header" },
+                  ...codes.map((c) => ({ cells: [c.Code, c.Name] })),
+                ]);
+              }}>Excel 내보내기</Button>
             </div>
           )}
         </div>

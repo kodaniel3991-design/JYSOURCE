@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { getPageState } from "@/lib/page-state-cache";
 import { PageHeader } from "@/components/common/page-header";
@@ -12,7 +13,7 @@ import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate, fmtCsvNum } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { suppliers } from "@/lib/mock/suppliers";
 import type { PurchaseOrderSummary } from "@/types/purchase";
 import type { SelectOption } from "@/components/ui/select";
@@ -128,20 +129,12 @@ export default function PurchasePerformancePage() {
 
   const handleExport = async () => {
     if (filtered.length === 0) return;
-    const header = ["PO번호","공급사","품목수","발주금액","납기일"];
-    const rows = filtered.map((r) => [
-      r.poNumber, r.supplierName, fmtCsvNum(r.itemCount),
-      fmtCsvNum(r.totalAmount), r.dueDate ?? "",
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const csv = [header.join(","), rows].join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const _saveName = await promptFilename("purchase-performance.csv");
-    if (!_saveName) { URL.revokeObjectURL(url); return; }
-    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+    await downloadXlsx(promptFilename, "purchase-performance.xlsx", [
+      { cells: ["PO번호","공급사","품목수","발주금액","납기일"], rowType: "header" },
+      ...filtered.map((r) => ({ cells: [
+        r.poNumber, r.supplierName, r.itemCount, r.totalAmount, r.dueDate ?? "",
+      ] })),
+    ]);
   };
 
   return (
@@ -353,8 +346,8 @@ export default function PurchasePerformancePage() {
           </div>
           {gridSettingsTab === "export" && (
             <div className="space-y-3">
-              <p className="text-[11px] text-muted-foreground">조회된 구매실적 데이터를 CSV 파일로 다운로드합니다.</p>
-              <Button size="sm" onClick={handleExport} disabled={filtered.length === 0}>CSV 내보내기</Button>
+              <p className="text-[11px] text-muted-foreground">조회된 구매실적 데이터를 Excel(xlsx) 파일로 다운로드합니다.</p>
+              <Button size="sm" onClick={handleExport} disabled={filtered.length === 0}>Excel 내보내기</Button>
             </div>
           )}
           {gridSettingsTab === "view" && (

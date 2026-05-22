@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
-import { fmtCsvNum } from "@/lib/utils";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
@@ -114,22 +114,15 @@ export default function PriceVerificationPage() {
 
   const handleExport = async () => {
     if (items.length === 0) return;
-    const header = ["구매오더번호","발주일자","구매처코드","구매처명","품목번호","품목명","모델","수량","발주단가","현재단가","단가차액","차액율(%)","금액차이","상태"];
-    const rows = items.map((r) => [
-      r.poNumber, r.orderDate, r.supplierCode, r.supplierName,
-      r.itemCode, r.itemName, r.vehicleModel, fmtCsvNum(r.quantity),
-      fmtCsvNum(r.poUnitPrice), fmtCsvNum(r.currentUnitPrice),
-      fmtCsvNum(r.diff), String(r.diffRate ?? ""), fmtCsvNum(r.amountDiff), r.status,
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const csv = [header.join(","), rows].join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const _saveName = await promptFilename("price-verification.csv");
-    if (!_saveName) { URL.revokeObjectURL(url); return; }
-    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+    await downloadXlsx(promptFilename, "price-verification.xlsx", [
+      { cells: ["구매오더번호","발주일자","구매처코드","구매처명","품목번호","품목명","모델","수량","발주단가","현재단가","단가차액","차액율(%)","금액차이","상태"], rowType: "header" },
+      ...items.map((r) => ({ cells: [
+        r.poNumber, r.orderDate, r.supplierCode, r.supplierName,
+        r.itemCode, r.itemName, r.vehicleModel, r.quantity,
+        r.poUnitPrice, r.currentUnitPrice,
+        r.diff, String(r.diffRate ?? ""), r.amountDiff, r.status,
+      ] })),
+    ]);
   };
 
   const handleApply = async () => {
@@ -676,8 +669,8 @@ export default function PriceVerificationPage() {
           </div>
           {gridSettingsTab === "export" && (
             <div className="space-y-3">
-              <p className="text-[11px] text-muted-foreground">조회된 단가검증 데이터를 CSV 파일로 다운로드합니다.</p>
-              <Button size="sm" onClick={handleExport} disabled={items.length === 0}>CSV 내보내기</Button>
+              <p className="text-[11px] text-muted-foreground">조회된 단가검증 데이터를 Excel(xlsx) 파일로 다운로드합니다.</p>
+              <Button size="sm" onClick={handleExport} disabled={items.length === 0}>Excel 내보내기</Button>
             </div>
           )}
           {gridSettingsTab === "view" && (

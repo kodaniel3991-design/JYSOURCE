@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
-import { fmtCsvNum } from "@/lib/utils";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -321,21 +321,15 @@ export default function ReceiptPeriodPage() {
 
   const handleExport = async () => {
     if (items.length === 0) return;
-    const header = ["거래처번호","거래처명","입고일자","전표번호","품목번호","품목명","단위","입고수량","입고금액","구분"];
-    const rows = items.map((r) => [
-      r.supplierCode, r.supplierName, r.receiptDate, r.receiptNo,
-      r.itemCode, r.itemName, r.unit, fmtCsvNum(r.qty), fmtCsvNum(r.receiptAmount), r.type,
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const csv = [header.join(","), rows].join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const _saveName = await promptFilename("receipt-period.csv");
-    if (!_saveName) { URL.revokeObjectURL(url); return; }
-    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+    await downloadXlsx(promptFilename, "receipt-period.xlsx", [
+      { cells: ["거래처번호","거래처명","입고일자","전표번호","품목번호","품목명","단위","입고수량","입고금액","구분"], rowType: "header" },
+      ...items.map((r) => ({ cells: [
+        r.supplierCode, r.supplierName, r.receiptDate, r.receiptNo,
+        r.itemCode, r.itemName, r.unit, r.qty, r.receiptAmount, r.type,
+      ] })),
+    ]);
   };
+
 
   // ── 인쇄 ──────────────────────────────────────────────────────────────────
   const handlePrint = () => {
@@ -1087,8 +1081,8 @@ export default function ReceiptPeriodPage() {
             </div>
             {gridSettingsTab === "export" && (
               <div className="space-y-3">
-                <p className="text-[11px] text-muted-foreground">조회된 기간별 입고현황 데이터를 CSV 파일로 다운로드합니다.</p>
-                <Button size="sm" onClick={handleExport} disabled={items.length === 0}>CSV 내보내기</Button>
+                <p className="text-[11px] text-muted-foreground">조회된 기간별 입고현황 데이터를 Excel(xlsx) 파일로 다운로드합니다.</p>
+                <Button size="sm" onClick={handleExport} disabled={items.length === 0}>Excel 내보내기</Button>
               </div>
             )}
             {gridSettingsTab === "view" && (

@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { MasterListGrid } from "@/components/common/master-list-grid";
@@ -9,7 +10,7 @@ import { DataGridToolbar } from "@/components/common/data-grid-toolbar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader as SheetHdr, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatCurrency, fmtCsvNum } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { SearchPanel } from "@/components/common/search-panel";
 import { DateInput } from "@/components/ui/date-input";
 import { apiPath } from "@/lib/api-path";
@@ -188,25 +189,19 @@ export default function PurchaseReceiptStatusPage() {
   const handleExport = async () => {
     const dataRows = displayRows.filter((r) => r.rowKind === "data" || !r.rowKind);
     if (dataRows.length === 0) return;
-    const header = ["차종/거래처", "품목번호", "품목명", "규격", "단위", "발주량", "발주금액", "입고량", "입고금액", "미입고량", "미입고금액", "입고율(%)"];
-    const csvRows = dataRows.map((r) => [
-      criteria.viewMode === "거래처별" ? r.supplierName : r.modelCode,
-      r.itemCode, r.itemName, r.specification, r.unit,
-      fmtCsvNum(r.orderQty),    fmtCsvNum(r.orderAmount),
-      fmtCsvNum(r.receiveQty),  fmtCsvNum(r.receiveAmount),
-      fmtCsvNum(r.unreceivedQty), fmtCsvNum(r.unreceivedAmount),
-      String(r.receiptRate),
+    await downloadXlsx(promptFilename, "receipt-status.xlsx", [
+      { cells: ["차종/거래처", "품목번호", "품목명", "규격", "단위", "발주량", "발주금액", "입고량", "입고금액", "미입고량", "미입고금액", "입고율(%)"], rowType: "header" },
+      ...dataRows.map((r) => ({ cells: [
+        criteria.viewMode === "거래처별" ? r.supplierName : r.modelCode,
+        r.itemCode, r.itemName, r.specification, r.unit,
+        r.orderQty, r.orderAmount,
+        r.receiveQty, r.receiveAmount,
+        r.unreceivedQty, r.unreceivedAmount,
+        String(r.receiptRate),
+      ] })),
     ]);
-    const csv = [header, ...csvRows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    const _saveName = await promptFilename("receipt-status.csv");
-    if (!_saveName) { URL.revokeObjectURL(url); return; }
-    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
+
 
   return (
     <>
@@ -340,8 +335,8 @@ export default function PurchaseReceiptStatusPage() {
           </div>
           {gridSettingsTab === "export" && (
             <div className="space-y-3">
-              <p className="text-[11px] text-muted-foreground">조회된 발주대비 입고현황 데이터를 CSV 파일로 다운로드합니다.</p>
-              <Button size="sm" onClick={handleExport} disabled={displayRows.filter((r) => !r.rowKind || r.rowKind === "data").length === 0}>CSV 내보내기</Button>
+              <p className="text-[11px] text-muted-foreground">조회된 발주대비 입고현황 데이터를 Excel(xlsx) 파일로 다운로드합니다.</p>
+              <Button size="sm" onClick={handleExport} disabled={displayRows.filter((r) => !r.rowKind || r.rowKind === "data").length === 0}>Excel 내보내기</Button>
             </div>
           )}
           {gridSettingsTab === "view" && (

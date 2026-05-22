@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
@@ -15,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { POStatusBadge } from "@/components/common/status-badge";
-import { formatCurrency, fmtCsvNum } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { suppliers } from "@/lib/mock/suppliers";
 import { poStatusLabels } from "@/lib/mock/purchase-orders";
 import type { PurchaserRecord } from "@/types/purchaser";
@@ -1231,21 +1232,14 @@ export default function CreatePurchaseOrderPage() {
   const handleExport = async () => {
     const filled = specItems.filter((r) => r.itemCode);
     if (filled.length === 0) return;
-    const header = ["명세번호","품목번호","품목명","규격","창고","저장위치","모델","발주량","구매단가","발주금액","입고예정일자"];
-    const rows = filled.map((r, i) => [
-      String(i + 1), r.itemCode, r.itemName, r.specification ?? "",
-      r.warehouse ?? "", r.storageLocation ?? "", r.model ?? "",
-      fmtCsvNum(r.quantity), fmtCsvNum(r.unitPrice), fmtCsvNum(r.amount), r.dueDate,
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const csv = [header.join(","), rows].join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const _saveName = await promptFilename("purchase-order-spec.csv");
-    if (!_saveName) { URL.revokeObjectURL(url); return; }
-    a.href = url; a.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+    await downloadXlsx(promptFilename, "purchase-order-spec.xlsx", [
+      { cells: ["순번","품목코드","품목명","규격","창고","저장위치","모델","수량","단가","금액","납기일"], rowType: "header" },
+      ...filled.map((r, i) => ({ cells: [
+        i + 1, r.itemCode, r.itemName, r.specification ?? "",
+        r.warehouse ?? "", r.storageLocation ?? "", r.model ?? "",
+        r.quantity, r.unitPrice, r.amount, r.dueDate ?? "",
+      ] })),
+    ]);
   };
 
   return (
@@ -2528,8 +2522,8 @@ export default function CreatePurchaseOrderPage() {
           </div>
           {gridSettingsTab === "export" && (
             <div className="space-y-3">
-              <p className="text-[11px] text-muted-foreground">명세작업 품목 데이터를 CSV 파일로 다운로드합니다.</p>
-              <Button size="sm" onClick={handleExport} disabled={!specItems.some((r) => r.itemCode)}>CSV 내보내기</Button>
+              <p className="text-[11px] text-muted-foreground">명세작업 품목 데이터를 Excel(xlsx) 파일로 다운로드합니다.</p>
+              <Button size="sm" onClick={handleExport} disabled={!specItems.some((r) => r.itemCode)}>Excel 내보내기</Button>
             </div>
           )}
           {gridSettingsTab === "view" && (

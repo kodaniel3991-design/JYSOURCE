@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
+import { downloadXlsx } from "@/lib/export-xlsx";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -345,78 +346,40 @@ export default function PurchasePricesPage() {
 
   const handleExport = async () => {
     if (filteredList.length === 0) return;
-
-    const header = [
-      "품목번호",
-      "품목명",
-      "품목규격",
-      "품목재질명",
-      "구매처번호",
-      "적용일자",
-      "구매단가",
-      "가단가 여부",
-      "창고코드",
-      "저장위치코드",
-      "발주정율",
-      "단가사용안함",
-      "외주오더발행여부",
-      "외주방법/사급구분",
-      "외주입고품목번호",
-      "작지번호",
-      "사업장",
-      "창고",
-      "저장위치",
-      "유효일자",
-      "유효일자 조정",
-      "통화코드",
-    ];
-
-    const rowsCsv = filteredList
-      .map((r) =>
-        [
-          r.itemCode,
-          r.itemName,
-          r.itemSpec,
-          r.itemMaterialName ?? "",
-          r.supplierCode,
-          r.applyDate,
-          r.unitPrice.toString(),
-          r.isTempPrice ? "Y" : "N",
-          r.warehouseCode ?? "",
-          r.storageLocationCode ?? "",
-          r.orderRate != null ? r.orderRate.toString() : "",
-          r.priceNotUsed ? "Y" : "N",
-          r.outsourcingOrderIssue ? "Y" : "N",
-          r.outsourcingMethod ?? "",
-          r.outsourcingReceiptItemCode ?? "",
-          r.workOrderNo ?? "",
-          r.businessUnit ?? "",
-          r.warehouse ?? "",
-          r.storageLocation ?? "",
-          r.validDate ?? "",
-          r.validDateAdjust ? "Y" : "N",
-          r.currencyCode ?? r.currency ?? "",
-        ]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(",")
-      )
-      .join("\n");
-
-    const csv = [header.join(","), rowsCsv].join("\n");
-    const blob = new Blob(["\ufeff" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const _saveName = await promptFilename("purchase-prices.csv");
-    if (!_saveName) { URL.revokeObjectURL(url); return; }
-    link.href = url;
-    link.download = _saveName.endsWith(".csv") ? _saveName : _saveName + ".csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    await downloadXlsx(promptFilename, "purchase-prices.xlsx", [
+      { cells: [
+        "품목번호","품목명","품목규격","품목재질명","구매처번호","적용일자","구매단가",
+        "가단가 여부","창고코드","저장위치코드","발주정율","단가사용안함",
+        "외주오더발행여부","외주방법/사급구분","외주입고품목번호","작지번호",
+        "사업장","창고","저장위치","유효일자","유효일자 조정","통화코드",
+      ], rowType: "header" },
+      ...filteredList.map((r) => ({ cells: [
+        r.itemCode,
+        r.itemName,
+        r.itemSpec,
+        r.itemMaterialName ?? "",
+        r.supplierCode,
+        r.applyDate,
+        r.unitPrice,
+        r.isTempPrice ? "Y" : "N",
+        r.warehouseCode ?? "",
+        r.storageLocationCode ?? "",
+        r.orderRate ?? "",
+        r.priceNotUsed ? "Y" : "N",
+        r.outsourcingOrderIssue ? "Y" : "N",
+        r.outsourcingMethod ?? "",
+        r.outsourcingReceiptItemCode ?? "",
+        r.workOrderNo ?? "",
+        r.businessUnit ?? "",
+        r.warehouse ?? "",
+        r.storageLocation ?? "",
+        r.validDate ?? "",
+        r.validDateAdjust ? "Y" : "N",
+        r.currencyCode ?? r.currency ?? "",
+      ] })),
+    ]);
   };
+
 
   const handleExcelFile = useCallback(
     async (file: File) => {
@@ -866,10 +829,10 @@ export default function PurchasePricesPage() {
             {gridSettingsTab === "export" && (
               <div className="space-y-3">
                 <p className="text-[11px] text-muted-foreground">
-                  검색/정렬된 전체 구매단가 데이터가 CSV 파일로 다운로드됩니다.
+                  검색/정렬된 전체 구매단가 데이터가 Excel(xlsx) 파일로 다운로드됩니다.
                 </p>
                 <Button size="sm" onClick={() => { handleExport(); setGridSettingsOpen(false); }}>
-                  CSV 내보내기
+                  Excel 내보내기
                 </Button>
               </div>
             )}
