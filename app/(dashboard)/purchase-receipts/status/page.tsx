@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
 import { downloadXlsx, type XlsxRow } from "@/lib/export-xlsx";
 import { useGridColumnSettings } from "@/lib/hooks/use-grid-column-settings";
+import { useSortableGrid } from "@/lib/hooks/use-sortable-grid";
 import { GridTh } from "@/components/ui/grid-th";
 import { useSupplierAutoFill } from "@/lib/hooks/use-supplier-list";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
@@ -217,12 +218,13 @@ export default function ReceiptStatusPage() {
     if (supplierCode.trim()) params.set("supplierCode", supplierCode.trim());
     if (model.trim())        params.set("model",        model.trim());
 
-    // 매입 집계용 파라미터 (model 필터 없음)
+    // 매입 집계용 파라미터
     const inputParams = new URLSearchParams();
     if (dateFrom)            inputParams.set("dateFrom",     dateFrom);
     if (dateTo)              inputParams.set("dateTo",       dateTo);
     if (itemCode.trim())     inputParams.set("itemCode",     itemCode.trim());
     if (supplierCode.trim()) inputParams.set("supplierCode", supplierCode.trim());
+    if (model.trim())        inputParams.set("model",        model.trim());
 
     setLoading(true);
     Promise.all([
@@ -285,10 +287,12 @@ export default function ReceiptStatusPage() {
     });
   }, [items]);
 
+  const { sortedItems: sortedMergedItems, sortKey: detailSortKey, sortDir: detailSortDir, toggleSort: toggleDetailSort } = useSortableGrid(mergedItems);
+
   // 2단계: 구매처별 그룹화
   const supplierGroups = useMemo<SupplierGroup[]>(() => {
     const map = new Map<string, SupplierGroup>();
-    for (const item of mergedItems) {
+    for (const item of sortedMergedItems) {
       const key = item.supplierCode || "__NONE__";
       if (!map.has(key)) {
         map.set(key, {
@@ -310,7 +314,7 @@ export default function ReceiptStatusPage() {
       g.totalAmountVat = Math.floor(g.totalAmount * 1.1);
     }
     return Array.from(map.values());
-  }, [mergedItems]);
+  }, [sortedMergedItems]);
 
   const grandTotalQty    = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalQty,    0), [supplierGroups]);
   const grandTotalAmount = useMemo(() => supplierGroups.reduce((s, g) => s + g.totalAmount, 0), [supplierGroups]);
@@ -388,9 +392,11 @@ export default function ReceiptStatusPage() {
     });
   }, [items, inputSummary]);
 
+  const { sortedItems: sortedCombinedItems, sortKey: summarySortKey, sortDir: summarySortDir, toggleSort: toggleSummarySort } = useSortableGrid(combinedItems);
+
   const combinedGroups = useMemo<CombinedSupplierGroup[]>(() => {
     const map = new Map<string, CombinedSupplierGroup>();
-    for (const item of combinedItems) {
+    for (const item of sortedCombinedItems) {
       const key = item.supplierCode || "__NONE__";
       if (!map.has(key)) {
         map.set(key, {
@@ -420,7 +426,7 @@ export default function ReceiptStatusPage() {
       g.totalReceiptAmountVat = Math.floor(g.totalReceiptAmount * 1.1);
     }
     return Array.from(map.values());
-  }, [combinedItems]);
+  }, [sortedCombinedItems]);
 
   const grandCombined = useMemo(() => {
     const sums = combinedGroups.reduce(
@@ -937,6 +943,7 @@ export default function ReceiptStatusPage() {
               {viewMode === "detail" && (() => {
                 const orderedCols = detailCols.colOrder.filter((k) => !LOCKED_SUPPLIER.includes(k));
                 const thProps = { dragKey: detailCols.dragKey, dropTargetKey: detailCols.dropTargetKey, onResizeEnd: detailCols.resize, onDragStartKey: detailCols.setDragKey, onDropKey: detailCols.reorder, onDragEndKey: () => detailCols.setDragKey(null), onDragOverKey: detailCols.setDropTargetKey };
+                const dSort = { currentSortKey: detailSortKey as string | null, sortDir: detailSortDir, onSort: (sk: string) => toggleDetailSort(sk as keyof MergedItem) };
                 const br = "border-r border-border";
                 return (
                   <table className="w-full text-xs border-collapse">
@@ -947,10 +954,10 @@ export default function ReceiptStatusPage() {
                     </colgroup>
                     <thead className="sticky top-0 bg-muted/80 border-b z-10">
                       <tr>
-                        <GridTh colKey="supplierCode" locked {...thProps} className={`px-2 py-2 text-left ${br} whitespace-nowrap`}>구매처번호</GridTh>
-                        <GridTh colKey="supplierName" locked {...thProps} className={`px-2 py-2 text-left ${br}`}>구매처명</GridTh>
+                        <GridTh colKey="supplierCode" locked {...thProps} {...dSort} sortKey="supplierCode" className={`px-2 py-2 text-left ${br} whitespace-nowrap`}>구매처번호</GridTh>
+                        <GridTh colKey="supplierName" locked {...thProps} {...dSort} sortKey="supplierName" className={`px-2 py-2 text-left ${br}`}>구매처명</GridTh>
                         {orderedCols.map((k) => (
-                          <GridTh key={k} colKey={k} {...thProps} className={cn("px-2 py-2 whitespace-nowrap", br, (k === "receiptAmount" || k === "receiptAmountVat") && "bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300")}>{DETAIL_HEADER[k] ?? k}</GridTh>
+                          <GridTh key={k} colKey={k} {...thProps} {...dSort} sortKey={k} className={cn("px-2 py-2 whitespace-nowrap", br, (k === "receiptAmount" || k === "receiptAmountVat") && "bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300")}>{DETAIL_HEADER[k] ?? k}</GridTh>
                         ))}
                       </tr>
                     </thead>
@@ -1032,6 +1039,7 @@ export default function ReceiptStatusPage() {
               {viewMode === "summary" && (() => {
                 const orderedCols = summaryCols.colOrder.filter((k) => !LOCKED_SUPPLIER.includes(k));
                 const thProps = { dragKey: summaryCols.dragKey, dropTargetKey: summaryCols.dropTargetKey, onResizeEnd: summaryCols.resize, onDragStartKey: summaryCols.setDragKey, onDropKey: summaryCols.reorder, onDragEndKey: () => summaryCols.setDragKey(null), onDragOverKey: summaryCols.setDropTargetKey };
+                const sSort = { currentSortKey: summarySortKey as string | null, sortDir: summarySortDir, onSort: (sk: string) => toggleSummarySort(sk as keyof CombinedItem) };
                 const br = "border-r border-border";
                 return (
                   <table className="w-full text-xs border-collapse">
@@ -1042,10 +1050,10 @@ export default function ReceiptStatusPage() {
                     </colgroup>
                     <thead className="sticky top-0 bg-muted/80 border-b z-10">
                       <tr>
-                        <GridTh colKey="supplierCode" locked {...thProps} className={`px-2 py-2 text-left ${br} whitespace-nowrap`}>구매처번호</GridTh>
-                        <GridTh colKey="supplierName" locked {...thProps} className={`px-2 py-2 text-left ${br}`}>구매처명</GridTh>
+                        <GridTh colKey="supplierCode" locked {...thProps} {...sSort} sortKey="supplierCode" className={`px-2 py-2 text-left ${br} whitespace-nowrap`}>구매처번호</GridTh>
+                        <GridTh colKey="supplierName" locked {...thProps} {...sSort} sortKey="supplierName" className={`px-2 py-2 text-left ${br}`}>구매처명</GridTh>
                         {orderedCols.map((k) => (
-                          <GridTh key={k} colKey={k} {...thProps} className={cn("px-2 py-2 whitespace-nowrap", br, (k === "receiptAmount" || k === "receiptAmountVat") && "bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300")}>{SUMMARY_HEADER[k] ?? k}</GridTh>
+                          <GridTh key={k} colKey={k} {...thProps} {...sSort} sortKey={k} className={cn("px-2 py-2 whitespace-nowrap", br, (k === "receiptAmount" || k === "receiptAmountVat") && "bg-blue-50/60 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300")}>{SUMMARY_HEADER[k] ?? k}</GridTh>
                         ))}
                       </tr>
                     </thead>

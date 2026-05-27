@@ -44,6 +44,17 @@ export async function POST(request: Request) {
     }
 
     const pool = await getDbPool();
+
+    const dup = await pool.request()
+      .input("ItemNo", sql.NVarChar(50), it.itemNo)
+      .query("SELECT 1 AS cnt FROM dbo.ItemMaster WHERE ItemNo = @ItemNo");
+    if (dup.recordset.length > 0) {
+      return NextResponse.json(
+        { ok: false, message: `이미 존재하는 품목번호입니다. (${it.itemNo})` },
+        { status: 409 }
+      );
+    }
+
     const req = pool.request();
 
     // Basic
@@ -143,8 +154,14 @@ export async function POST(request: Request) {
     `);
 
     return NextResponse.json({ ok: true, id: result.recordset[0].ItemId });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
+    if (error.number === 2601 || error.number === 2627) {
+      return NextResponse.json(
+        { ok: false, message: `이미 사용 중인 품목번호입니다. (${error.originalError?.info?.message ?? ""})` },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ ok: false, message: "저장 중 오류가 발생했습니다." }, { status: 500 });
   }
 }

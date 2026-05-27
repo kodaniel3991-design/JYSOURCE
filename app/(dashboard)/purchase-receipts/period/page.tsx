@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFilenameDialog } from "@/components/filename-dialog-provider";
-import { downloadXlsx } from "@/lib/export-xlsx";
+import { downloadXlsx, type XlsxRow } from "@/lib/export-xlsx";
 import { useCachedState } from "@/lib/hooks/use-cached-state";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -321,13 +321,139 @@ export default function ReceiptPeriodPage() {
 
   const handleExport = async () => {
     if (items.length === 0) return;
-    await downloadXlsx(promptFilename, "receipt-period.xlsx", [
-      { cells: ["거래처번호","거래처명","입고일자","전표번호","품목번호","품목명","단위","입고수량","입고금액","구분"], rowType: "header" },
-      ...items.map((r) => ({ cells: [
-        r.supplierCode, r.supplierName, r.receiptDate, r.receiptNo,
-        r.itemCode, r.itemName, r.unit, r.qty, r.receiptAmount, r.type,
-      ] })),
-    ]);
+    const xlsxRows: XlsxRow[] = [];
+
+    if (viewType === "내역") {
+      const ordCols = detailColSettings.colOrder.filter((k) => !LOCKED_DETAIL.includes(k));
+      xlsxRows.push({ cells: ["거래처번호", "거래처명", "입고일자", ...ordCols.map((k) => PERIOD_DETAIL_HEADER[k] ?? k)], rowType: "header" });
+      for (const group of detailGroups) {
+        for (const dg of group.dateGroups) {
+          for (const item of dg.rows) {
+            const cells: (string | number)[] = [group.supplierCode, group.supplierName, dg.receiptDate];
+            for (const k of ordCols) {
+              switch (k) {
+                case "receiptNo":     cells.push(item.receiptNo); break;
+                case "itemCode":      cells.push(item.itemCode); break;
+                case "itemName":      cells.push(item.itemName); break;
+                case "spec":          cells.push(""); break;
+                case "material":      cells.push(""); break;
+                case "unit":          cells.push(item.unit); break;
+                case "deliveryQty":   cells.push(item.qty); break;
+                case "defectQty":     cells.push(0); break;
+                case "defectRate":    cells.push(0); break;
+                case "receiptQty":    cells.push(item.qty); break;
+                case "unitPrice":     cells.push(item.unitPrice); break;
+                case "receiptAmount": cells.push(item.receiptAmount); break;
+                case "isApprox":      cells.push("N"); break;
+                default:              cells.push("");
+              }
+            }
+            xlsxRows.push({ cells });
+          }
+        }
+        const sub: (string | number)[] = ["[소 계]", "", ""];
+        for (const k of ordCols) {
+          if (k === "deliveryQty")    sub.push(group.totalQty);
+          else if (k === "defectQty")   sub.push(0);
+          else if (k === "defectRate")  sub.push(0);
+          else if (k === "receiptQty")  sub.push(group.totalQty);
+          else if (k === "receiptAmount") sub.push(group.totalAmount);
+          else sub.push("");
+        }
+        xlsxRows.push({ cells: sub, rowType: "subtotal" });
+      }
+      const total: (string | number)[] = ["[합 계]", "", ""];
+      for (const k of ordCols) {
+        if (k === "deliveryQty")    total.push(grandTotalQty);
+        else if (k === "defectQty")   total.push(0);
+        else if (k === "defectRate")  total.push(0);
+        else if (k === "receiptQty")  total.push(grandTotalQty);
+        else if (k === "receiptAmount") total.push(grandTotalAmount);
+        else total.push("");
+      }
+      xlsxRows.push({ cells: total, rowType: "total" });
+
+    } else if (viewType === "업체+품목") {
+      const ordCols = itemColSettings.colOrder.filter((k) => !LOCKED_ITEM.includes(k));
+      xlsxRows.push({ cells: ["거래처번호", "거래처명", ...ordCols.map((k) => PERIOD_ITEM_HEADER[k] ?? k)], rowType: "header" });
+      for (const group of itemGroups) {
+        for (const row of group.rows) {
+          const cells: (string | number)[] = [group.supplierCode, group.supplierName];
+          for (const k of ordCols) {
+            switch (k) {
+              case "itemCode":      cells.push(row.itemCode); break;
+              case "itemName":      cells.push(row.itemName); break;
+              case "spec":          cells.push(""); break;
+              case "material":      cells.push(""); break;
+              case "unit":          cells.push(row.unit); break;
+              case "deliveryQty":   cells.push(row.qty); break;
+              case "defectQty":     cells.push(0); break;
+              case "defectRate":    cells.push(0); break;
+              case "receiptQty":    cells.push(row.qty); break;
+              case "receiptAmount": cells.push(row.receiptAmount); break;
+              default:              cells.push("");
+            }
+          }
+          xlsxRows.push({ cells });
+        }
+        const sub: (string | number)[] = ["[소 계]", ""];
+        for (const k of ordCols) {
+          if (k === "deliveryQty")    sub.push(group.totalQty);
+          else if (k === "defectQty")   sub.push(0);
+          else if (k === "defectRate")  sub.push(0);
+          else if (k === "receiptQty")  sub.push(group.totalQty);
+          else if (k === "receiptAmount") sub.push(group.totalAmount);
+          else sub.push("");
+        }
+        xlsxRows.push({ cells: sub, rowType: "subtotal" });
+      }
+      const total: (string | number)[] = ["[합 계]", ""];
+      for (const k of ordCols) {
+        if (k === "deliveryQty")    total.push(grandTotalQty);
+        else if (k === "defectQty")   total.push(0);
+        else if (k === "defectRate")  total.push(0);
+        else if (k === "receiptQty")  total.push(grandTotalQty);
+        else if (k === "receiptAmount") total.push(grandTotalAmount);
+        else total.push("");
+      }
+      xlsxRows.push({ cells: total, rowType: "total" });
+
+    } else {
+      // 업체집계
+      const ordCols = aggColSettings.colOrder;
+      xlsxRows.push({
+        cells: ordCols.flatMap((k) => k === "supplierCode" ? ["거래처번호", "거래처명"] : [PERIOD_AGG_HEADER[k] ?? k]),
+        rowType: "header",
+      });
+      for (const row of sortedSupplierAgg) {
+        const cells: (string | number)[] = [];
+        for (const k of ordCols) {
+          if (k === "supplierCode") { cells.push(row.supplierCode, row.supplierName); continue; }
+          switch (k) {
+            case "deliveryQty":   cells.push(row.qty); break;
+            case "defectQty":     cells.push(0); break;
+            case "defectRate":    cells.push(0); break;
+            case "receiptQty":    cells.push(row.qty); break;
+            case "receiptAmount": cells.push(row.receiptAmount); break;
+            default:              cells.push("");
+          }
+        }
+        xlsxRows.push({ cells });
+      }
+      const total: (string | number)[] = [];
+      for (const k of ordCols) {
+        if (k === "supplierCode") { total.push("[합 계]", ""); continue; }
+        if (k === "deliveryQty")    total.push(grandTotalQty);
+        else if (k === "defectQty")   total.push(0);
+        else if (k === "defectRate")  total.push(0);
+        else if (k === "receiptQty")  total.push(grandTotalQty);
+        else if (k === "receiptAmount") total.push(grandTotalAmount);
+        else total.push("");
+      }
+      xlsxRows.push({ cells: total, rowType: "total" });
+    }
+
+    await downloadXlsx(promptFilename, "receipt-period.xlsx", xlsxRows);
   };
 
 

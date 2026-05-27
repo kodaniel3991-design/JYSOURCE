@@ -65,6 +65,7 @@ type ReturnSlip = {
   processedAt: string;
   supplierName: string;
   buyerName: string;
+  signerName: string;
   items: ReturnSlipItem[];
 };
 
@@ -127,6 +128,15 @@ export default function PurchaseReturnsPage() {
 
   // 거래명세서 미리보기 슬립
   const [returnSlip, setReturnSlip] = useState<ReturnSlip | null>(null);
+
+  // 로그인 사용자 성명
+  const [currentUserDisplayName, setCurrentUserDisplayName] = useState("");
+  useEffect(() => {
+    fetch(apiPath("/api/auth/me"))
+      .then((r) => r.json())
+      .then((data) => { if (data.ok) setCurrentUserDisplayName(data.userId || data.username || ""); })
+      .catch(() => {});
+  }, []);
 
   // ── 모델 목록 로드 ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -203,6 +213,7 @@ export default function PurchaseReturnsPage() {
       processedAt: first.processedAt,
       supplierName: first.supplierName,
       buyerName:   first.buyerName,
+      signerName:  currentUserDisplayName,
       items: selectedGroup.map((h, i) => ({
         seq:           i + 1,
         itemCode:      h.itemCode,
@@ -278,7 +289,7 @@ export default function PurchaseReturnsPage() {
             </tr>
             <tr>
               <td class="sc" style="text-align:center;color:${bc}">공급자<br>연락처</td>
-              <td class="sc" colspan="5"></td>
+              <td class="sc" colspan="5">T.055-345-2100&nbsp;&nbsp;F.055-342-4110</td>
             </tr>
             <tr>
               <td class="sc" colspan="5" style="text-align:center;color:${bc};font-weight:bold">공 급 자</td>
@@ -286,9 +297,9 @@ export default function PurchaseReturnsPage() {
             </tr>
             <tr>
               <td class="sc" style="text-align:center;color:${bc}">상호</td>
-              <td class="sc" colspan="2">주식회사 프로큐어허브</td>
+              <td class="sc" colspan="2">진양오토모티브(주) 김해공장</td>
               <td class="sc" style="text-align:center;color:${bc}">성명</td>
-              <td class="sc">${slip.buyerName} <span style="color:${bc}">(인)</span></td>
+              <td class="sc">${slip.signerName} <span style="color:${bc}">(인)</span></td>
               <td class="sc" style="text-align:center;color:${bc}">상호</td>
               <td class="sc" colspan="2">${slip.supplierName}</td>
               <td class="sc" style="text-align:center;color:${bc}">성명</td>
@@ -296,7 +307,7 @@ export default function PurchaseReturnsPage() {
             </tr>
             <tr>
               <td class="sc" style="text-align:center;color:${bc}">주소</td>
-              <td class="sc" colspan="4"></td>
+              <td class="sc" colspan="4">경상남도 김해시 진영읍 서부로179번길</td>
               <td class="sc" style="text-align:center;color:${bc}">주소</td>
               <td class="sc" colspan="4"></td>
             </tr>
@@ -418,7 +429,7 @@ export default function PurchaseReturnsPage() {
             </tr>
             <tr>
               <td style={sc({ textAlign: "center" as const, fontSize: "10px", color: bc })}>공급자{"\n"}연락처</td>
-              <td colSpan={5} style={sc()}></td>
+              <td colSpan={5} style={sc()}>T.055-345-2100&nbsp;&nbsp;F.055-342-4110</td>
             </tr>
             <tr>
               <td colSpan={5} style={sc({ textAlign: "center" as const, color: bc, fontWeight: "bold" })}>공 급 자</td>
@@ -426,9 +437,9 @@ export default function PurchaseReturnsPage() {
             </tr>
             <tr>
               <td style={sc({ textAlign: "center" as const, color: bc })}>상호</td>
-              <td colSpan={2} style={sc()}>주식회사 프로큐어허브</td>
+              <td colSpan={2} style={sc()}>진양오토모티브(주) 김해공장</td>
               <td style={sc({ textAlign: "center" as const, color: bc })}>성명</td>
-              <td style={sc()}>{slip.buyerName} <span style={{ color: bc }}>(인)</span></td>
+              <td style={sc()}>{slip.signerName} <span style={{ color: bc }}>(인)</span></td>
               <td style={sc({ textAlign: "center" as const, color: bc })}>상호</td>
               <td colSpan={2} style={sc()}>{slip.supplierName}</td>
               <td style={sc({ textAlign: "center" as const, color: bc })}>성명</td>
@@ -436,7 +447,7 @@ export default function PurchaseReturnsPage() {
             </tr>
             <tr>
               <td style={sc({ textAlign: "center" as const, color: bc })}>주소</td>
-              <td colSpan={4} style={sc()}></td>
+              <td colSpan={4} style={sc()}>경상남도 김해시 진영읍 서부로179번길</td>
               <td style={sc({ textAlign: "center" as const, color: bc })}>주소</td>
               <td colSpan={4} style={sc()}></td>
             </tr>

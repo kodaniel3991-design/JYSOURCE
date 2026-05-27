@@ -698,6 +698,7 @@ export default function ItemsPage() {
   const [rows, setRows] = useCachedState<ItemMasterRecord[]>("items/rows", []);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useCachedState<boolean>("items/hasSearched", false);
+  const [errorModal, setErrorModal] = useState<string | null>(null);
 
   // 사업장 필터
   const [factoryCode, setFactoryCode] = useCachedState("items/factoryCode", "");
@@ -1608,7 +1609,7 @@ export default function ItemsPage() {
                 if (!ok) return;
                 const res = await fetch(apiPath(`/api/items/${selectedRowId}`), { method: "DELETE" });
                 const data = await res.json();
-                if (!data.ok) { alert("삭제 실패: " + data.message); return; }
+                if (!data.ok) { setErrorModal("삭제 실패: " + data.message); return; }
                 setRows((prev) => prev.filter((r) => r.id !== selectedRowId));
                 setSelectedRowId(null);
     
@@ -2237,7 +2238,7 @@ export default function ItemsPage() {
             body: JSON.stringify(payload),
           });
           const data = await res.json();
-          if (!data.ok) { alert("저장 실패: " + data.message); return; }
+          if (!data.ok) { setErrorModal("저장 실패: " + data.message); return; }
           const now = new Date();
           const created: ItemMasterRecord = {
             id: String(data.id),
@@ -2400,7 +2401,7 @@ export default function ItemsPage() {
             body: JSON.stringify(payload),
           });
           const data = await res.json();
-          if (!data.ok) { alert("수정 실패: " + data.message); return; }
+          if (!data.ok) { setErrorModal("수정 실패: " + data.message); return; }
           const now = new Date();
           setRows((prev) =>
             prev.map((r) =>
@@ -2436,6 +2437,25 @@ export default function ItemsPage() {
           );
         }}
       />
+
+      {/* ── 오류 모달 ─────────────────────────────────────────────────────── */}
+      {errorModal !== null && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
+          onClick={() => setErrorModal(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-lg border bg-background shadow-xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-sm font-semibold text-destructive">오류</h3>
+            <p className="text-sm text-foreground whitespace-pre-wrap">{errorModal}</p>
+            <div className="mt-5 flex justify-end">
+              <Button size="sm" onClick={() => setErrorModal(null)}>확인</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

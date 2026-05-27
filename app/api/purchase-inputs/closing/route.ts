@@ -25,9 +25,9 @@ export async function GET(request: Request) {
           ISNULL(NULLIF(itc.ItemTypeName, ''),
             ISNULL(NULLIF(im.Form, ''), N'(미지정)'))                AS Form,
           CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END   AS InputQty,
-          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(poi.UnitPrice, 0), 0)         AS InputAmount,
-          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(poi.UnitPrice, 0) * 0.1, 0)   AS TaxAmount,
-          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(poi.UnitPrice, 0) * 1.1, 0)   AS TotalWithTax,
+          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(rh.UnitPrice, ISNULL(poi.UnitPrice, 0)), 0)         AS InputAmount,
+          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(rh.UnitPrice, ISNULL(poi.UnitPrice, 0)) * 0.1, 0)   AS TaxAmount,
+          ROUND((CASE WHEN rh.Type = N'입고' THEN rh.Qty ELSE -rh.Qty END) * ISNULL(rh.UnitPrice, ISNULL(poi.UnitPrice, 0)) * 1.1, 0)   AS TotalWithTax,
           CONVERT(NVARCHAR(10), rh.ReceiptDate, 23)                  AS InputDate
         FROM dbo.ReceiptHistory rh
         JOIN dbo.PurchaseOrder po
